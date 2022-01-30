@@ -37,15 +37,38 @@ export class Table extends EventDispatcher  {
       //Dragger.makeDragable(nh, undefined, undefined, undefined, true)
       nh.stage.update()
     }})
-    let rad = 50
+    KeyBinder.keyBinder.globalSetKeyFromChar("d", {thisArg: this, func: () => {
+      this.makeDistrict(n, "lightgreen", 0, n + Math.trunc(n/2))
+      this.stage.update()
+    }})
+    let n = 5
+    let rad = 50, n2 = Math.trunc(n/2)
     this.scaleCont = this.makeScaleCont(!!this.stage)
     this.hexMap = new HexMap(rad, this.scaleCont)
-    for (let row = 0; row < 5; row += 1) {
-      for (let col: number = 0; col < 7; col += 1) {
-        let hex = this.hexMap.addHex(row, col, "lightGrey")
+    this.makeDistrict(n, "lightyellow",0*n2+1, 3*n2+1)  // 6: (1, 10)
+    this.makeDistrict(n, "orange",     2*n2,   0*n2+1)  // 6: (6, 1)
+    this.makeDistrict(n, "lightgreen", 2*n2+1, 6*n2)    // 6: (7, 12)
+    this.makeDistrict(n, "lightgrey",  4*n2  , 3*n2)    // 6: (12, 9)
+    this.makeDistrict(n, "lightblue",  6*n2  , 6*n2-1)  // 6: (18, 17)
+    this.makeDistrict(n, "lightpink",  6*n2-1, 0*n2+1)  // 6: (17, 1)
+    this.makeDistrict(n, "purple",     8*n2-1, 3*n2)    // 6: (24, 9)
+    // for (let row = 0; row < 5; row += 1) {
+    //   for (let col: number = 0; col < 7; col += 1) {
+    //     let hex = this.hexMap.addHex(row, col, "lightGrey")
+    //   }
+    // }
+    this.stage.update()
+  }
+  makeDistrict(n: number, color: string, roff: number = 0, coff: number = 0) {
+    let row = n-1 + roff, col = 0 + coff, dn = (n % 2), rp = (row % 2)
+    for (let dr = 0; dr < n; dr++) {
+      let c0 = (rp == 0) ? Math.floor(dr/2) : Math.ceil(dr/2)
+      let len = (2*n - 1) - dr
+      for (let dc = 0; dc < len; dc++) {
+        this.hexMap.addHex(row + dr, c0 + col + dc, color)
+        if (dr !== 0) this.hexMap.addHex(row - dr, c0 + col + dc, color)
       }
     }
-    this.stage.update()
   }
 
   /** change cont.scale to given scale value. */
@@ -65,7 +88,7 @@ export class Table extends EventDispatcher  {
     if (!!bgColor) {
       // specify an Area that is Dragable (mouse won't hit "empty" space)
       let background = new Shape();
-      background.graphics.beginFill(bgColor).drawRect(0, 0, 400, 400);
+      background.graphics.beginFill(bgColor).drawRect(0, 0, 1600, 1600);
       scaleC.addChildAt(background, 0);
       background.x = 0;
       background.y = 0;

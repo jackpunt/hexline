@@ -38,7 +38,7 @@ export class Hex extends Container {
     this.addChild(this.shape)
   }
 }
-/** HexMap[col][row] keep registry of all Hex items map to/from [row, col] */
+/** HexMap[row][col] keep registry of all Hex items map to/from [row, col] */
 export class HexMap extends Array<Array<Hex>> {
   radius: number = 50
   height: number;
@@ -51,8 +51,8 @@ export class HexMap extends Array<Array<Hex>> {
   }
   addHex(row: number, col: number, color: string = "lightPink" ): Hex {
     let hex = new Hex(color, this.radius, row, col)
-    if (!this[col]) this[col] = new Array<Hex>()
-    this[col][row] = hex
+    if (!this[row]) this[row] = new Array<Hex>()
+    this[row][col] = hex
     hex.map = this
     if (!!this.cont) this.cont.addChild(hex)
     this.link(hex)   // link to existing neighbors
@@ -67,8 +67,8 @@ export class HexMap extends Array<Array<Hex>> {
   link(hex: Hex) {
     let n = (hex.row % 2 == 0) ? this.n0 : this.n1
     S.dirs.forEach(dir => {
-      let nc = hex.col + n[dir].dc, nr = hex.row + n[dir].dr 
-      let nHex = this[nc] && this[nc][nr]
+      let nr = hex.row + n[dir].dr , nc = hex.col + n[dir].dc 
+      let nHex = this[nr] && this[nr][nc]
       if (!!nHex) {
         hex[dir] = nHex
         nHex[S.dirRev[dir]] = hex
