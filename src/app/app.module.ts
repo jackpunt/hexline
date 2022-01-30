@@ -3,6 +3,7 @@ import { BrowserModule } from '@angular/platform-browser';
 
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
+import { KeyBinder } from './key-binder';
 import { StageComponent } from './stage/stage.component';
 
 @NgModule({
@@ -14,7 +15,9 @@ import { StageComponent } from './stage/stage.component';
     BrowserModule,
     AppRoutingModule
   ],
-  providers: [],
+  providers: [
+    KeyBinder,
+  ],
   bootstrap: [AppComponent]
 })
 export class AppModule { }

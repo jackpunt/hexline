@@ -4,7 +4,7 @@ import { GameSetup } from '../game-setup';
 import { stime } from '../types';
 
 @Component({
-  selector: 'app-stage',
+  selector: 'stage-comp',
   templateUrl: './stage.component.html',
   styleUrls: ['./stage.component.css']
 })
@@ -19,9 +19,9 @@ export class StageComponent implements OnInit {
   ext: string;
 
   @Input('width')
-  width = 1200.0;   // [pixels] size of "Viewport" of the canvas / Stage
+  width = 1600.0;   // [pixels] size of "Viewport" of the canvas / Stage
   @Input('height')
-  height = 600.0;   // [pixels] size of "Viewport" of the canvas / Stage
+  height = 800.0;   // [pixels] size of "Viewport" of the canvas / Stage
 
   /** HTML make a \<canvas/> with this ID: */
   mapCanvasId = "mapCanvas" + this.getId(); // argument to new Stage(this.canvasId)
