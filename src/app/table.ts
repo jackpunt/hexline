@@ -41,17 +41,17 @@ export class Table extends EventDispatcher  {
       this.makeDistrict(n, "lightgreen", 0, n + Math.trunc(n/2))
       this.stage.update()
     }})
-    let n = 5
+    let n = 6
     let rad = 50, n2 = Math.trunc(n/2)
     this.scaleCont = this.makeScaleCont(!!this.stage)
     this.hexMap = new HexMap(rad, this.scaleCont)
-    this.makeDistrict(n, "lightyellow",0*n2+1, 3*n2+1)  // 6: (1, 10)
-    this.makeDistrict(n, "orange",     2*n2,   0*n2+1)  // 6: (6, 1)
-    this.makeDistrict(n, "lightgreen", 2*n2+1, 6*n2)    // 6: (7, 12)
-    this.makeDistrict(n, "lightgrey",  4*n2  , 3*n2)    // 6: (12, 9)
-    this.makeDistrict(n, "lightblue",  6*n2  , 6*n2-1)  // 6: (18, 17)
-    this.makeDistrict(n, "lightpink",  6*n2-1, 0*n2+1)  // 6: (17, 1)
-    this.makeDistrict(n, "purple",     8*n2-1, 3*n2)    // 6: (24, 9)
+    this.makeDistrict(n, "lightyellow",0*n2+0, 3*n2+0)  // 6: (0, 9)
+    this.makeDistrict(n, "orange",     2*n2+0, 0*n2+1)  // 6: (6, 1)
+    this.makeDistrict(n, "lightgreen", 2*n2-1, 6*n2+0)  // 6: (5, 18)
+    this.makeDistrict(n, "lightgrey",  4*n2-1, 3*n2+1)  // 6: (11, 9)
+    this.makeDistrict(n, "lightpink",  6*n2-1, 0*n2+2)  // 6: (17, 1)
+    this.makeDistrict(n, "lightblue",  6*n2-2, 6*n2+0)  // 6: (16, 17)
+    this.makeDistrict(n, "purple",     8*n2-2, 3*n2+1)  // 6: (22, 10)
     // for (let row = 0; row < 5; row += 1) {
     //   for (let col: number = 0; col < 7; col += 1) {
     //     let hex = this.hexMap.addHex(row, col, "lightGrey")
