@@ -50,7 +50,7 @@ export class HexMap extends Array<Array<Hex>> {
     this.height = radius * Math.sqrt(3)/2
     this.cont = cont
   }
-  distColor = ["lightgrey","lightpink","orange","lightyellow","lightgreen","lightblue","purple"]
+  distColor = ["lightgrey","rgb(255,104,135)","rgb(255,194,61)","rgb(255,255,128)","lightgreen","rgb(160,190,255)","rgb(218,145,255)"]
   addHex(row: number, col: number, district: number ): Hex {
     let color = this.distColor[district]
     let hex = new Hex(color, this.radius, row, col)

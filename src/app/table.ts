@@ -22,33 +22,29 @@ export class Table extends EventDispatcher  {
     super();
     stage['table'] = this // backpointer so Containers can find their Table (& curMark)
     this.stage = stage
-    //this.makeScaleCont(!!stage.canvas)
-    // bindKeys
-    // make proto-District (with 37 Hexes), and 7 copies
-    // link Districts 
   }
 
   scaleParams = { zscale: .20, initScale: .324, zero: 0.125, max: 30, limit: 2, base: 1.1, min: -2 };
   testoff: number = 1
 
   layoutTable(n: number = 4) {
-    n = 6
     let n2 = (n/2), k = (n % 2)
     let rad = 50
-    this.scaleCont = this.makeScaleCont(!!this.stage)
+    this.scaleCont = this.makeScaleCont(!!this.stage, "")
     let mapCont = new Container()
     this.scaleCont.addChild(mapCont)
     let circ = new Shape()
     circ.graphics.beginFill("rgb(230,230,230)").drawCircle((4.25*n)*rad, (4*n)*rad, 5*n*rad)
     mapCont.addChild(circ)
+    mapCont.y = 100; mapCont.x = 200
     this.hexMap = new HexMap(rad, mapCont)
-    this.makeDistrict(n, 3, 0*n2+0, 3*n2+k)  // 6: (0, 9)
-    this.makeDistrict(n, 2, 2*n2+0, 0*n2+1)  // 6: (6, 1)
-    this.makeDistrict(n, 4, 2*n2-1, 6*n2+0)  // 6: (5, 18)
+    this.makeDistrict(n, 1, 0*n2+0, 3*n2+k)  // 6: (0, 9)
+    this.makeDistrict(n, 6, 2*n2+0, 0*n2+1)  // 6: (6, 1)
+    this.makeDistrict(n, 2, 2*n2-1, 6*n2+0)  // 6: (5, 18)
     this.makeDistrict(n, 0, 4*n2-1, 3*n2+1)  // 6: (11, 10)
-    this.makeDistrict(n, 1, 6*n2-1, 0*n2+2)  // 6: (17, 1)
-    this.makeDistrict(n, 5, 6*n2-2, 6*n2+0)  // 6: (16, 17)
-    this.makeDistrict(n, 6, 8*n2-2, 3*n2+1+k)  // 6: (22, 10)
+    this.makeDistrict(n, 5, 6*n2-1, 0*n2+2)  // 6: (17, 1)
+    this.makeDistrict(n, 3, 6*n2-2, 6*n2+0)  // 6: (16, 17)
+    this.makeDistrict(n, 4, 8*n2-2, 3*n2+1+k)  // 6: (22, 10)
     this.stage.update()
   }
   makeDistrict(n: number, district: number, roff: number = 0, coff: number = 0) {
@@ -87,7 +83,7 @@ export class Table extends EventDispatcher  {
       //console.log(stime(this, ".makeScalableBack: background="), background);
     }
     if (bindKeys) {
-      this.bindKeysToScale(scaleC, 1, 1, scale)
+      this.bindKeysToScale(scaleC, 100, 0, scale)
       KeyBinder.keyBinder.dispatchChar("z")
     }
     return scaleC
@@ -106,7 +102,7 @@ export class Table extends EventDispatcher  {
       scaleC.stage.update();
     };
     let resetScaleA = () => {
-      let ns = .764
+      let ns = .5
       scaleC.scaleContainer(0, {x: xoff + xos*scale, y: yoff - yos*scale}); // resetXY
       scaleC.setScaleIndex(scaleC.findIndex(ns))
       scaleC.stage.update();
