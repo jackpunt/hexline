@@ -1,4 +1,4 @@
-import { S } from "./basic-intfs";
+import { C, S } from "./basic-intfs";
 
 export class TP {
   static numPlayers = 2;
@@ -15,7 +15,7 @@ export class TP {
   static flashDwell: number = 500
   static flipDwell:  number = 200 // chooseStartPlayer dwell between each card flip
 
-  static bgColor: string = "rgba(155, 100, 150, .3)";
+  static bgColor: string = C.BROWN
   static networkUrl: string = "wss://game7.thegraid.com:8444";  // URL to cgserver (wspbserver)
   static networkGroup: string = "citymap:game1";
 }

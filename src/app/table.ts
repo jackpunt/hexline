@@ -2,12 +2,20 @@ import { Stage, EventDispatcher, Container, Shape } from "createjs-module";
 import { map } from "rxjs";
 import { C, Dir } from "./basic-intfs";
 import { Dragger } from "./dragger";
-import { GamePlay } from "./game-play";
+import { GamePlay, Player } from "./game-play";
 import { Hex, HexMap } from "./hex";
 import { KeyBinder } from "./key-binder";
 import { ScaleableContainer } from "./scaleable-container";
 import { TP } from "./table-params";
 
+export class Stone extends Shape {
+  static radius: number = 50
+  static height: number = Stone.radius*Math.sqrt(3)/2
+  constructor(color: string, radius: number = Stone.height) {
+    super()
+    this.graphics.beginFill(color).drawCircle(0, 0, radius-1)
+  }
+}
 /** layout display components, setup callbacks to GamePlay */
 export class Table extends EventDispatcher  {
 
@@ -15,8 +23,12 @@ export class Table extends EventDispatcher  {
   stage: Stage;
   scaleCont: Container
   hexMap: HexMap = new HexMap()
-  /** default scaling-up value */
-  upscale: number = 1.5;
+
+
+  allPlayers: Player[] = [];
+  getNumPlayers(): number { return this.allPlayers.length; }
+  curPlayerNdx: number = 0;
+  curPlayer: Player;
 
   constructor(stage: Stage) {
     super();
@@ -29,15 +41,18 @@ export class Table extends EventDispatcher  {
 
   layoutTable(n: number = 4) {
     let n2 = (n/2), k = (n % 2)
-    let rad = 50
-    this.scaleCont = this.makeScaleCont(!!this.stage, "")
+    let radius = Stone.radius
+    this.scaleCont = this.makeScaleCont(!!this.stage)
     let mapCont = new Container()
     this.scaleCont.addChild(mapCont)
-    let circ = new Shape()
-    circ.graphics.beginFill("rgb(230,230,230)").drawCircle((4.25*n)*rad, (4*n)*rad, 5*n*rad)
-    mapCont.addChild(circ)
+    let bStone = new Stone(C.black); bStone.x = 150; bStone.y = 150
+    let wStone = new Stone(C.white); wStone.x = 150; wStone.y = 250
+    Dragger.makeDragable(bStone)
+    Dragger.makeDragable(wStone)
+    mapCont.addChild(bStone)
+    mapCont.addChild(wStone)
     mapCont.y = 100; mapCont.x = 200
-    this.hexMap = new HexMap(rad, mapCont)
+    this.hexMap = new HexMap(radius, mapCont)
     this.makeDistrict(n, 1, 0*n2+0, 3*n2+k)  // 6: (0, 9)
     this.makeDistrict(n, 6, 2*n2+0, 0*n2+1)  // 6: (6, 1)
     this.makeDistrict(n, 2, 2*n2-1, 6*n2+0)  // 6: (5, 18)
@@ -59,6 +74,8 @@ export class Table extends EventDispatcher  {
     }
   }
 
+  /** default scaling-up value */
+  upscale: number = 1.5;
   /** change cont.scale to given scale value. */
   scaleUp(cont: Container, scale = this.upscale) {
     cont.scaleX = cont.scaleY = scale;
@@ -76,7 +93,7 @@ export class Table extends EventDispatcher  {
     if (!!bgColor) {
       // specify an Area that is Dragable (mouse won't hit "empty" space)
       let background = new Shape();
-      background.graphics.beginFill(bgColor).drawRect(0, 0, 1600, 1600);
+      background.graphics.beginFill(bgColor).drawRect(0, 0, 2000, 2000);
       scaleC.addChildAt(background, 0);
       background.x = 0;
       background.y = 0;

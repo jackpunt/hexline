@@ -70,6 +70,7 @@ export namespace C {
   export const PURPLE:      string = "PURPLE"       // nominal player color
   export const YELLOW:      string = "YELLOW"       // nominal player color
   export const BLACK:       string = "BLACK"        // vcPlayer color
+  export const BROWN:       string = "rgba(185, 83, 0, 1)"
 
   export const black:       string = "black"        // text color
   export const white:       string = "white"
