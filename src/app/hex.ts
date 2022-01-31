@@ -33,7 +33,7 @@ export class Hex extends Container {
     this.shape.rotation = S.dirRot[dir]
     this.shape.name = Dir[dir]
     let h = radius * Math.sqrt(3)/2
-    this.shape.x = col * 2 * h + (row % 2) * h
+    this.shape.x = col * 2 * h + Math.abs(row % 2) * h
     this.shape.y = row * 1.5 * radius
     this.addChild(this.shape)
   }
