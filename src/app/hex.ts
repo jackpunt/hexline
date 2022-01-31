@@ -7,6 +7,7 @@ import { C, Dir, S } from "./basic-intfs";
 export class Hex extends Container {
   Aname: string
   shape: Shape
+  district: number
   color: string
   row: number
   col: number
@@ -49,8 +50,11 @@ export class HexMap extends Array<Array<Hex>> {
     this.height = radius * Math.sqrt(3)/2
     this.cont = cont
   }
-  addHex(row: number, col: number, color: string = "lightPink" ): Hex {
+  distColor = ["lightgrey","lightpink","orange","lightyellow","lightgreen","lightblue","purple"]
+  addHex(row: number, col: number, district: number ): Hex {
+    let color = this.distColor[district]
     let hex = new Hex(color, this.radius, row, col)
+    hex.district = district
     if (!this[row]) this[row] = new Array<Hex>()
     this[row][col] = hex
     hex.map = this
