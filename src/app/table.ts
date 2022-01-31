@@ -1,19 +1,23 @@
 import { Stage, EventDispatcher, Container, Shape } from "createjs-module";
-import { map } from "rxjs";
-import { C, Dir } from "./basic-intfs";
-import { Dragger } from "./dragger";
+import { C, S } from "./basic-intfs";
+import { Dragger, DragInfo } from "./dragger";
 import { GamePlay, Player } from "./game-play";
 import { Hex, HexMap } from "./hex";
 import { KeyBinder } from "./key-binder";
 import { ScaleableContainer } from "./scaleable-container";
 import { TP } from "./table-params";
+import { stime } from "./types";
 
 export class Stone extends Shape {
   static radius: number = 50
   static height: number = Stone.radius*Math.sqrt(3)/2
-  constructor(color: string, radius: number = Stone.height) {
+  color: string;
+  constructor(cont: Container, x: number, y: number, color: string, radius: number = Stone.height) {
     super()
+    this.color = color
     this.graphics.beginFill(color).drawCircle(0, 0, radius-1)
+    this.x = x; this.y = y
+    cont.addChild(this)
   }
 }
 /** layout display components, setup callbacks to GamePlay */
@@ -23,7 +27,11 @@ export class Table extends EventDispatcher  {
   stage: Stage;
   scaleCont: Container
   hexMap: HexMap = new HexMap()
-
+  dropTarget: Hex;
+  roundNumber: number = 0;
+  turnNumber: number = 0
+  nextStone: Stone
+  nextHex: Hex = new Hex("grey", Stone.radius, undefined, undefined, {x: 150, y: 150})
 
   allPlayers: Player[] = [];
   getNumPlayers(): number { return this.allPlayers.length; }
@@ -39,20 +47,73 @@ export class Table extends EventDispatcher  {
   scaleParams = { zscale: .20, initScale: .324, zero: 0.125, max: 30, limit: 2, base: 1.1, min: -2 };
   testoff: number = 1
 
-  layoutTable(n: number = 4) {
-    let n2 = (n/2), k = (n % 2)
+  layoutTable() {
     let radius = Stone.radius
     this.scaleCont = this.makeScaleCont(!!this.stage)
-    let mapCont = new Container()
+    let mapCont = new Container(); mapCont.y = 100; mapCont.x = 200
+    mapCont[S.aname] = "mapCont"
     this.scaleCont.addChild(mapCont)
-    let bStone = new Stone(C.black); bStone.x = 150; bStone.y = 150
-    let wStone = new Stone(C.white); wStone.x = 150; wStone.y = 250
-    Dragger.makeDragable(bStone)
-    Dragger.makeDragable(wStone)
-    mapCont.addChild(bStone)
-    mapCont.addChild(wStone)
-    mapCont.y = 100; mapCont.x = 200
+    mapCont.addChild(this.nextHex)
+
     this.hexMap = new HexMap(radius, mapCont)
+    this.make7Districts(4)
+
+    this.makeAllPlayers()
+    this.setNextPlayer(0)   // make a placeable Stone for Player[0]
+    this.stage.update()
+  }
+  setNextPlayer(ndx: number = -1) {
+    if (ndx < 0) ndx = (this.curPlayer.index + 1) % this.allPlayers.length;
+    if (ndx != this.curPlayerNdx) this.endCurPlayer(this.curPlayer)
+    this.curPlayerNdx = ndx;
+    let curPlayer = this.curPlayer = this.allPlayers[ndx];
+    console.log(stime(this, `.setNextPlayer ---------------`), { round: this.roundNumber, turn: this.turnNumber+1, plyr: curPlayer.name }, '-------------------------------------------------', !!this.stage.canvas);
+    this.putButtonOnPlayer(curPlayer);
+  }
+  endCurPlayer(player: Player) {
+    
+  }
+  putButtonOnPlayer(player: Player) {
+    this.newStone(player)
+  }
+
+  newStone(plyr: Player) {
+      let stone = new Stone(this.hexMap.cont, this.nextHex.x, this.nextHex.y, plyr.color)
+      plyr['stone'] = stone
+      Dragger.makeDragable(stone, this, this.dragFunc, this.dropFunc)
+  }
+  dragFunc(stone: Stone, ctx: DragInfo) {
+    if (stone.color !== this.curPlayer.color) return
+    let pt = stone.parent.localToLocal(stone.x, stone.y, this.hexMap.cont)
+    let x = pt.x, y = pt.y
+    if (ctx.first) {
+      this.hexMap.showMark()
+    } else {
+      let hex = this.hexMap.hexUnderPoint(x, y)
+      if (!hex) return
+      this.dropTarget = hex
+      this.hexMap.showMark(hex)
+    }
+  }
+  dropFunc(stone: Stone, ctx: DragInfo) {
+    let mark = this.hexMap.mark
+    if (!mark.visible) return
+    stone.x = mark.x
+    stone.y = mark.y
+    if (this.dropTarget === this.nextHex) return
+    Dragger.stopDragable(stone)
+    this.setNextPlayer()
+  }
+  makeAllPlayers() {
+    this.allPlayers = []
+    this.allPlayers[0] = new Player(this, 0, C.black)
+    this.allPlayers[1] = new Player(this, 1, C.white)
+  }
+  forEachPlayer(f: (p:Player, index?: number, players?: Player[]) => void) {
+    this.allPlayers.forEach((p, index, players) => f(p, index, players));
+  }
+  make7Districts(n: number) {
+    let n2 = (n/2), k = (n % 2)
     this.makeDistrict(n, 1, 0*n2+0, 3*n2+k)  // 6: (0, 9)
     this.makeDistrict(n, 6, 2*n2+0, 0*n2+1)  // 6: (6, 1)
     this.makeDistrict(n, 2, 2*n2-1, 6*n2+0)  // 6: (5, 18)
@@ -60,7 +121,6 @@ export class Table extends EventDispatcher  {
     this.makeDistrict(n, 5, 6*n2-1, 0*n2+2)  // 6: (17, 1)
     this.makeDistrict(n, 3, 6*n2-2, 6*n2+0)  // 6: (16, 17)
     this.makeDistrict(n, 4, 8*n2-2, 3*n2+1+k)  // 6: (22, 10)
-    this.stage.update()
   }
   makeDistrict(n: number, district: number, roff: number = 0, coff: number = 0) {
     let row = n-1 + Math.floor(roff), col = 0 + Math.floor(coff), rp = Math.abs(row % 2)
@@ -80,7 +140,9 @@ export class Table extends EventDispatcher  {
   scaleUp(cont: Container, scale = this.upscale) {
     cont.scaleX = cont.scaleY = scale;
   }
-  /** makeScaleableBack and setup scaleParams */
+  /** makeScaleableBack and setup scaleParams 
+   * @param bindkeys true if there's a GUI/user/keyboard
+   */
   makeScaleCont(bindKeys: boolean, bgColor: string = TP.bgColor): ScaleableContainer {
     let scale = this.scaleParams.initScale = 0.324; // .125 if full-size cards
     /** scaleCont: a scalable background */

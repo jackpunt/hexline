@@ -115,11 +115,6 @@ export class Dragger {
         dragCont.addChild(obj)                                  // assert: only 1 child in dragCont; dragCont is in SC
         dragCont.parent.setChildIndex(dragCont, dragCont.parent.numChildren -1) // dragLayer to top of SC
         scalmat = obj.getConcatenatedMatrix()
-        // Debugging info:
-        if (!(par["isCardContainer"] || par["isContainerAt"])) { // without referenceing the Class names
-          Dragole.logEvent("parent not CardContainer or ContainerAt");
-          console.log(stime(this, ".startDrag: First obj.parent was not CardContainer! "), { par: par, event: e })
-        }
       }
       // in all cases, set DRAG_CONTEXT:
       return Dragger.DRAG_CONTEXT = {
@@ -140,12 +135,6 @@ export class Dragger {
         dragCtx = startDrag(e, obj)
       } else {
         dragCtx.first = false
-        Dragole.inc()
-        let targetD = dragCtx.targetD, doAlert = { alert: true }.alert
-        if (!!targetD && targetD["isaCard"] && !(dragCtx.srcCont["isCardContainer"])) {
-          Dragole.log(Dragole.logRate, "Dragger:pressmove: srcCont is not CardContainer! event=", e, "   dragCtx=", dragCtx)
-          if (doAlert) alert("Dragger:pressmove: srcCont is not CardContainer! " + targetD.name)
-        }
       }
       /** move the whole scaleContainer, adjusting when it gets scaled. */
       let moveCont = (obj: Container, e: MouseEvent) => {

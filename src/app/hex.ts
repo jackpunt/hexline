@@ -1,5 +1,5 @@
 import { Container, Shape } from "createjs-module";
-import { C, Dir, S } from "./basic-intfs";
+import { C, Dir, S, XY } from "./basic-intfs";
 
 // Note: graphics.drawPolyStar(x,y,radius, sides, pointSize, angle) will do a regular polygon
 
@@ -23,20 +23,23 @@ export class Hex extends Container {
     return ns
   }
 
-  constructor(color: string, radius: number, row: number = 0, col: number = 0) {
+  constructor(color: string, radius: number, row?: number, col?: number, xy?: XY) {
     super();
-    this.Aname = `Hex@[${row},${col}]`
-    this.row = row
-    this.col = col
     let dir = Dir.E
     this.color = color
     this.shape = this.hex(radius, color)
     this.shape.rotation = S.dirRot[dir]
-    this.shape.name = Dir[dir]
-    let h = radius * Math.sqrt(3)/2
-    this.shape.x = col * 2 * h + Math.abs(row % 2) * h
-    this.shape.y = row * 1.5 * radius
+    this.shape.name = this.Aname
     this.addChild(this.shape)
+    if (!!xy) { this.x = xy.x; this.y = xy.y }
+
+    if (row === undefined || col === undefined) return
+    this.Aname = `Hex@[${row},${col}]`
+    this.row = row
+    this.col = col
+    let h = radius * Math.sqrt(3)/2
+    this.x = col * 2 * h + Math.abs(row % 2) * h
+    this.y = row * 1.5 * radius
   }
 }
 /** HexMap[row][col] keep registry of all Hex items map to/from [row, col] */
@@ -44,11 +47,14 @@ export class HexMap extends Array<Array<Hex>> {
   radius: number = 50
   height: number;
   cont: Container
+  mark: Shape
   constructor(radius: number = 50, cont?: Container) {
     super()
     this.radius = radius
     this.height = radius * Math.sqrt(3)/2
     this.cont = cont
+    this.mark = new Shape()
+    this.mark.graphics.beginFill("rgba(200,200,200,35)").drawPolyStar(0, 0, radius, 6, 0, -90)
   }
   distColor = ["lightgrey","rgb(255,104,135)","rgb(255,194,61)","rgb(255,255,128)","lightgreen","rgb(160,190,255)","rgb(218,145,255)"]
   addHex(row: number, col: number, district: number ): Hex {
@@ -61,6 +67,17 @@ export class HexMap extends Array<Array<Hex>> {
     if (!!this.cont) this.cont.addChild(hex)
     this.link(hex)   // link to existing neighbors
     return hex
+  }
+  showMark(hex?: Hex) {
+    if (!hex) {
+      this.mark.visible = false
+    } else {
+      this.mark.x = hex.x
+      this.mark.y = hex.y
+      this.cont.addChild(this.mark)
+      this.mark.visible = true
+      this.cont.stage.update()
+    }
   }
   /** neighborhood topology */
   n0 = {NE: {dc: 0, dr: -1}, E: {dc: 1, dr: 0}, SE: {dc: 0, dr: 1}, 
@@ -78,5 +95,18 @@ export class HexMap extends Array<Array<Hex>> {
         nHex[S.dirRev[dir]] = hex
       }
     });
+  }
+  /**
+   * The Hex under the given x,y coordinates.
+   * If on the line, then the top (last drawn) Hex.
+   * @param x in local coordinates of this HexMap.cont
+   * @param y 
+   * @returns the Hex under mouse or null, if not a Hex (background)
+   */
+  hexUnderPoint(x: number, y: number): Hex {
+    let obj = this.cont.getObjectUnderPoint(x, y, 1) // 0=all, 1=mouse-enabled (Hex, not Stone)
+    if (obj instanceof Hex) return obj // not happening (unless we set a hitArea!)
+    if (obj instanceof Shape && obj.parent instanceof Hex) return obj.parent
+    return null
   }
 }

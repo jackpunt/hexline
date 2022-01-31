@@ -12,8 +12,16 @@ export class Move {
   plyr_ndx: number; // [0,1]
 }
 export class Player {
+  table: Table;
+  name: string
   index: number
   color: string // C.BLACK, C.WHITE
+ 
+  constructor(table: Table, index: number, color: string) {
+    this.table = table
+    this.index = index
+    this.color = color
+  }
 }
 
 export class Board extends Array<Move> {

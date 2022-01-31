@@ -41,7 +41,7 @@ export namespace S {
   export const rgbColor: string = "rgbColor"// card prop
 
   export const scaled: string = "scaled"    // Event name on ScaledContainer
-  export const aname:  string = "aname"     // anonymous function field name
+  export const aname:  string = "Aname"     // anonymous function field name, any object name
   
   export const onTurnStart:  string = "onTurnStart"  // onTrigger for Effects
   export const onMove:       string = "onMove"       // onTrigger for Effects
