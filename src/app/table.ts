@@ -58,6 +58,7 @@ export class Table extends EventDispatcher  {
     mapCont.addChild(this.nextHex)
 
     this.hexMap = new HexMap(radius, mapCont)
+    this.gamePlay.hexMap = this.hexMap
     this.make7Districts(4)
 
     this.makeAllPlayers()
@@ -74,6 +75,8 @@ export class Table extends EventDispatcher  {
     let curPlayer = this.curPlayer = this.allPlayers[ndx];
     console.log(stime(this, `.setNextPlayer ---------------`), { round: this.roundNumber, turn: this.turnNumber+1, plyr: curPlayer.name }, '-------------------------------------------------', !!this.stage.canvas);
     this.putButtonOnPlayer(curPlayer);
+    this.turnNumber += 1;
+    this.roundNumber = Math.floor((this.turnNumber - 1) / this.allPlayers.length) + 1
   }
   endCurPlayer(player: Player) {
     

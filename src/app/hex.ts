@@ -1,8 +1,25 @@
-import { Container, Shape } from "createjs-module";
+import { Container, Graphics, Shape } from "createjs-module";
 import { C, Dir, S, XY } from "./basic-intfs";
+import { Stone } from "./table";
 
 // Note: graphics.drawPolyStar(x,y,radius, sides, pointSize, angle) will do a regular polygon
+class InfMark extends Shape {
+  static gEw: Graphics
+  static gEb: Graphics
+  static initStatic() {
+    if (!!InfMark.gEw) return
+    let r = Stone.radius - 4
+    InfMark.gEw = new Graphics().ss(2).s(C.white).mt(-r, 2).lt(r, 2)
+    InfMark.gEb = new Graphics().ss(2).s(C.black).mt(-r, -2).lt(r, -2)
+  }
 
+  turn: number
+  constructor(dir: Dir, color: string, turn: number, g: Graphics = (color === C.white) ? InfMark.gEw : InfMark.gEb) {
+    super(g)
+    this.rotation = S.dirRot[Dir[dir]] + 90
+    this.turn = turn
+  }
+}
 /** One Hex cell in the game, shown as a polyStar Shape */
 export class Hex extends Container {
   Aname: string
@@ -12,8 +29,26 @@ export class Hex extends Container {
   row: number
   col: number
   map: HexMap;
+  stone: string; // color of the Stone or undefined
+  inf: object = {} // {NE: {BLACK: 0, WHITE: 0}, E: {BLACK: 0, WHITE: 0}, SE: {BLACK: 0, WHITE: 0}}
+
   /** Link to neighbor in each S.dirs direction [NE, E, SE, SW, W, NW] */
   NE: Hex; E: Hex; SE: Hex; SW: Hex; W: Hex; NW: Hex
+  clearInf(turn: number) {
+    this.children.forEach(disp => { 
+      if (disp instanceof InfMark && disp.turn < turn) this.removeChild(disp) 
+    })
+  }
+  setInf(dir: Dir, color: string, turn: number) {
+    let dn = Dir[dir]
+    if (!this.inf[dn]) this.inf[dn] = {}
+    this.inf[dn][color] = turn
+    let inf = new InfMark(dir, color, turn)
+    this.addChild(inf)
+  }
+  getInf(dir: Dir, color: string, turn: number): boolean {
+    return this.inf[Dir[dir]][color] >= turn
+  }
 
   /** makes a colored hex, outlined with BLACK */
   hex(rad: number, color: string): Shape {
@@ -55,6 +90,7 @@ export class HexMap extends Array<Array<Hex>> {
     this.cont = cont
     this.mark = new Shape()
     this.mark.graphics.beginFill("rgba(200,200,200,35)").drawPolyStar(0, 0, radius, 6, 0, -90)
+    InfMark.initStatic()
   }
   distColor = ["lightgrey","rgb(255,104,135)","rgb(255,194,61)","rgb(255,255,128)","lightgreen","rgb(160,190,255)","rgb(218,145,255)"]
   addHex(row: number, col: number, district: number ): Hex {

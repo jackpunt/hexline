@@ -1,3 +1,4 @@
+import { Dir, S } from "./basic-intfs";
 import { Hex, HexMap } from "./hex";
 import { HexEvent } from "./hex-event";
 import { Table } from "./table";
@@ -6,21 +7,57 @@ import { Table } from "./table";
 export class GamePlay {
   table: Table
   hexMap: HexMap
-  board: Array<Move> // Move indicates Player has Stone on that Hex
+  board: Board // Move indicates Player has Stone on that Hex
 
   constructor(table: Table) {
     this.table = table
     this.hexMap = table.hexMap
-    this.board = new Array<Move>()
+    this.board = new Board()
   }
   /** remove captured Stones, from placing Stone on Hex */
   updateBoard(move: Move) {
-    let hex = move.hex, plyr = move.plyr
-
+    let hex = move.hex, plyr = move.plyr, color = plyr.color, turn = this.table.turnNumber
+    hex.stone = plyr.color
+    // find friends in direction (and revDir) [use NE, E, SW as primary axis]
+    // mark Hexes with lines of jeopardy [based on density & spacing]
+    // remove capture(s)
+    let axis = [Dir.NE, Dir.E, Dir.SE]
+    this.board.forEach(m => {
+      axis.forEach((dir: Dir) => {
+        let fdir = this.friendsInDir(hex, dir)
+        let inf = this.assertInfluence(fdir, dir, color, turn)
+      });
+      
+    })
+    this.board.push(move)
+    this.hexMap.cont.stage.update()
   }
 
+  friendsInDir(hex: Hex, dir: Dir): Array<Hex> {
+    let color = hex.stone, rv = [hex]
+    let dn = Dir[dir], nhex: Hex = hex
+    while (!!(nhex = nhex[dn])) {
+      if (nhex.stone === color) rv.push(nhex)
+    }
+    dn = S.dirRev[dn], nhex = hex
+    while (!!(nhex = nhex[dn])) {
+      if (nhex.stone === color) rv.push(nhex)
+    }
+    rv.sort((a, b) => a.col - b.col)
+    return rv
+  }
+  assertInfluence(fdir: Array<Hex>, dir: Dir, color: string, turn: number): Array<Hex> {
+    // initial rough approximation: nearest neighbor only...
+    let rv: Hex[] = [], dn = Dir[dir], dr = S.dirRev[dn]
+    fdir.forEach((hex: Hex) => {
+      let h1: Hex = hex[dn], h2: Hex = hex[dr]
+      if (!!h1 && !rv.includes(h1)) { rv.push(h1); h1.setInf(dir, color, turn) }
+      if (!!h2 && !rv.includes(h2)) { rv.push(h2); h2.setInf(dir, color, turn) }
+    })
+    return rv
+  }
   addStone(hev: HexEvent): void {
-    this.board.push(new Move(hev.hex, this.table.curPlayer))
+    this.updateBoard(new Move(hev.hex, this.table.curPlayer))
   }
   removeStone(hev: HexEvent) {
     throw new Error("Method not implemented.");
