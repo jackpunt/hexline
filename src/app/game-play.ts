@@ -7,21 +7,27 @@ import { Table } from "./table";
 export class GamePlay {
   table: Table
   hexMap: HexMap
-  board: Board // Move indicates Player has Stone on that Hex
+  board: Board = new Board() // Move indicates Player has Stone on that Hex
+  boardHist: Board[] = []      // copy of previous board; turn = history.length
+  moveHist: Move[] = []
 
   constructor(table: Table) {
     this.table = table
     this.hexMap = table.hexMap
-    this.board = new Board()
   }
   /** remove captured Stones, from placing Stone on Hex */
   updateBoard(move: Move) {
-    let hex = move.hex, plyr = move.plyr, color = plyr.color, turn = this.table.turnNumber
-    hex.stone = plyr.color
+    let turn = this.table.turnNumber
+    this.moveHist[turn] = move
+    let hex = move.hex, plyr = move.plyr, color = plyr.color
+    hex.stone = plyr.color // may be nullified when stone is captured
     // find friends in direction (and revDir) [use NE, E, SW as primary axis]
     // mark Hexes with lines of jeopardy [based on density & spacing]
     // remove capture(s)
     let axis = [Dir.NE, Dir.E, Dir.SE]
+
+    this.board.push(move)     // put new stone on board
+    // find captures & remove...
     this.board.forEach(m => {
       axis.forEach((dir: Dir) => {
         let fdir = this.friendsInDir(hex, dir)
@@ -29,7 +35,7 @@ export class GamePlay {
       });
       
     })
-    this.board.push(move)
+    this.boardHist[turn] = Array.from(this.board) // BoardHistory[turn]
     this.hexMap.cont.stage.update()
   }
 
@@ -50,12 +56,13 @@ export class GamePlay {
     // initial rough approximation: nearest neighbor only...
     let rv: Hex[] = [], dn = Dir[dir], dr = S.dirRev[dn]
     fdir.forEach((hex: Hex) => {
-      let h1: Hex = hex[dn], h2: Hex = hex[dr]
-      if (!!h1 && !rv.includes(h1)) { rv.push(h1); h1.setInf(dir, color, turn) }
-      if (!!h2 && !rv.includes(h2)) { rv.push(h2); h2.setInf(dir, color, turn) }
+      let hd: Hex = hex[dn], hr: Hex = hex[dr]
+      if (!!hd) { rv.push(hd); hd.setInf(dir, color, turn) }
+      if (!!hr) { rv.push(hr); hr.setInf(dir, color, turn) }
     })
     return rv
   }
+  /** dropFunc */
   addStone(hev: HexEvent): void {
     this.updateBoard(new Move(hev.hex, this.table.curPlayer))
   }
@@ -69,6 +76,9 @@ export class Move {
   constructor(hex: Hex, plyr: Player) {
     this.hex = hex
     this.plyr = plyr
+  }
+  toString(): string {
+    return `${this.plyr.color}${this.hex.Aname.substring(3)}`
   }
 }
 export class Player {

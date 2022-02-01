@@ -28,8 +28,9 @@ export class Hex extends Container {
   color: string
   row: number
   col: number
-  map: HexMap;
-  stone: string; // color of the Stone or undefined
+  map: HexMap;  // Note: this.parent == this.map.cont
+  /** color of the Stone or undefined */
+  stone: string;
   inf: object = {} // {NE: {BLACK: 0, WHITE: 0}, E: {BLACK: 0, WHITE: 0}, SE: {BLACK: 0, WHITE: 0}}
 
   /** Link to neighbor in each S.dirs direction [NE, E, SE, SW, W, NW] */
@@ -43,8 +44,10 @@ export class Hex extends Container {
     let dn = Dir[dir]
     if (!this.inf[dn]) this.inf[dn] = {}
     this.inf[dn][color] = turn
-    let inf = new InfMark(dir, color, turn)
-    this.addChild(inf)
+    let inf = new InfMark(dir, color, turn), cont = this.map.overCont
+    let pt = this.parent.localToLocal(this.x, this.y, cont)
+    inf.x = pt.x; inf.y = pt.y
+    cont.addChild(inf)
   }
   getInf(dir: Dir, color: string, turn: number): boolean {
     return this.inf[Dir[dir]][color] >= turn
@@ -82,12 +85,14 @@ export class HexMap extends Array<Array<Hex>> {
   radius: number = 50
   height: number;
   cont: Container
+  overCont: Container = new Container()
   mark: Shape
   constructor(radius: number = 50, cont?: Container) {
     super()
     this.radius = radius
     this.height = radius * Math.sqrt(3)/2
     this.cont = cont
+    this.cont.parent.addChild(this.overCont) // x,y aligned with this.cont! but ABOVE
     this.mark = new Shape()
     this.mark.graphics.beginFill("rgba(200,200,200,35)").drawPolyStar(0, 0, radius, 6, 0, -90)
     InfMark.initStatic()

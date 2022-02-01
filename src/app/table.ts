@@ -27,7 +27,7 @@ export class Table extends EventDispatcher  {
   gamePlay: GamePlay;
   stage: Stage;
   scaleCont: Container
-  hexMap: HexMap = new HexMap()
+  hexMap: HexMap
   dropTarget: Hex;
   roundNumber: number = 0;
   turnNumber: number = 0
@@ -55,7 +55,7 @@ export class Table extends EventDispatcher  {
     let mapCont = new Container(); mapCont.y = 100; mapCont.x = 200
     mapCont[S.aname] = "mapCont"
     this.scaleCont.addChild(mapCont)
-    mapCont.addChild(this.nextHex)
+    mapCont.addChild(this.nextHex)  // single Hex to hold a Stone to play
 
     this.hexMap = new HexMap(radius, mapCont)
     this.gamePlay.hexMap = this.hexMap
@@ -72,8 +72,8 @@ export class Table extends EventDispatcher  {
     if (ndx < 0) ndx = (this.curPlayer.index + 1) % this.allPlayers.length;
     if (ndx != this.curPlayerNdx) this.endCurPlayer(this.curPlayer)
     this.curPlayerNdx = ndx;
-    let curPlayer = this.curPlayer = this.allPlayers[ndx];
-    console.log(stime(this, `.setNextPlayer ---------------`), { round: this.roundNumber, turn: this.turnNumber+1, plyr: curPlayer.name }, '-------------------------------------------------', !!this.stage.canvas);
+    let curPlayer = this.curPlayer = this.allPlayers[ndx], tn = this.turnNumber, lm = this.gamePlay.moveHist[tn];
+    console.log(stime(this, `.setNextPlayer ---------------`), { round: this.roundNumber, turn: tn+1, plyr: curPlayer.name, prev: (!!lm) ? lm.toString() : "" }, '-------------------------------------------------', !!this.stage.canvas);
     this.putButtonOnPlayer(curPlayer);
     this.turnNumber += 1;
     this.roundNumber = Math.floor((this.turnNumber - 1) / this.allPlayers.length) + 1
