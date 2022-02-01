@@ -42,6 +42,8 @@ export namespace S {
 
   export const scaled: string = "scaled"    // Event name on ScaledContainer
   export const aname:  string = "Aname"     // anonymous function field name, any object name
+  export const add:    string = "add"       // HexEvent type add Stone to board
+  export const remove: string = "remove"    // HexEvent type removeStone from board
   
   export const onTurnStart:  string = "onTurnStart"  // onTrigger for Effects
   export const onMove:       string = "onMove"       // onTrigger for Effects

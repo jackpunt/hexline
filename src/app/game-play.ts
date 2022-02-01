@@ -1,15 +1,38 @@
-import { Hex } from "./hex";
+import { Hex, HexMap } from "./hex";
+import { HexEvent } from "./hex-event";
 import { Table } from "./table";
 
 /** implement the game logic */
 export class GamePlay {
+  table: Table
+  hexMap: HexMap
+  board: Array<Move> // Move indicates Player has Stone on that Hex
+
   constructor(table: Table) {
-    
+    this.table = table
+    this.hexMap = table.hexMap
+    this.board = new Array<Move>()
+  }
+  /** remove captured Stones, from placing Stone on Hex */
+  updateBoard(move: Move) {
+    let hex = move.hex, plyr = move.plyr
+
+  }
+
+  addStone(hev: HexEvent): void {
+    this.board.push(new Move(hev.hex, this.table.curPlayer))
+  }
+  removeStone(hev: HexEvent) {
+    throw new Error("Method not implemented.");
   }
 }
 export class Move {
   hex: Hex // where to place stone
-  plyr_ndx: number; // [0,1]
+  plyr: Player; // [0,1]
+  constructor(hex: Hex, plyr: Player) {
+    this.hex = hex
+    this.plyr = plyr
+  }
 }
 export class Player {
   table: Table;
@@ -21,6 +44,7 @@ export class Player {
     this.table = table
     this.index = index
     this.color = color
+    this.name = `Player${index}-${color}`
   }
 }
 

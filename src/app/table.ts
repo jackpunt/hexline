@@ -3,6 +3,7 @@ import { C, S } from "./basic-intfs";
 import { Dragger, DragInfo } from "./dragger";
 import { GamePlay, Player } from "./game-play";
 import { Hex, HexMap } from "./hex";
+import { HexEvent } from "./hex-event";
 import { KeyBinder } from "./key-binder";
 import { ScaleableContainer } from "./scaleable-container";
 import { TP } from "./table-params";
@@ -42,6 +43,7 @@ export class Table extends EventDispatcher  {
     super();
     stage['table'] = this // backpointer so Containers can find their Table (& curMark)
     this.stage = stage
+    this.nextHex.Aname = "nextHex"
   }
 
   scaleParams = { zscale: .20, initScale: .324, zero: 0.125, max: 30, limit: 2, base: 1.1, min: -2 };
@@ -60,6 +62,9 @@ export class Table extends EventDispatcher  {
 
     this.makeAllPlayers()
     this.setNextPlayer(0)   // make a placeable Stone for Player[0]
+
+    this.on(S.add, this.gamePlay.addStone, this.gamePlay)[S.aname] = "addStone"
+    this.on(S.remove, this.gamePlay.removeStone, this.gamePlay)[S.aname] = "removeStone"
     this.stage.update()
   }
   setNextPlayer(ndx: number = -1) {
@@ -101,6 +106,7 @@ export class Table extends EventDispatcher  {
     stone.x = mark.x
     stone.y = mark.y
     if (this.dropTarget === this.nextHex) return
+    this.dispatchEvent(new HexEvent(S.add, this.dropTarget))
     Dragger.stopDragable(stone)
     this.setNextPlayer()
   }
