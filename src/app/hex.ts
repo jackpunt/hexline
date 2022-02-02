@@ -9,14 +9,14 @@ class InfMark extends Shape {
   static initStatic() {
     if (!!InfMark.gEw) return
     let r = Stone.radius - 4
-    InfMark.gEw = new Graphics().ss(2).s(C.white).mt(-r, 2).lt(r, 2)
-    InfMark.gEb = new Graphics().ss(2).s(C.black).mt(-r, -2).lt(r, -2)
+    InfMark.gEw = new Graphics().ss(2).s(C.white).mt(2, r).lt(2, -r)
+    InfMark.gEb = new Graphics().ss(2).s(C.black).mt(-2, r).lt(-2, -r)
   }
 
   turn: number
   constructor(dir: Dir, color: string, turn: number, g: Graphics = (color === C.white) ? InfMark.gEw : InfMark.gEb) {
     super(g)
-    this.rotation = S.dirRot[Dir[dir]] + 90
+    this.rotation = S.dirRot[Dir[dir]]
     this.turn = turn
   }
 }
@@ -93,8 +93,8 @@ export class HexMap extends Array<Array<Hex>> {
     this.height = radius * Math.sqrt(3)/2
     this.cont = cont
     this.cont.parent.addChild(this.overCont) // x,y aligned with this.cont! but ABOVE
-    this.mark = new Shape()
-    this.mark.graphics.beginFill("rgba(200,200,200,35)").drawPolyStar(0, 0, radius, 6, 0, -90)
+    this.mark = new Shape();
+    this.mark.graphics.beginFill(C.markColor).drawPolyStar(0, 0, radius, 6, 0, -90)
     InfMark.initStatic()
   }
   distColor = ["lightgrey","rgb(255,104,135)","rgb(255,194,61)","rgb(255,255,128)","lightgreen","rgb(160,190,255)","rgb(218,145,255)"]

@@ -44,6 +44,7 @@ export class Table extends EventDispatcher  {
     stage['table'] = this // backpointer so Containers can find their Table (& curMark)
     this.stage = stage
     this.nextHex.Aname = "nextHex"
+    this.nextHex.scaleX = this.nextHex.scaleY = 2
   }
 
   scaleParams = { zscale: .20, initScale: .324, zero: 0.125, max: 30, limit: 2, base: 1.1, min: -2 };

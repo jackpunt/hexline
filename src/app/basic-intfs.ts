@@ -85,7 +85,7 @@ export namespace C {
   export const demoRed:     string = "rgba(100,   0,   0, .8)"
   export const targetMark:  string = "rgba(190, 250, 190, .8)"
   export const debtMark:    string = "rgba( 50,   0,   0, .3)"
-  export const markColor:   string = "rgba( 80,  80,  80, .3)"
+  export const markColor:   string = "rgba( 50,  50,  50, .3)"
   export const scaleBack:   string = "rgba(155, 100, 150, .3)"
   export const policyBack:  string = "rgba(255, 100, 200, .3)"
   export const auctionBack: string = "rgba(180, 230, 180, .3)"
