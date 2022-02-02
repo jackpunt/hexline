@@ -1,7 +1,7 @@
-import { Dir, S } from "./basic-intfs";
+import { C, Dir, S } from "./basic-intfs";
 import { Hex, HexMap } from "./hex";
 import { HexEvent } from "./hex-event";
-import { Table } from "./table";
+import { Stone, StoneColor, Table } from "./table";
 
 /** implement the game logic */
 export class GamePlay {
@@ -19,63 +19,107 @@ export class GamePlay {
   updateBoard(move: Move) {
     let turn = this.table.turnNumber
     this.moveHist[turn] = move
-    let hex = move.hex, plyr = move.plyr, color = plyr.color
-    hex.stone = plyr.color // may be nullified when stone is captured
+    let {hex, plyr, stone} = move
+    let color = stone.color
+    hex.stone = move.stone
+    //hex.stoneColor = plyr.color // may be nullified when stone is captured
     // find friends in direction (and revDir) [use NE, E, SW as primary axis]
     // mark Hexes with lines of jeopardy [based on density & spacing]
     // remove capture(s)
-    let axis = [Dir.NE, Dir.E, Dir.SE]
+    let axis = S.Dir3 // [Dir.NE, Dir.E, Dir.SE]
 
     this.board.push(move)     // put new stone on board
     // find captures & remove...
     this.board.forEach(m => {
       axis.forEach((dir: Dir) => {
-        let fdir = this.friendsInDir(hex, dir)
-        let inf = this.assertInfluence(fdir, dir, color, turn)
+        let fdir = this.hexlineToArray(hex, dir)
+        let inf = this.assertInfluence(fdir, dir, color)
       });
       
     })
     this.boardHist[turn] = Array.from(this.board) // BoardHistory[turn]
     this.hexMap.cont.stage.update()
   }
-
-  friendsInDir(hex: Hex, dir: Dir): Array<Hex> {
-    let color = hex.stone, rv = [hex]
+  /** return Array<Hex> where each Hex in on the given axis, with Stone of color. 
+   * @param color if undefined, return all Hex on axis
+   */
+  hexlineToArray(hex: Hex, dir: Dir, color: StoneColor = hex.stoneColor): Hex[] {
+    let rv: Array<Hex> = (hex.stoneColor === color) ? [hex] : []
     let dn = Dir[dir], nhex: Hex = hex
     while (!!(nhex = nhex[dn])) {
-      if (nhex.stone === color) rv.push(nhex)
+      if (!color || nhex.stoneColor === color) rv.push(nhex)
     }
     dn = S.dirRev[dn], nhex = hex
     while (!!(nhex = nhex[dn])) {
-      if (nhex.stone === color) rv.push(nhex)
+      if (!color || nhex.stoneColor === color) rv.push(nhex)
     }
-    rv.sort((a, b) => a.col - b.col)
+    rv.sort((a, b) => a.x - b.x)
     return rv
   }
-  assertInfluence(fdir: Array<Hex>, dir: Dir, color: string, turn: number): Array<Hex> {
+
+  /** 
+   * remove Move that placed hex
+   * remove stone Shape from hex
+   * remove all influence of color on each axis from Hex
+   * assert influence of color on each axis from Hex (w/o stone on hex)
+   */
+  removeStone(hex: Hex) {
+    let color = hex.stoneColor
+    this.board = this.board.filter(m => m.hex !== hex) // remove Move & Stone from board
+    this.hexMap.cont.removeChild(hex.stone)
+    hex.stone = undefined
+
+    S.Dir3.forEach(dir => {
+      let dn = Dir[dir], line: Hex[]
+      line = this.hexlineToArray(hex, dir) // ALL hexes on the line
+      // remove all stoneColor influence from line
+      line.forEach(hex => {
+        let shape = hex.inf[dn] && hex.inf[dn][color]
+        if (!!shape) {
+          this.hexMap.overCont.removeChild(shape)
+          delete hex.inf[dn][color]
+        }
+      })
+      this.hexMap.cont.stage.update() // for debug
+      // reassert stoneColor on line (for what's left)
+      line = this.hexlineToArray(hex, dir, color)
+      this.assertInfluence(line, dir, color)
+    })
+  }
+  /** show influence on map AND remove captured stones */
+  assertInfluence(line: Array<Hex>, dir: Dir, color: StoneColor): Array<Hex> {
     // initial rough approximation: nearest neighbor only...
     let rv: Hex[] = [], dn = Dir[dir], dr = S.dirRev[dn]
-    fdir.forEach((hex: Hex) => {
+    let setInf = (hex: Hex) => { 
+      rv.push(hex); hex.setInf(dir, color)
+      if (hex.isCapture(color)) {
+        this.removeStone(hex)
+      }
+    }
+    line.forEach((hex: Hex) => {
       let hd: Hex = hex[dn], hr: Hex = hex[dr]
-      if (!!hd) { rv.push(hd); hd.setInf(dir, color, turn) }
-      if (!!hr) { rv.push(hr); hr.setInf(dir, color, turn) }
+      if (!!hd) setInf(hd)
+      if (!!hr) setInf(hr)
     })
     return rv
   }
   /** dropFunc */
-  addStone(hev: HexEvent): void {
-    this.updateBoard(new Move(hev.hex, this.table.curPlayer))
+  addStoneEvent(hev: HexEvent): void {
+    let stone = hev.value as Stone
+    this.updateBoard(new Move(hev.hex, this.table.curPlayer, stone))
   }
-  removeStone(hev: HexEvent) {
+  removeStoneEvent(hev: HexEvent) {
     throw new Error("Method not implemented.");
   }
 }
 export class Move {
   hex: Hex // where to place stone
   plyr: Player; // [0,1]
-  constructor(hex: Hex, plyr: Player) {
+  stone: Stone
+  constructor(hex: Hex, plyr: Player, stone: Stone) {
     this.hex = hex
     this.plyr = plyr
+    this.stone = stone
   }
   toString(): string {
     return `${this.plyr.color}${this.hex.Aname.substring(3)}`
@@ -85,9 +129,9 @@ export class Player {
   table: Table;
   name: string
   index: number
-  color: string // C.BLACK, C.WHITE
+  color: StoneColor
  
-  constructor(table: Table, index: number, color: string) {
+  constructor(table: Table, index: number, color: StoneColor) {
     this.table = table
     this.index = index
     this.color = color

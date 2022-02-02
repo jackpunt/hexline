@@ -1,6 +1,6 @@
 import { Container, Graphics, Shape } from "createjs-module";
 import { C, Dir, S, XY } from "./basic-intfs";
-import { Stone } from "./table";
+import { Stone, StoneColor } from "./table";
 
 // Note: graphics.drawPolyStar(x,y,radius, sides, pointSize, angle) will do a regular polygon
 class InfMark extends Shape {
@@ -8,55 +8,62 @@ class InfMark extends Shape {
   static gEb: Graphics
   static initStatic() {
     if (!!InfMark.gEw) return
-    let r = Stone.radius - 4
+    let r = Stone.height - 1
     InfMark.gEw = new Graphics().ss(2).s(C.white).mt(2, r).lt(2, -r)
     InfMark.gEb = new Graphics().ss(2).s(C.black).mt(-2, r).lt(-2, -r)
   }
 
-  turn: number
-  constructor(dir: Dir, color: string, turn: number, g: Graphics = (color === C.white) ? InfMark.gEw : InfMark.gEb) {
+  constructor(dir: Dir, color: StoneColor, g: Graphics = (color === C.white) ? InfMark.gEw : InfMark.gEb) {
     super(g)
     this.rotation = S.dirRot[Dir[dir]]
-    this.turn = turn
   }
 }
+type bws = {black: Shape, white: Shape}  // StoneColor: Shape (the influence Shape on overCont)
+type INF = {NE?: bws, E?: bws, SE?: bws }
+type InfKey = keyof INF        // 'NE' | 'E' | 'SE'
+
 /** One Hex cell in the game, shown as a polyStar Shape */
 export class Hex extends Container {
   Aname: string
   shape: Shape
   district: number
-  color: string
+  color: string  // district color of Hex
   row: number
   col: number
   map: HexMap;  // Note: this.parent == this.map.cont
+  stone: Stone
   /** color of the Stone or undefined */
-  stone: string;
-  inf: object = {} // {NE: {BLACK: 0, WHITE: 0}, E: {BLACK: 0, WHITE: 0}, SE: {BLACK: 0, WHITE: 0}}
+  get stoneColor(): StoneColor { return !!this.stone ? this.stone.color : undefined};
+  inf: INF = {} // {NE: {BLACK: 0, WHITE: 0}, E: {BLACK: 0, WHITE: 0}, SE: {BLACK: 0, WHITE: 0}}
 
   /** Link to neighbor in each S.dirs direction [NE, E, SE, SW, W, NW] */
   NE: Hex; E: Hex; SE: Hex; SW: Hex; W: Hex; NW: Hex
-  clearInf(turn: number) {
-    this.children.forEach(disp => { 
-      if (disp instanceof InfMark && disp.turn < turn) this.removeChild(disp) 
-    })
-  }
-  setInf(dir: Dir, color: string, turn: number) {
+  
+  setInf(dir: Dir, color: StoneColor) {
     let dn = Dir[dir]
+    if (!!this.inf[dn] && !!this.inf[dn][color]) return
+    let infMark = new InfMark(dir, color), cont = this.map.overCont
     if (!this.inf[dn]) this.inf[dn] = {}
-    this.inf[dn][color] = turn
-    let inf = new InfMark(dir, color, turn), cont = this.map.overCont
+    this.inf[dn][color] = infMark
     let pt = this.parent.localToLocal(this.x, this.y, cont)
-    inf.x = pt.x; inf.y = pt.y
-    cont.addChild(inf)
+    infMark.x = pt.x; infMark.y = pt.y
+    cont.addChild(infMark)
   }
-  getInf(dir: Dir, color: string, turn: number): boolean {
-    return this.inf[Dir[dir]][color] >= turn
+  getInf(dir: Dir, color: StoneColor): boolean {
+    return !!this.inf[Dir[dir]] && !!this.inf[Dir[dir]][color]
+  }
+  isAttack(color: StoneColor): boolean {
+    let attacks = Object.entries(this.inf).filter((kv: [InfKey, bws]) => kv[1][color] !== undefined)
+    return attacks.length >= 2 
+  }
+  isCapture(color: StoneColor): boolean {
+    return !!this.stoneColor && (this.stoneColor !== color) && this.isAttack(color)
   }
 
   /** makes a colored hex, outlined with BLACK */
   hex(rad: number, color: string): Shape {
     let ns = new Shape()
-    ns.graphics.beginStroke(C.BLACK).drawPolyStar(0, 0, rad+1, 6, 0, -90)
+    ns.graphics.beginStroke(C.BROWN).drawPolyStar(0, 0, rad+1, 6, 0, -90)
     ns.graphics.beginFill(color).drawPolyStar(0, 0, rad, 6, 0, -90)
     return ns
   }

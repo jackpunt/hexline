@@ -19,7 +19,7 @@ export namespace M {
   }
 }
 /** Hexagonal canonical directions */
-export enum Dir { C, NE, E, SE, SW, W, NW}
+export enum Dir { C, NE, E, SE, SW, W, NW }
 
 /** String things */
 export namespace S {
@@ -33,6 +33,8 @@ export namespace S {
   export const SW: string = "SW"
   export const NW: string = "NW"
 
+  export const Dir3: Dir[] = [Dir.NE, Dir.E, Dir.SE]; // minimal reference directions
+  export const dir3: string[] = [NE, E, SE];          // minimal reference directions
   export const dirs: string[] = [NE, E, SE, SW, W, NW]; // standard direction signifiers () ClockWise
   export const dirRot: object = { N: 0, E: 90, S: 180, W: 270, NE: 30, SE: 150, SW: 210, NW: 330 }
   export const dirRev: object = { N: S, S: N, E: W, W: E, NE: SW, SE: NW, SW: NE, NW: SE }
@@ -72,6 +74,7 @@ export namespace C {
   export const PURPLE:      string = "PURPLE"       // nominal player color
   export const YELLOW:      string = "YELLOW"       // nominal player color
   export const BLACK:       string = "BLACK"        // vcPlayer color
+  export const WHITE:       string = "WHITE"        // vcPlayer color
   export const BROWN:       string = "rgba(185, 83, 0, 1)"
 
   export const black:       string = "black"        // text color

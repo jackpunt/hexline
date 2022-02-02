@@ -9,11 +9,12 @@ import { ScaleableContainer } from "./scaleable-container";
 import { TP } from "./table-params";
 import { stime } from "./types";
 
+export type StoneColor =  "black" | "white"
 export class Stone extends Shape {
   static radius: number = 50
   static height: number = Stone.radius*Math.sqrt(3)/2
-  color: string;
-  constructor(cont: Container, x: number, y: number, color: string, radius: number = Stone.height) {
+  color: StoneColor;
+  constructor(cont: Container, x: number, y: number, color: StoneColor, radius: number = Stone.height) {
     super()
     this.color = color
     this.graphics.beginFill(color).drawCircle(0, 0, radius-1)
@@ -65,8 +66,8 @@ export class Table extends EventDispatcher  {
     this.makeAllPlayers()
     this.setNextPlayer(0)   // make a placeable Stone for Player[0]
 
-    this.on(S.add, this.gamePlay.addStone, this.gamePlay)[S.aname] = "addStone"
-    this.on(S.remove, this.gamePlay.removeStone, this.gamePlay)[S.aname] = "removeStone"
+    this.on(S.add, this.gamePlay.addStoneEvent, this.gamePlay)[S.aname] = "addStone"
+    this.on(S.remove, this.gamePlay.removeStoneEvent, this.gamePlay)[S.aname] = "removeStone"
     this.stage.update()
   }
   setNextPlayer(ndx: number = -1) {
@@ -110,14 +111,14 @@ export class Table extends EventDispatcher  {
     stone.x = mark.x
     stone.y = mark.y
     if (this.dropTarget === this.nextHex) return
-    this.dispatchEvent(new HexEvent(S.add, this.dropTarget))
+    this.dispatchEvent(new HexEvent(S.add, this.dropTarget, stone))
     Dragger.stopDragable(stone)
     this.setNextPlayer()
   }
   makeAllPlayers() {
     this.allPlayers = []
-    this.allPlayers[0] = new Player(this, 0, C.black)
-    this.allPlayers[1] = new Player(this, 1, C.white)
+    this.allPlayers[0] = new Player(this, 0, "black")
+    this.allPlayers[1] = new Player(this, 1, "white")
   }
   forEachPlayer(f: (p:Player, index?: number, players?: Player[]) => void) {
     this.allPlayers.forEach((p, index, players) => f(p, index, players));

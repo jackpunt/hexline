@@ -227,7 +227,7 @@ class TextBox extends Shape {
     let g = this.graphics
 
   }
-  setText(text?: string, fontSize?: string, fontName?: string, color: string = C.BLACK) {
+  setText(text?: string, fontSize?: string, fontName?: string, color: string = C.black) {
 
   }
   setBind(w: number, h: number, init?: string, focus?: Binding, blur?: Binding) {
