@@ -1,7 +1,9 @@
-import { C, Dir, S } from "./basic-intfs";
+import { C, Dir, HexDir, S } from "./basic-intfs";
 import { Hex, HexMap } from "./hex";
 import { HexEvent } from "./hex-event";
+import { KeyBinder } from "./key-binder";
 import { Stone, StoneColor, Table } from "./table";
+import { stime } from "./types";
 
 /** implement the game logic */
 export class GamePlay {
@@ -14,43 +16,55 @@ export class GamePlay {
   constructor(table: Table) {
     this.table = table
     this.hexMap = table.hexMap
+    KeyBinder.keyBinder.globalSetKeyFromChar('q', {thisArg: this, func: this.undoMove})
+  }
+  undoMove() {
+    let move = this.moveHist.pop()
+    if (!move) return
+    let hex = move.hex
+    this.removeStone(hex)
+    this.table.turnNumber--
+    this.hexMap.cont.stage.update()
   }
   /** remove captured Stones, from placing Stone on Hex */
   updateBoard(move: Move) {
     let turn = this.table.turnNumber
-    this.moveHist[turn] = move
+    this.moveHist[turn] = move // push(move)
     let {hex, plyr, stone} = move
     let color = stone.color
-    hex.stone = move.stone
+    hex.stone = move.stone    // put Stone on Hex
     //hex.stoneColor = plyr.color // may be nullified when stone is captured
     // find friends in direction (and revDir) [use NE, E, SW as primary axis]
     // mark Hexes with lines of jeopardy [based on density & spacing]
     // remove capture(s)
-    let axis = S.Dir3 // [Dir.NE, Dir.E, Dir.SE]
 
-    this.board.push(move)     // put new stone on board
+    let axis = S.dir3 // [Dir.NE, Dir.E, Dir.SE]
+    this.board.push(move)     // put stone on board
     // find captures & remove...
-    this.board.forEach(m => {
-      axis.forEach((dir: Dir) => {
-        let fdir = this.hexlineToArray(hex, dir)
-        let inf = this.assertInfluence(fdir, dir, color)
-      });
-      
-    })
+    axis.forEach((dir: HexDir) => {
+      this.assertInfluence(hex, dir, color)
+    });
+
     this.boardHist[turn] = Array.from(this.board) // BoardHistory[turn]
     this.hexMap.cont.stage.update()
+  }
+  showLine(str: string, line: Hex[], fn = (h: Hex)=>`${h.Aname}-${h.stoneColor}`) {
+    let dns = (line['dn']+' ').substring(0,2)
+    console.log(stime(this, str), dns, line.map(fn))
   }
   /** return Array<Hex> where each Hex in on the given axis, with Stone of color. 
    * @param color if undefined, return all Hex on axis
    */
-  hexlineToArray(hex: Hex, dir: Dir, color: StoneColor = hex.stoneColor): Hex[] {
+  hexlineToArray(hex: Hex, dn: HexDir, color: StoneColor): Hex[] {
     let rv: Array<Hex> = (hex.stoneColor === color) ? [hex] : []
-    let dn = Dir[dir], nhex: Hex = hex
+    let nhex: Hex = hex
+    rv['dn'] = dn
     while (!!(nhex = nhex[dn])) {
       if (!color || nhex.stoneColor === color) rv.push(nhex)
     }
-    dn = S.dirRev[dn], nhex = hex
-    while (!!(nhex = nhex[dn])) {
+    let dr = S.dirRev[dn]; 
+    nhex = hex
+    while (!!(nhex = nhex[dr])) {
       if (!color || nhex.stoneColor === color) rv.push(nhex)
     }
     rv.sort((a, b) => a.x - b.x)
@@ -69,39 +83,56 @@ export class GamePlay {
     this.hexMap.cont.removeChild(hex.stone)
     hex.stone = undefined
 
-    S.Dir3.forEach(dir => {
-      let dn = Dir[dir], line: Hex[]
-      line = this.hexlineToArray(hex, dir) // ALL hexes on the line
-      // remove all stoneColor influence from line
-      line.forEach(hex => {
-        let shape = hex.inf[dn] && hex.inf[dn][color]
-        if (!!shape) {
-          this.hexMap.overCont.removeChild(shape)
-          delete hex.inf[dn][color]
-        }
-      })
-      this.hexMap.cont.stage.update() // for debug
+    S.dir3.forEach(dir => {
       // reassert stoneColor on line (for what's left)
-      line = this.hexlineToArray(hex, dir, color)
-      this.assertInfluence(line, dir, color)
+      this.assertInfluence(hex, dir, color)
     })
   }
-  /** show influence on map AND remove captured stones */
-  assertInfluence(line: Array<Hex>, dir: Dir, color: StoneColor): Array<Hex> {
-    // initial rough approximation: nearest neighbor only...
-    let rv: Hex[] = [], dn = Dir[dir], dr = S.dirRev[dn]
-    let setInf = (hex: Hex) => { 
-      rv.push(hex); hex.setInf(dir, color)
-      if (hex.isCapture(color)) {
-        this.removeStone(hex)
+  removeInfluence(hex: Hex, dn: HexDir, color: StoneColor) {
+    let line = this.hexlineToArray(hex, dn, undefined) // ALL hexes on the line
+    this.showLine(`removeInfluence:${hex.Aname}:${color}`, line)
+
+    line.forEach(hex => {
+      let shape = hex.getInf(dn, color)
+      if (!!shape) {
+        this.hexMap.overCont.removeChild(shape)
+        hex.delInf(dn, color)
       }
-    }
-    line.forEach((hex: Hex) => {
-      let hd: Hex = hex[dn], hr: Hex = hex[dr]
-      if (!!hd) setInf(hd)
-      if (!!hr) setInf(hr)
+      this.hexMap.cont.stage.update() // for debug
     })
-    return rv
+  }
+  // from line of Hex -> set Influence in Hex & HexMap
+  /** show influence on map AND remove captured stones */
+  assertInfluence(hex: Hex, dir: HexDir, color: StoneColor): Hex[] {
+    this.removeInfluence(hex, dir, color) // remove all stoneColor influence from line
+
+    let line = this.hexlineToArray(hex, dir, color) // Hexes with Stones of color on line
+    this.showLine(`.assertInfluenceS:${hex.Aname}:${color}`, line)
+    // SINGLE pass: alternating from left/right end of line: insert 'final' influence
+    let low = 0, high = line.length - 1
+    while (low <= high) {
+      this.nextInf(line[low], dir, color)
+      if (low != high) {
+        this.nextInf(line[high], dir, color)
+      }
+      this.hexMap.cont.stage.update() // for debug
+      low += 1
+      high -= 1
+    }
+    return line
+  }
+  /** assert an INF(dir) on both sides of hex */
+  nextInf(hex: Hex, dn: HexDir, color: StoneColor) {
+    this.skipAndSet(hex, dn, color, dn)
+    this.skipAndSet(hex, dn, color, S.dirRev[dn])
+  }
+  skipAndSet(nhex: Hex, ds: HexDir, color: StoneColor, dn: HexDir) {
+    while (!!nhex && (nhex.stoneColor == color || !!nhex.getInf(ds, color))) { nhex = nhex[dn]}
+    if (!nhex) return
+    nhex.setInf(ds, color)
+    if (nhex.isCapture(color)) {
+      this.removeStone(nhex) // remove Stone of *other* color
+    }
   }
   /** dropFunc */
   addStoneEvent(hev: HexEvent): void {
