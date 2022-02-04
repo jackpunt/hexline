@@ -71,12 +71,12 @@ export class Hex extends Container {
       infMark = new InfMark(ds, color, dt)
       if (!this.inf[ds]) this.inf[ds] = {}
       this.inf[ds][color] = infMark
+      // place InfMark on HexMap:
+      let cont = this.map.overCont
+      let pt = this.parent.localToLocal(this.x, this.y, cont)
+      infMark.x = pt.x; infMark.y = pt.y
+      cont.addChild(infMark)
     }
-    // place InfMark on HexMap:
-    let cont = this.map.overCont
-    let pt = this.parent.localToLocal(this.x, this.y, cont)
-    infMark.x = pt.x; infMark.y = pt.y
-    cont.addChild(infMark)
     return true
   }
   getInf(dn: string, color: StoneColor): InfMark {

@@ -56,7 +56,7 @@ export class GamePlay {
    * @param color if undefined, return all Hex on axis
    */
   hexlineToArray(hex: Hex, ds: HexDir, color: StoneColor): Hex[] {
-    let rv: Array<Hex> = [hex] //(hex.stoneColor === color) ? [hex] : []
+    let rv: Array<Hex> = (!color || (hex.stoneColor === color)) ? [hex] : []
     let nhex: Hex = hex
     rv['ds'] = ds
     while (!!(nhex = nhex[ds])) {
@@ -111,8 +111,8 @@ export class GamePlay {
     let dr = S.dirRev[ds]
     // SINGLE pass: alternating from left/right end of line: insert 'final' influence
     for (let low = 0, high = line.length - 1; high >= 0; low++, high--) {
-      this.skipAndSet(line[low], ds, color, ds, ds)
-      this.skipAndSet(line[high], ds, color, dr, dr)
+      this.skipAndSet(line[low], ds, color, ds)
+      this.skipAndSet(line[high], ds, color, dr)
       this.hexMap.cont.stage.update() // for debug
     }
     return line
@@ -123,13 +123,12 @@ export class GamePlay {
    * @param ds assert inf on this axis
    * @param color for StoneColor
    * @param dn scan&skip direction
-   * @param dt tmpMark direction
    * @returns 
    */
-  skipAndSet(nhex: Hex, ds: HexDir, color: StoneColor, dn: HexDir, dt: HexDir) {
-    while (!!nhex && nhex.isInf(ds, color, dt)) { nhex = nhex[dn]}
+  skipAndSet(nhex: Hex, ds: HexDir, color: StoneColor, dn: HexDir) {
+    while (!!nhex && nhex.isInf(ds, color, dn)) { nhex = nhex[dn]}
     if (!nhex) return
-    let inf: boolean = nhex.setInf(ds, color, dt)
+    let inf: boolean = nhex.setInf(ds, color, dn)
     if (inf && nhex.isCapture(color)) {
       this.removeStone(nhex) // remove Stone of *other* color
     }
