@@ -49,20 +49,20 @@ export class GamePlay {
     this.hexMap.cont.stage.update()
   }
   showLine(str: string, line: Hex[], fn = (h: Hex)=>`${h.Aname}-${h.stoneColor}`) {
-    let dns = (line['dn']+' ').substring(0,2)
-    console.log(stime(this, str), dns, line.map(fn))
+    let dss = (line['ds']+' ').substring(0,2)
+    console.log(stime(this, str), dss, line.map(fn))
   }
   /** return Array<Hex> where each Hex in on the given axis, with Stone of color. 
    * @param color if undefined, return all Hex on axis
    */
-  hexlineToArray(hex: Hex, dn: HexDir, color: StoneColor): Hex[] {
-    let rv: Array<Hex> = (hex.stoneColor === color) ? [hex] : []
+  hexlineToArray(hex: Hex, ds: HexDir, color: StoneColor): Hex[] {
+    let rv: Array<Hex> = [hex] //(hex.stoneColor === color) ? [hex] : []
     let nhex: Hex = hex
-    rv['dn'] = dn
-    while (!!(nhex = nhex[dn])) {
+    rv['ds'] = ds
+    while (!!(nhex = nhex[ds])) {
       if (!color || nhex.stoneColor === color) rv.push(nhex)
     }
-    let dr = S.dirRev[dn]; 
+    let dr = S.dirRev[ds]; 
     nhex = hex
     while (!!(nhex = nhex[dr])) {
       if (!color || nhex.stoneColor === color) rv.push(nhex)
@@ -90,7 +90,7 @@ export class GamePlay {
   }
   removeInfluence(hex: Hex, dn: HexDir, color: StoneColor) {
     let line = this.hexlineToArray(hex, dn, undefined) // ALL hexes on the line
-    this.showLine(`removeInfluence:${hex.Aname}:${color}`, line)
+    this.showLine(`.removeInfluence:${hex.Aname}:${color}`, line)
 
     line.forEach(hex => {
       let shape = hex.getInf(dn, color)
@@ -103,34 +103,36 @@ export class GamePlay {
   }
   // from line of Hex -> set Influence in Hex & HexMap
   /** show influence on map AND remove captured stones */
-  assertInfluence(hex: Hex, dir: HexDir, color: StoneColor): Hex[] {
-    this.removeInfluence(hex, dir, color) // remove all stoneColor influence from line
+  assertInfluence(hex: Hex, ds: HexDir, color: StoneColor): Hex[] {
+    this.removeInfluence(hex, ds, color) // remove all stoneColor influence from line
 
-    let line = this.hexlineToArray(hex, dir, color) // Hexes with Stones of color on line
-    this.showLine(`.assertInfluenceS:${hex.Aname}:${color}`, line)
+    let line = this.hexlineToArray(hex, ds, color) // Hexes with Stones of color on line
+    this.showLine(`.assertInfluence:${hex.Aname}:${color}`, line)
+    let dr = S.dirRev[ds]
     // SINGLE pass: alternating from left/right end of line: insert 'final' influence
-    let low = 0, high = line.length - 1
-    while (low <= high) {
-      this.nextInf(line[low], dir, color)
-      if (low != high) {
-        this.nextInf(line[high], dir, color)
-      }
+    for (let low = 0, high = line.length - 1; high >= 0; low++, high--) {
+      this.skipAndSet(line[low], ds, color, ds, ds)
+      this.skipAndSet(line[low], ds, color, dr, ds)
+      this.skipAndSet(line[high], ds, color, dr, dr)
+      this.skipAndSet(line[high], ds, color, ds, dr)
       this.hexMap.cont.stage.update() // for debug
-      low += 1
-      high -= 1
     }
     return line
   }
-  /** assert an INF(dir) on both sides of hex */
-  nextInf(hex: Hex, dn: HexDir, color: StoneColor) {
-    this.skipAndSet(hex, dn, color, dn)
-    this.skipAndSet(hex, dn, color, S.dirRev[dn])
-  }
-  skipAndSet(nhex: Hex, ds: HexDir, color: StoneColor, dn: HexDir) {
-    while (!!nhex && (nhex.stoneColor == color || !!nhex.getInf(ds, color))) { nhex = nhex[dn]}
+  /**
+   * 
+   * @param nhex start here
+   * @param ds assert inf on this axis
+   * @param color for StoneColor
+   * @param dn scan&skip direction
+   * @param tr tmpMark direction
+   * @returns 
+   */
+  skipAndSet(nhex: Hex, ds: HexDir, color: StoneColor, dn: HexDir, tr: HexDir) {
+    while (!!nhex && nhex.isInf(ds, color, tr)) { nhex = nhex[dn]}
     if (!nhex) return
-    nhex.setInf(ds, color)
-    if (nhex.isCapture(color)) {
+    let inf: boolean = nhex.setInf(ds, color, tr)
+    if (inf && nhex.isCapture(color)) {
       this.removeStone(nhex) // remove Stone of *other* color
     }
   }

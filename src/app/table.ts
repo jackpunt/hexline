@@ -61,7 +61,7 @@ export class Table extends EventDispatcher  {
 
     this.hexMap = new HexMap(radius, mapCont)
     this.gamePlay.hexMap = this.hexMap
-    this.make7Districts(4)
+    this.make7Districts(6)
 
     this.makeAllPlayers()
     this.setNextPlayer(0)   // make a placeable Stone for Player[0]

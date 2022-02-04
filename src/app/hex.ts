@@ -1,5 +1,5 @@
 import { Container, Graphics, Shape } from "createjs-module";
-import { C, Dir, S, XY } from "./basic-intfs";
+import { C, Dir, HexDir, S, XY } from "./basic-intfs";
 import { Stone, StoneColor } from "./table";
 import { TP } from "./table-params";
 
@@ -14,9 +14,12 @@ class InfMark extends Shape {
     InfMark.gEb = new Graphics().ss(2).s(C.GREEN).mt(-2, r).lt(-2, -r)
   }
 
-  constructor(dn: string, color: StoneColor, g: Graphics = (color === C.white) ? InfMark.gEw : InfMark.gEb) {
+  temp: HexDir;
+  constructor(dn: HexDir, color: StoneColor, temp?: HexDir) {
+    let g: Graphics = (color === C.white) ? InfMark.gEw : InfMark.gEb
     super(g)
     this.rotation = S.dirRot[dn]
+    this.temp = temp
   }
 }
 type bws = {black: Shape, white: Shape}  // StoneColor: Shape (the influence Shape on overCont)
@@ -39,18 +42,46 @@ export class Hex extends Container {
 
   /** Link to neighbor in each S.dirs direction [NE, E, SE, SW, W, NW] */
   NE: Hex; E: Hex; SE: Hex; SW: Hex; W: Hex; NW: Hex
-  
-  setInf(dn: string, color: StoneColor) {
-    if (!!this.getInf(dn, color)) return // already set
-    let infMark = new InfMark(dn, color), cont = this.map.overCont
-    if (!this.inf[dn]) this.inf[dn] = {}
-    this.inf[dn][color] = infMark
-    let pt = this.parent.localToLocal(this.x, this.y, cont)
-    infMark.x = pt.x; infMark.y = pt.y
-    cont.addChild(infMark)
+  /**
+   * 
+   * @param ds one of S.Dir3 (major axis)
+   * @param color StoneColor
+   * @param dn ds | revDir[ds]
+   * @returns true if Hex is StoneColor or full InfMark or InfMark.temp == dn
+   */
+  isInf(ds: HexDir, color: StoneColor, dn?: HexDir): boolean {
+    if (this.stoneColor == color) return true
+    let inf = this.getInf(ds, color)
+    return (!!inf && (!inf.temp || inf.temp == dn))
+    //if (!inf || inf.temp != dn) return false
   }
-  getInf(dn: string, color: StoneColor): Shape {
-    return this.inf[dn] && this.inf[dn][color]
+  /**
+   * set temp = dn OR set temp = undefined if (temp != dn)
+   * @param ds one of S.Dir3 (major axis)
+   * @param color 
+   * @param dn one of S.Dir (direction of scan for temp)
+   * @returns true if this Hex is now influenced by color (on axis: ds)
+   */
+  setInf(ds: HexDir, color: StoneColor, dn?: HexDir): boolean {
+    let infMark = this.getInf(ds, color)
+    if (!!infMark && !infMark.temp) return true // already set
+    if (!!infMark && infMark.temp != dn) {
+      infMark.temp = undefined // was rev(dn): now adding (dn), so is full InfMark(ds, color)
+      // place InfMark on HexMap:
+      let cont = this.map.overCont
+      let pt = this.parent.localToLocal(this.x, this.y, cont)
+      infMark.x = pt.x; infMark.y = pt.y
+      cont.addChild(infMark)
+      return true
+    }
+    // put tmpMark(ds, color, dn) in Hex, but not on HexMap display
+    let tmpMark = new InfMark(ds, color, dn)
+    if (!this.inf[ds]) this.inf[ds] = {}
+    this.inf[ds][color] = tmpMark
+    return false
+  }
+  getInf(dn: string, color: StoneColor): InfMark {
+    return !!this.inf[dn] && this.inf[dn][color]
   }
   delInf(dn: string, color: StoneColor) {
     if (this.inf[dn]) {
