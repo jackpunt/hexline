@@ -125,13 +125,13 @@ export class GamePlay {
    * @param ds assert inf on this axis
    * @param color for StoneColor
    * @param dn scan&skip direction
-   * @param tr tmpMark direction
+   * @param dt tmpMark direction
    * @returns 
    */
-  skipAndSet(nhex: Hex, ds: HexDir, color: StoneColor, dn: HexDir, tr: HexDir) {
-    while (!!nhex && nhex.isInf(ds, color, tr)) { nhex = nhex[dn]}
+  skipAndSet(nhex: Hex, ds: HexDir, color: StoneColor, dn: HexDir, dt: HexDir) {
+    while (!!nhex && nhex.isInf(ds, color, dt)) { nhex = nhex[dn]}
     if (!nhex) return
-    let inf: boolean = nhex.setInf(ds, color, tr)
+    let inf: boolean = nhex.setInf(ds, color, dt)
     if (inf && nhex.isCapture(color)) {
       this.removeStone(nhex) // remove Stone of *other* color
     }

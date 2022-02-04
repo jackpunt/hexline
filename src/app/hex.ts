@@ -52,20 +52,25 @@ export class Hex extends Container {
   isInf(ds: HexDir, color: StoneColor, dn?: HexDir): boolean {
     if (this.stoneColor == color) return true
     let inf = this.getInf(ds, color)
-    return (!!inf && (!inf.temp || inf.temp == dn))
-    //if (!inf || inf.temp != dn) return false
+    return !!inf && (!inf.temp || inf.temp == dn)
   }
   /**
    * set temp = dn OR set temp = undefined if (temp != dn)
    * @param ds one of S.Dir3 (major axis)
    * @param color 
-   * @param dn one of S.Dir (direction of scan for temp)
+   * @param dt one of S.Dir (direction of scan for temp)
    * @returns true if this Hex is now influenced by color (on axis: ds)
    */
-  setInf(ds: HexDir, color: StoneColor, dn?: HexDir): boolean {
+  setInf(ds: HexDir, color: StoneColor, dt?: HexDir): boolean {
     let infMark = this.getInf(ds, color)
     if (!!infMark && !infMark.temp) return true // already set
-    if (!!infMark && infMark.temp != dn) {
+    if (!infMark) {
+      // put tmpMark(ds, color, dn) in Hex, but not on HexMap display
+      let tmpMark = new InfMark(ds, color, dt)
+      if (!this.inf[ds]) this.inf[ds] = {}
+      this.inf[ds][color] = tmpMark
+      return false
+    } else {
       infMark.temp = undefined // was rev(dn): now adding (dn), so is full InfMark(ds, color)
       // place InfMark on HexMap:
       let cont = this.map.overCont
@@ -74,10 +79,6 @@ export class Hex extends Container {
       cont.addChild(infMark)
       return true
     }
-    // put tmpMark(ds, color, dn) in Hex, but not on HexMap display
-    let tmpMark = new InfMark(ds, color, dn)
-    if (!this.inf[ds]) this.inf[ds] = {}
-    this.inf[ds][color] = tmpMark
     return false
   }
   getInf(dn: string, color: StoneColor): InfMark {
