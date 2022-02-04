@@ -112,9 +112,7 @@ export class GamePlay {
     // SINGLE pass: alternating from left/right end of line: insert 'final' influence
     for (let low = 0, high = line.length - 1; high >= 0; low++, high--) {
       this.skipAndSet(line[low], ds, color, ds, ds)
-      this.skipAndSet(line[low], ds, color, dr, ds)
       this.skipAndSet(line[high], ds, color, dr, dr)
-      this.skipAndSet(line[high], ds, color, ds, dr)
       this.hexMap.cont.stage.update() // for debug
     }
     return line

@@ -46,7 +46,7 @@ export class Hex extends Container {
    * 
    * @param ds one of S.Dir3 (major axis)
    * @param color StoneColor
-   * @param dn ds | revDir[ds]
+   * @param dn dir of Influence: ds | revDir[ds]
    * @returns true if Hex is StoneColor or full InfMark or InfMark.temp == dn
    */
   isInf(ds: HexDir, color: StoneColor, dn?: HexDir): boolean {
@@ -64,22 +64,20 @@ export class Hex extends Container {
   setInf(ds: HexDir, color: StoneColor, dt?: HexDir): boolean {
     let infMark = this.getInf(ds, color)
     if (!!infMark && !infMark.temp) return true // already set
-    if (!infMark) {
-      // put tmpMark(ds, color, dn) in Hex, but not on HexMap display
-      let tmpMark = new InfMark(ds, color, dt)
-      if (!this.inf[ds]) this.inf[ds] = {}
-      this.inf[ds][color] = tmpMark
-      return false
-    } else {
+    if (!!infMark && infMark.temp != dt) {
       infMark.temp = undefined // was rev(dn): now adding (dn), so is full InfMark(ds, color)
-      // place InfMark on HexMap:
-      let cont = this.map.overCont
-      let pt = this.parent.localToLocal(this.x, this.y, cont)
-      infMark.x = pt.x; infMark.y = pt.y
-      cont.addChild(infMark)
-      return true
+    } else {
+      // put tmpMark(ds, color, dn) in Hex, but not on HexMap display
+      infMark = new InfMark(ds, color, dt)
+      if (!this.inf[ds]) this.inf[ds] = {}
+      this.inf[ds][color] = infMark
     }
-    return false
+    // place InfMark on HexMap:
+    let cont = this.map.overCont
+    let pt = this.parent.localToLocal(this.x, this.y, cont)
+    infMark.x = pt.x; infMark.y = pt.y
+    cont.addChild(infMark)
+    return true
   }
   getInf(dn: string, color: StoneColor): InfMark {
     return !!this.inf[dn] && this.inf[dn][color]
