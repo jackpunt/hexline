@@ -81,15 +81,20 @@ export class Table extends EventDispatcher  {
     this.roundNumber = Math.floor((this.turnNumber - 1) / this.allPlayers.length) + 1
   }
   endCurPlayer(player: Player) {
-    
+    let stone: Stone = this.nextHex.stone
+    if (!!stone) {
+      stone.parent.removeChild(stone)
+      this.hexMap.cont.stage.update()
+    }
   }
   putButtonOnPlayer(player: Player) {
     this.newStone(player)
+    this.hexMap.cont.stage.update()
   }
 
   newStone(plyr: Player) {
       let stone = new Stone(this.hexMap.cont, this.nextHex.x, this.nextHex.y, plyr.color)
-      plyr['stone'] = stone
+      this.nextHex.stone = stone
       Dragger.makeDragable(stone, this, this.dragFunc, this.dropFunc)
   }
   dragFunc(stone: Stone, ctx: DragInfo) {
@@ -111,6 +116,7 @@ export class Table extends EventDispatcher  {
     stone.x = mark.x
     stone.y = mark.y
     if (this.dropTarget === this.nextHex) return
+    this.nextHex.stone = undefined
     this.dispatchEvent(new HexEvent(S.add, this.dropTarget, stone))
     Dragger.stopDragable(stone)
     this.setNextPlayer()

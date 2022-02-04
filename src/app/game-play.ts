@@ -17,6 +17,7 @@ export class GamePlay {
     this.table = table
     this.hexMap = table.hexMap
     KeyBinder.keyBinder.globalSetKeyFromChar('q', {thisArg: this, func: this.undoMove})
+    KeyBinder.keyBinder.globalSetKeyFromChar('t', {thisArg: this.table, func: this.table.setNextPlayer})
   }
   undoMove() {
     let move = this.moveHist.pop()
@@ -87,6 +88,7 @@ export class GamePlay {
       // reassert stoneColor on line (for what's left)
       this.assertInfluence(hex, dir, color)
     })
+    this.hexMap.cont.stage.update()
   }
   removeInfluence(hex: Hex, dn: HexDir, color: StoneColor) {
     let line = this.hexlineToArray(hex, dn, undefined) // ALL hexes on the line
