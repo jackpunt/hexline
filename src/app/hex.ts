@@ -38,7 +38,7 @@ export class Hex extends Container {
   stone: Stone
   /** color of the Stone or undefined */
   get stoneColor(): StoneColor { return !!this.stone ? this.stone.color : undefined};
-  inf: INF = {black: {}, white: {}}
+  inf: INF
 
   /** Link to neighbor in each S.dirs direction [NE, E, SE, SW, W, NW] */
   NE: Hex; E: Hex; SE: Hex; SW: Hex; W: Hex; NW: Hex
@@ -84,6 +84,9 @@ export class Hex extends Container {
   delInf(dn: string, color: StoneColor) {
     delete this.inf[color][dn]
   }
+  setNoInf() {
+    this.inf = {black: {}, white: {}}
+  }
   /** @return true if hex is doubly influenced by color */
   isAttack(color: StoneColor): boolean {
     let attacks = Object.entries(this.inf[color]).filter((kv: [InfDir, InfMark]) => kv[0] !== undefined)
@@ -103,6 +106,7 @@ export class Hex extends Container {
 
   constructor(color: string, radius: number, row?: number, col?: number, xy?: XY) {
     super();
+    this.setNoInf()
     let dir = Dir.E
     this.color = color
     this.shape = this.hex(radius, color)
@@ -137,6 +141,7 @@ export class HexMap extends Array<Array<Hex>> {
     this.mark.graphics.beginFill(C.markColor).drawPolyStar(0, 0, radius, 6, 0, 30)
     InfMark.initStatic()
   }
+  update() {this.cont.stage.update()}
   // A color for each District:
   distColor = ["lightgrey","rgb(255,104,135)","rgb(255,194,61)","rgb(255,255,128)","lightgreen","rgb(160,190,255)","rgb(218,145,255)"]
   addHex(row: number, col: number, district: number ): Hex {
@@ -177,7 +182,7 @@ export class HexMap extends Array<Array<Hex>> {
       this.mark.y = hex.y
       this.cont.addChild(this.mark)
       this.mark.visible = true
-      this.cont.stage.update()
+      this.update()
     }
   }
   /** neighborhood topology */

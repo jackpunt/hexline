@@ -61,7 +61,7 @@ export class Table extends EventDispatcher  {
 
     this.hexMap = new HexMap(radius, mapCont)
     this.gamePlay.hexMap = this.hexMap
-    this.make7Districts(6)
+    this.make7Districts(4)
 
     this.makeAllPlayers()
     this.setNextPlayer(0)   // make a placeable Stone for Player[0]
@@ -74,7 +74,7 @@ export class Table extends EventDispatcher  {
     if (ndx < 0) ndx = (this.curPlayer.index + 1) % this.allPlayers.length;
     if (ndx != this.curPlayerNdx) this.endCurPlayer(this.curPlayer)
     this.curPlayerNdx = ndx;
-    let curPlayer = this.curPlayer = this.allPlayers[ndx], tn = this.turnNumber, lm = this.gamePlay.moveHist[tn];
+    let curPlayer = this.curPlayer = this.allPlayers[ndx], tn = this.turnNumber, lm = this.gamePlay.board[tn];
     console.log(stime(this, `.setNextPlayer ---------------`), { round: this.roundNumber, turn: tn+1, plyr: curPlayer.name, prev: (!!lm) ? lm.toString() : "" }, '-------------------------------------------------', !!this.stage.canvas);
     this.putButtonOnPlayer(curPlayer);
     this.turnNumber += 1;
@@ -84,12 +84,15 @@ export class Table extends EventDispatcher  {
     let stone: Stone = this.nextHex.stone
     if (!!stone) {
       stone.parent.removeChild(stone)
-      this.hexMap.cont.stage.update()
+      this.hexMap.update()
     }
   }
   putButtonOnPlayer(player: Player) {
     this.newStone(player)
-    this.hexMap.cont.stage.update()
+    let color = (player.color == C.white) ? C.black as StoneColor : C.white as StoneColor
+    let attacks = this.hexMap.filterEachHex(hex => hex.isAttack(color)).map(h=>h.Aname)
+    console.log(stime(this, `.putButtonOnPlayer:${player.color}`), attacks)
+    this.hexMap.update()
   }
 
   newStone(plyr: Player) {
