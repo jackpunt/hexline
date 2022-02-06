@@ -22,9 +22,9 @@ class InfMark extends Shape {
     this.temp = temp
   }
 }
-type bws = {black: Shape, white: Shape}  // StoneColor: Shape (the influence Shape on overCont)
-type INF = {NE?: bws, E?: bws, SE?: bws }
-type InfKey = keyof INF        // 'NE' | 'E' | 'SE'
+type NES = {NE?: InfMark, E?: InfMark, SE?: InfMark }
+type INF = {black: NES, white: NES} // keyof INF === StoneColor
+type InfDir = keyof NES        // 'NE' | 'E' | 'SE'
 
 /** One Hex cell in the game, shown as a polyStar Shape */
 export class Hex extends Container {
@@ -38,7 +38,7 @@ export class Hex extends Container {
   stone: Stone
   /** color of the Stone or undefined */
   get stoneColor(): StoneColor { return !!this.stone ? this.stone.color : undefined};
-  inf: INF = {} // {NE: {BLACK: 0, WHITE: 0}, E: {BLACK: 0, WHITE: 0}, SE: {BLACK: 0, WHITE: 0}}
+  inf: INF = {black: {}, white: {}}
 
   /** Link to neighbor in each S.dirs direction [NE, E, SE, SW, W, NW] */
   NE: Hex; E: Hex; SE: Hex; SW: Hex; W: Hex; NW: Hex
@@ -69,8 +69,7 @@ export class Hex extends Container {
     } else {
       // put tmpMark(ds, color, dn) in Hex, but not on HexMap display
       infMark = new InfMark(ds, color, dt)
-      if (!this.inf[ds]) this.inf[ds] = {}
-      this.inf[ds][color] = infMark
+      this.inf[color][ds] = infMark
       // place InfMark on HexMap:
       let cont = this.map.overCont
       let pt = this.parent.localToLocal(this.x, this.y, cont)
@@ -80,15 +79,14 @@ export class Hex extends Container {
     return true
   }
   getInf(dn: string, color: StoneColor): InfMark {
-    return !!this.inf[dn] && this.inf[dn][color]
+    return this.inf[color][dn]
   }
   delInf(dn: string, color: StoneColor) {
-    if (this.inf[dn]) {
-      delete this.inf[dn][color]
-    }
+    delete this.inf[color][dn]
   }
+  /** @return true if hex is doubly influenced by color */
   isAttack(color: StoneColor): boolean {
-    let attacks = Object.entries(this.inf).filter((kv: [InfKey, bws]) => kv[1][color] !== undefined)
+    let attacks = Object.entries(this.inf[color]).filter((kv: [InfDir, InfMark]) => kv[0] !== undefined)
     return attacks.length >= 2 
   }
   isCapture(color: StoneColor): boolean {
@@ -151,6 +149,25 @@ export class HexMap extends Array<Array<Hex>> {
     if (!!this.cont) this.cont.addChild(hex)
     this.link(hex)   // link to existing neighbors
     return hex
+  }
+  forEachHex(fn: (hex: Hex) => void) {
+    this.forEach((hexRow: Hex[]) => {
+      hexRow.forEach((hex: Hex) => fn(hex))
+    })
+  }
+  mapEachHex<T>(fn: (hex: Hex) => T): T[] {
+    let rv: T[] = []
+    this.forEach((hexRow: Hex[]) => {
+      hexRow.forEach((hex: Hex) => rv.push(fn(hex)))
+    })
+    return rv
+  }
+  filterEachHex(fn: (hex: Hex) => boolean): Hex[] {
+    let rv: Hex[] = []
+    this.forEach((hexRow: Hex[]) => {
+      hexRow.forEach((hex: Hex) => fn(hex) && rv.push(hex))
+    })
+    return rv
   }
   showMark(hex?: Hex) {
     if (!hex) {
