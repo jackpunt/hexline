@@ -12,6 +12,7 @@ export class GamePlay {
   hexMap: HexMap
   board: Board = new Board()    // Array<Move>; Move indicates Player has Stone on Hex
   boardHist: Array<Board> = []  // copy of previous board; turn = history.length
+  curHex: Hex;                  // last-current Hex [Stone] to be played.
 
   constructor(table: Table) {
     this.table = table
@@ -32,7 +33,7 @@ export class GamePlay {
 
     this.undoRecs.pop();
     this.table.stage.update();
-    console.log(stime(this, `.undoIt: after[${undoNdx}] board =`), { board: Array.from(this.board) });
+    console.log(stime(this, `.undoIt: after[${undoNdx}] board =`), { board: Array.from(this.board), undo: this.undoRecs });
     console.groupEnd()   // "undoIt-ndx"
   }
 
@@ -53,32 +54,59 @@ export class GamePlay {
   recalcBoard(board: Board) {
     let linesDone = []
     this.hexMap.forEachHex(hex => {hex.stone = undefined; hex.setNoInf()})
-    board.forEach(m => {
-      m.hex.stone = m.stone;
-      this.assertInfluence(m.hex, m.plyr.color, linesDone)
+    board.forEach(move => {
+      move.hex.stone = move.stone;
+      this.assertInfluence(move.hex, move.stone.color, linesDone)
     })
+  }
 
+  addStone(hex: Hex, stone: Stone) {
+    hex.stone = stone    // put Stone on Hex
+    this.board.push(new Move(hex, stone)) // record Stone on Board
+    this.hexMap.cont.addChild(stone)
+    this.assertInfluence(hex, stone.color)
+    if (!this.undoRecs.isUndoing) {
+      this.addUndoRec(this, `removeStone(${hex.Aname}:${stone.color})`, () => this.removeStone(hex))
+    }
+    this.hexMap.update()
+  }
+
+  /** 
+   * remove Move that placed hex
+   * remove stone Shape from hex
+   * remove all influence of color on each axis from Hex
+   * assert influence of color on each axis from Hex (w/o stone on hex)
+   */
+  removeStone(hex: Hex) {
+    let stone = hex.stone, color = stone.color
+    this.board = this.board.filter(m => m.hex !== hex) // remove Move & Stone from board
+    this.hexMap.cont.removeChild(stone)
+    hex.stone = undefined
+
+    this.assertInfluence(hex, color) // reassert stoneColor on line (for what's left)
+    if (!this.undoRecs.isUndoing) {
+      this.addUndoRec(this, `undoCapture(${hex.Aname}:${color})`, () => this.addStone(hex, stone))
+    }
+    this.hexMap.update()
   }
 
   /** remove captured Stones, from placing Stone on Hex */
-  updateBoard(move: Move) {
+  updateBoard(hex: Hex, stone: Stone) {
+    this.curHex = hex;
+    this.addStone(hex, stone) // add Stone and Capture
+
     let turn = this.table.turnNumber
-    this.board[turn] = move // push(move)
-    let {hex, plyr, stone} = move
-    let color = stone.color
-    hex.stone = move.stone    // put Stone on Hex
-    //hex.stoneColor = plyr.color // may be nullified when stone is captured
-    // find friends in direction (and revDir) [use NE, E, SW as primary axis]
-    // mark Hexes with lines of jeopardy [based on density & spacing]
-    // remove capture(s)
-
-    let axis = S.dir3 // [Dir.NE, Dir.E, Dir.SE]
-    this.board.push(move)     // put stone on board
-    this.assertInfluence(hex, color) // find captures & remove...
-    this.addUndoRec(this, "removeStone", () => this.removeStone(hex))
-
     this.boardHist[turn] = Array.from(this.board) // BoardHistory[turn]
     this.undoRecs.closeUndo()
+
+    if (hex.isCapture(stone.otherColor())) {
+      console.log(stime(this, `.updateBoard:`), "Illegal placement/suicide", hex.Aname)
+      this.undoIt()
+      this.table.useStone(stone)
+    } else {
+      this.table.setNextPlayer()
+    }
+
     this.hexMap.update()
   }
   showLine(str: string, line: Hex[], fn = (h: Hex)=>`${h.Aname}-${h.stoneColor}`) {
@@ -110,22 +138,6 @@ export class GamePlay {
     return rv
   }
 
-  /** 
-   * remove Move that placed hex
-   * remove stone Shape from hex
-   * remove all influence of color on each axis from Hex
-   * assert influence of color on each axis from Hex (w/o stone on hex)
-   */
-  removeStone(hex: Hex) {
-    let color = hex.stoneColor
-    this.board = this.board.filter(m => m.hex !== hex) // remove Move & Stone from board
-    this.hexMap.cont.removeChild(hex.stone)
-    hex.stone = undefined
-
-    this.assertInfluence(hex, color) // reassert stoneColor on line (for what's left)
-    this.hexMap.update()
-  }
-
   assertInfluence(hex: Hex, color: StoneColor, linesDone?: Array<HexDir>) {
     // addUndoRec for each capture (addStone & addInfluence)
     // addUndoRec for each new Influence
@@ -139,15 +151,16 @@ export class GamePlay {
       this.assertInfluenceDir(hex, ds, color)
     })
   }
-  removeInfluenceDir(hex: Hex, dn: HexDir, color: StoneColor) {
-    let line = this.hexlineToArray(hex, dn, undefined) // ALL hexes on the line
-    this.showLine(`.removeInfluence:${hex.Aname}:${color}`, line)
+  /** remove StoneColor influence & InfMark from line(hex,ds) */
+  removeInfluenceDir(hex: Hex, ds: HexDir, color: StoneColor) {
+    let line = this.hexlineToArray(hex, ds, undefined) // ALL hexes on the line
+    //this.showLine(`.removeInfluence:${hex.Aname}:${color}`, line)
 
     line.forEach(hex => {
-      let shape = hex.getInf(dn, color)
-      if (!!shape) {
-        this.hexMap.overCont.removeChild(shape)
-        hex.delInf(dn, color)
+      let infMark = hex.getInf(ds, color)
+      if (!!infMark) {
+        this.hexMap.overCont.removeChild(infMark)
+        hex.delInf(ds, color)
       }
       this.hexMap.update() // for debug
     })
@@ -156,7 +169,7 @@ export class GamePlay {
   /** show influence on map AND remove captured stones */
   assertInfluenceDir(hex: Hex, ds: HexDir, color: StoneColor) {
     let line = this.hexlineToArray(hex, ds, color) // Hexes with Stones of color on line [E..W]
-    this.showLine(`.assertInfluence:${hex.Aname}:${color}`, line)
+    //this.showLine(`.assertInfluence:${hex.Aname}:${color}`, line)
     let dr = S.dirRev[ds]
     // SINGLE pass: alternating from left/right end of line: insert 'final' influence
     for (let low = 0, high = line.length - 1; high >= 0; low++, high--) {
@@ -178,14 +191,14 @@ export class GamePlay {
     while (!!nhex && nhex.isInf(ds, color, dn)) { nhex = nhex[dn]}
     if (!nhex) return
     let inf: boolean = nhex.setInf(ds, color, dn)
-    if (inf && nhex.isCapture(color)) {
+    if (inf && nhex.isCapture(color) && nhex != this.curHex) {
       this.removeStone(nhex) // remove Stone of *other* color
     }
   }
   /** dropFunc */
   addStoneEvent(hev: HexEvent): void {
     let stone = hev.value as Stone
-    this.updateBoard(new Move(hev.hex, this.table.curPlayer, stone))
+    this.updateBoard(hev.hex, stone)
   }
   removeStoneEvent(hev: HexEvent) {
     throw new Error("Method not implemented.");
@@ -193,15 +206,15 @@ export class GamePlay {
 }
 export class Move {
   hex: Hex // where to place stone
-  plyr: Player; // [0,1]
   stone: Stone
-  constructor(hex: Hex, plyr: Player, stone: Stone) {
+  Aname: string
+  constructor(hex: Hex, stone: Stone) {
     this.hex = hex
-    this.plyr = plyr
     this.stone = stone
+    this.Aname = this.toString()
   }
   toString(): string {
-    return `${this.plyr.color}${this.hex.Aname.substring(3)}`
+    return `${this.hex.stone.color}${this.hex.Aname.substring(3)}`
   }
 }
 export class Player {

@@ -29,7 +29,7 @@ type InfDir = keyof NES        // 'NE' | 'E' | 'SE'
 /** One Hex cell in the game, shown as a polyStar Shape */
 export class Hex extends Container {
   Aname: string
-  shape: Shape
+  hexShape: Shape // not currently used
   district: number
   color: string  // district color of Hex
   row: number
@@ -87,11 +87,12 @@ export class Hex extends Container {
   setNoInf() {
     this.inf = {black: {}, white: {}}
   }
-  /** @return true if hex is doubly influenced by color */
+  /** @return true if Hex is doubly influenced by color */
   isAttack(color: StoneColor): boolean {
     let attacks = Object.entries(this.inf[color]).filter((kv: [InfDir, InfMark]) => kv[0] !== undefined)
     return attacks.length >= 2 
   }
+  /** @return true if Hex has a Stone (of other color), and is attacked */
   isCapture(color: StoneColor): boolean {
     return !!this.stoneColor && (this.stoneColor !== color) && this.isAttack(color)
   }
@@ -109,10 +110,11 @@ export class Hex extends Container {
     this.setNoInf()
     let dir = Dir.E
     this.color = color
-    this.shape = this.hex(radius, color)
-    this.shape.rotation = S.dirRot[dir]
-    this.shape.name = this.Aname
-    this.addChild(this.shape)
+    let hexShape = this.hex(radius, color)
+    hexShape.rotation = S.dirRot[dir]
+    hexShape.name = this.Aname
+    this.addChild(hexShape)
+    this.hexShape = hexShape
     if (!!xy) { this.x = xy.x; this.y = xy.y }
 
     if (row === undefined || col === undefined) return

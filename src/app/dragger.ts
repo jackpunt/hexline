@@ -227,13 +227,13 @@ export class Dragger {
       Dragger.dragCont.name = "dragCont"
       dispObj.stage.addChild(Dragger.dragCont) // may be re-parented to the ScaleableContainer!
     }
-
+    Dragger.stopDragable(dispObj) // remove prior Drag listeners
     dispObj["dragAsDispObj"] = asDispObj;
 
     dispObj[S.pressmove] = dispObj.on(S.pressmove, pressmove); 
-    dispObj[S.pressmove][S.aname] = "dragger.pressmove"
+    dispObj[S.pressmove][S.aname] = "Dragger.pressmove"
     dispObj[S.pressup] = dispObj.on(S.pressup, pressup);
-    dispObj[S.pressup][S.aname] = "dragger.pressup"
+    dispObj[S.pressup][S.aname] = "Dragger.pressup"
     //console.log(stime(this, ".makeDragable: name="), dispObj.name, "dispObj=", dispObj, "\n   cont=", cont)
   }
 
@@ -242,7 +242,7 @@ export class Dragger {
     //console.log(stime(this, ".stopDragable: dispObj="), dispObj, dispObj[S.pressmove], dispObj["pressup"])
     dispObj.removeEventListener(S.pressmove, (dispObj[S.pressmove] as EventListener))
     delete dispObj[S.pressmove]
-    dispObj.removeEventListener("pressup", (dispObj["pressup"] as EventListener))
-    delete dispObj["pressup"]
+    dispObj.removeEventListener(S.pressup, (dispObj[S.pressup] as EventListener))
+    delete dispObj[S.pressup]
   }
 }
