@@ -1,12 +1,16 @@
 import { C, S } from "./basic-intfs";
 
+export const stoneColors = ['black', 'white'] as const // StoneColor is not: string C.black
+export type StoneColor = typeof stoneColors[number]
+export function otherColor(color: StoneColor): StoneColor { return color == stoneColors[0] ? stoneColors[1] : stoneColors[0] }
+
 export class TP {
   static numPlayers = 2;
-  static mapRows:number = 7;   /// standard: 6
-  static mapCols:number = 12;  /// standard: 15
-  static playerColors: string[] = ["RED", "BLUE", "GREEN", "ORANGE", "PURPLE", "YELLOW"]; // REQUIRED!
-  static playerRGBcolors: string[] = []; // filled by Player.initialize()
-  static autoEvent: number | true = 2000;
+  
+  static nHexes = 4    // number of Hexes on side of District
+  static nVictory = 4  // number of Districts to control
+  static nMinControl = TP.nHexes + 2
+  static nDiffControl = 3  //
   
   /** exclude whole Extension sets */
   static excludeExt: string[] = ["Policy", "Event", "Roads", "Transit"]; // url?ext=Transit,Roads
@@ -17,5 +21,5 @@ export class TP {
 
   static bgColor: string = C.BROWN
   static networkUrl: string = "wss://game7.thegraid.com:8444";  // URL to cgserver (wspbserver)
-  static networkGroup: string = "citymap:game1";
+  static networkGroup: string = "hexline:game1";
 }

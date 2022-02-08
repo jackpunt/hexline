@@ -6,10 +6,9 @@ import { Hex, HexMap } from "./hex";
 import { HexEvent } from "./hex-event";
 import { KeyBinder } from "./key-binder";
 import { ScaleableContainer } from "./scaleable-container";
-import { TP } from "./table-params";
+import { TP, StoneColor, stoneColors, otherColor } from "./table-params";
 import { stime } from "./types";
 
-export type StoneColor =  "black" | "white"
 export class Stone extends Shape {
   static radius: number = 50
   static height: number = Stone.radius*Math.sqrt(3)/2
@@ -21,7 +20,6 @@ export class Stone extends Shape {
     this.x = x; this.y = y
     cont.addChild(this)
   }
-  otherColor(): StoneColor { return this.color == "black" ? "white" : "black" }
 }
 /** layout display components, setup callbacks to GamePlay */
 export class Table extends EventDispatcher  {
@@ -61,11 +59,11 @@ export class Table extends EventDispatcher  {
     let mapCont = new Container(); mapCont.y = 100; mapCont.x = 200
     mapCont[S.aname] = "mapCont"
     this.scaleCont.addChild(mapCont)
-    mapCont.addChild(this.nextHex)  // single Hex to hold a Stone to play
 
     this.hexMap = new HexMap(radius, mapCont)
+    this.hexMap.hexCont.addChild(this.nextHex)  // single Hex to hold a Stone to play
     this.gamePlay.hexMap = this.hexMap
-    this.make7Districts(4)
+    this.make7Districts(TP.nHexes) // typically: 4
 
     this.makeAllPlayers()
     this.setNextPlayer(0)   // make a placeable Stone for Player[0]
@@ -95,25 +93,25 @@ export class Table extends EventDispatcher  {
   }
   putButtonOnPlayer(player: Player) {
     this.newStone(player)
-    let color = (player.color == C.white) ? C.black as StoneColor : C.white as StoneColor
+    let color = otherColor(player.color)
     let attacks = this.hexMap.filterEachHex(hex => hex.isAttack(color)).map(h => h.Aname)
     console.log(stime(this, `.putButtonOnPlayer:${player.color}`), attacks)
     this.hexMap.update()
   }
 
   newStone(plyr: Player = this.curPlayer) {
-      let stone = new Stone(this.hexMap.cont, this.nextHex.x, this.nextHex.y, plyr.color)
+      let stone = new Stone(this.hexMap.hexCont, this.nextHex.x, this.nextHex.y, plyr.color)
       this.useStone(stone)
   }
   useStone(stone: Stone) {
     stone.x = this.nextHex.x; stone.y = this.nextHex.y
-    this.hexMap.cont.addChild(stone)
+    this.hexMap.stoneCont.addChild(stone)
     this.nextHex.stone = stone
     Dragger.makeDragable(stone, this, this.dragFunc, this.dropFunc)
   }
   dragFunc(stone: Stone, ctx: DragInfo) {
     if (stone.color !== this.curPlayer.color) return
-    let pt = stone.parent.localToLocal(stone.x, stone.y, this.hexMap.cont)
+    let pt = stone.parent.localToLocal(stone.x, stone.y, this.hexMap.hexCont)
     let x = pt.x, y = pt.y
     if (ctx.first) {
       this.hexMap.showMark()
@@ -136,8 +134,8 @@ export class Table extends EventDispatcher  {
   }
   makeAllPlayers() {
     this.allPlayers = []
-    this.allPlayers[0] = new Player(this, 0, "black")
-    this.allPlayers[1] = new Player(this, 1, "white")
+    this.allPlayers[0] = new Player(this, 0, stoneColors[0])
+    this.allPlayers[1] = new Player(this, 1, stoneColors[1])
   }
   forEachPlayer(f: (p:Player, index?: number, players?: Player[]) => void) {
     this.allPlayers.forEach((p, index, players) => f(p, index, players));
@@ -152,16 +150,19 @@ export class Table extends EventDispatcher  {
     this.makeDistrict(n, 3, 6*n2-2, 6*n2+0)  // 6: (16, 17)
     this.makeDistrict(n, 4, 8*n2-2, 3*n2+1+k)  // 6: (22, 10)
   }
+  districtHexAry: Array<Array<Hex>> = []
   makeDistrict(n: number, district: number, roff: number = 0, coff: number = 0) {
+    let hexAry = []
     let row = n-1 + Math.floor(roff), col = 0 + Math.floor(coff), rp = Math.abs(row % 2)
     for (let dr = 0; dr < n; dr++) {
       let c0 = col + ((rp == 0) ? Math.floor(dr/2) : Math.ceil(dr/2))
       let len = (2*n - 1) - dr
       for (let dc = 0; dc < len; dc++) {
-        this.hexMap.addHex(row + dr, c0 + dc, district)
-        if (dr !== 0) this.hexMap.addHex(row - dr, c0 + dc, district)
+        hexAry.push(this.hexMap.addHex(row + dr, c0 + dc, district))
+        if (dr !== 0) hexAry.push(this.hexMap.addHex(row - dr, c0 + dc, district))
       }
     }
+    this.districtHexAry[district] = hexAry
   }
 
   /** default scaling-up value */
@@ -193,7 +194,7 @@ export class Table extends EventDispatcher  {
     }
     if (bindKeys) {
       this.bindKeysToScale(scaleC, 100, 0, scale)
-      KeyBinder.keyBinder.dispatchChar("z")
+      KeyBinder.keyBinder.dispatchChar("a")
     }
     return scaleC
   }

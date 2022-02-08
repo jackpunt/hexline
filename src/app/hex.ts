@@ -1,7 +1,7 @@
 import { Container, Graphics, Shape } from "createjs-module";
 import { C, Dir, HexDir, S, XY } from "./basic-intfs";
-import { Stone, StoneColor } from "./table";
-import { TP } from "./table-params";
+import { Stone } from "./table";
+import { TP, StoneColor } from "./table-params";
 
 // Note: graphics.drawPolyStar(x,y,radius, sides, pointSize, angle) will do a regular polygon
 class InfMark extends Shape {
@@ -71,10 +71,9 @@ export class Hex extends Container {
       infMark = new InfMark(ds, color, dt)
       this.inf[color][ds] = infMark
       // place InfMark on HexMap:
-      let cont = this.map.overCont
-      let pt = this.parent.localToLocal(this.x, this.y, cont)
+      let pt = this.parent.localToLocal(this.x, this.y, this.map.markCont)
       infMark.x = pt.x; infMark.y = pt.y
-      cont.addChild(infMark)
+      this.map.markCont.addChild(infMark)
     }
     return true
   }
@@ -113,6 +112,7 @@ export class Hex extends Container {
     let hexShape = this.hex(radius, color)
     hexShape.rotation = S.dirRot[dir]
     hexShape.name = this.Aname
+    this.hitArea = hexShape
     this.addChild(hexShape)
     this.hexShape = hexShape
     if (!!xy) { this.x = xy.x; this.y = xy.y }
@@ -130,20 +130,24 @@ export class Hex extends Container {
 export class HexMap extends Array<Array<Hex>> {
   radius: number = 50
   height: number;
-  cont: Container
-  overCont: Container = new Container()
+  hexCont: Container = new Container()     // hex shapes on bottom
+  stoneCont: Container = new Container()   // Stone in middle
+  markCont: Container = new Container()    // infMark on the top
   mark: Shape
-  constructor(radius: number = 50, cont?: Container) {
+  constructor(radius: number = 50, mapCont?: Container) {
     super()
     this.radius = radius
     this.height = radius * Math.sqrt(3)/2
-    this.cont = cont
-    this.cont.parent.addChild(this.overCont) // x,y aligned with this.cont! but ABOVE
+    if (!!mapCont) {                 // hexCont, stoneCont, markCont all x,y aligned
+      mapCont.addChild(this.hexCont)
+      mapCont.addChild(this.markCont)
+      mapCont.addChild(this.stoneCont)
+    }
     this.mark = new Shape();
     this.mark.graphics.beginFill(C.markColor).drawPolyStar(0, 0, radius, 6, 0, 30)
     InfMark.initStatic()
   }
-  update() {this.cont.stage.update()}
+  update() { !!this.hexCont.parent && this.hexCont.stage.update()}
   // A color for each District:
   distColor = ["lightgrey","rgb(255,104,135)","rgb(255,194,61)","rgb(255,255,128)","lightgreen","rgb(160,190,255)","rgb(218,145,255)"]
   addHex(row: number, col: number, district: number ): Hex {
@@ -153,7 +157,7 @@ export class HexMap extends Array<Array<Hex>> {
     if (!this[row]) this[row] = new Array<Hex>()
     this[row][col] = hex
     hex.map = this
-    if (!!this.cont) this.cont.addChild(hex)
+    if (!!this.hexCont) this.hexCont.addChild(hex)
     this.link(hex)   // link to existing neighbors
     return hex
   }
@@ -182,7 +186,7 @@ export class HexMap extends Array<Array<Hex>> {
     } else {
       this.mark.x = hex.x
       this.mark.y = hex.y
-      this.cont.addChild(this.mark)
+      this.markCont.addChild(this.mark)
       this.mark.visible = true
       this.update()
     }
@@ -212,9 +216,8 @@ export class HexMap extends Array<Array<Hex>> {
    * @returns the Hex under mouse or null, if not a Hex (background)
    */
   hexUnderPoint(x: number, y: number): Hex {
-    let obj = this.cont.getObjectUnderPoint(x, y, 1) // 0=all, 1=mouse-enabled (Hex, not Stone)
-    if (obj instanceof Hex) return obj // not happening (unless we set a hitArea!)
-    if (obj instanceof Shape && obj.parent instanceof Hex) return obj.parent
+    let obj = this.hexCont.getObjectUnderPoint(x, y, 1) // 0=all, 1=mouse-enabled (Hex, not Stone)
+    if (obj instanceof Hex) return obj // Hex.hitArea = hexShape
     return null
   }
 }

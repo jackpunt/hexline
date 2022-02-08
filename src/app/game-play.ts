@@ -2,7 +2,8 @@ import { C, Dir, HexDir, S } from "./basic-intfs";
 import { Hex, HexMap } from "./hex";
 import { HexEvent } from "./hex-event";
 import { KeyBinder } from "./key-binder";
-import { Stone, StoneColor, Table } from "./table";
+import { Stone, Table } from "./table";
+import { otherColor, StoneColor} from "./table-params"
 import { stime } from "./types";
 import { Undo } from "./undo";
 
@@ -63,7 +64,7 @@ export class GamePlay {
   addStone(hex: Hex, stone: Stone) {
     hex.stone = stone    // put Stone on Hex
     this.board.push(new Move(hex, stone)) // record Stone on Board
-    this.hexMap.cont.addChild(stone)
+    this.hexMap.stoneCont.addChild(stone)
     this.assertInfluence(hex, stone.color)
     if (!this.undoRecs.isUndoing) {
       this.addUndoRec(this, `removeStone(${hex.Aname}:${stone.color})`, () => this.removeStone(hex))
@@ -80,7 +81,7 @@ export class GamePlay {
   removeStone(hex: Hex) {
     let stone = hex.stone, color = stone.color
     this.board = this.board.filter(m => m.hex !== hex) // remove Move & Stone from board
-    this.hexMap.cont.removeChild(stone)
+    stone.parent.removeChild(stone)
     hex.stone = undefined
 
     this.assertInfluence(hex, color) // reassert stoneColor on line (for what's left)
@@ -99,7 +100,7 @@ export class GamePlay {
     this.boardHist[turn] = Array.from(this.board) // BoardHistory[turn]
     this.undoRecs.closeUndo()
 
-    if (hex.isCapture(stone.otherColor())) {
+    if (hex.isCapture(otherColor(stone.color))) {
       console.log(stime(this, `.updateBoard:`), "Illegal placement/suicide", hex.Aname)
       this.undoIt()
       this.table.useStone(stone)
@@ -159,7 +160,7 @@ export class GamePlay {
     line.forEach(hex => {
       let infMark = hex.getInf(ds, color)
       if (!!infMark) {
-        this.hexMap.overCont.removeChild(infMark)
+        infMark.parent.removeChild(infMark)
         hex.delInf(ds, color)
       }
       this.hexMap.update() // for debug
