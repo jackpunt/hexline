@@ -10,8 +10,8 @@ class InfMark extends Shape {
   static initStatic() {
     if (!!InfMark.gEw) return
     let r = Stone.height - 1
-    InfMark.gEw = new Graphics().ss(2).s(C.RED).mt(2, r).lt(2, -r)
-    InfMark.gEb = new Graphics().ss(2).s(C.GREEN).mt(-2, r).lt(-2, -r)
+    InfMark.gEw = new Graphics().ss(2).s(C.white).mt(2, r).lt(2, -r)
+    InfMark.gEb = new Graphics().ss(2).s(C.black).mt(-2, r).lt(-2, -r)
   }
 
   temp: HexDir;
@@ -26,6 +26,15 @@ type NES = {NE?: InfMark, E?: InfMark, SE?: InfMark }
 type INF = {black: NES, white: NES} // keyof INF === StoneColor
 type InfDir = keyof NES        // 'NE' | 'E' | 'SE'
 
+class CapMark extends Shape {
+  static capSize = 4   // depends on HexMap.height
+  constructor() {
+    super()
+    this.graphics.beginFill(C.capColor).drawPolyStar(0, 0, CapMark.capSize, 6, 0, 30)
+
+  }
+
+}
 /** One Hex cell in the game, shown as a polyStar Shape */
 export class Hex extends Container {
   Aname: string
@@ -36,6 +45,7 @@ export class Hex extends Container {
   col: number
   map: HexMap;  // Note: this.parent == this.map.cont
   stone: Stone
+  captured: CapMark; // set if recently captured (markCapture)
   /** color of the Stone or undefined */
   get stoneColor(): StoneColor { return !!this.stone ? this.stone.color : undefined};
   inf: INF
@@ -96,6 +106,15 @@ export class Hex extends Container {
     return !!this.stoneColor && (this.stoneColor !== color) && this.isAttack(color)
   }
 
+  markCapture() {
+    if (!!this.captured) return // only 1 CapMark per Hex
+    this.addChild(this.captured = new CapMark())
+  }
+  unmarkCapture() {
+    this.captured && this.removeChild(this.captured)
+    this.captured = undefined
+  }
+
   /** makes a colored hex, outlined with bgColor */
   hex(rad: number, color: string): Shape {
     let ns = new Shape(), tilt = 30
@@ -138,10 +157,11 @@ export class HexMap extends Array<Array<Hex>> {
     super()
     this.radius = radius
     this.height = radius * Math.sqrt(3)/2
+    CapMark.capSize = this.height
     if (!!mapCont) {                 // hexCont, stoneCont, markCont all x,y aligned
       mapCont.addChild(this.hexCont)
-      mapCont.addChild(this.markCont)
       mapCont.addChild(this.stoneCont)
+      mapCont.addChild(this.markCont)
     }
     this.mark = new Shape();
     this.mark.graphics.beginFill(C.markColor).drawPolyStar(0, 0, radius, 6, 0, 30)
@@ -186,7 +206,7 @@ export class HexMap extends Array<Array<Hex>> {
     } else {
       this.mark.x = hex.x
       this.mark.y = hex.y
-      this.markCont.addChild(this.mark)
+      this.hexCont.addChild(this.mark) // show mark *below* Stone
       this.mark.visible = true
       this.update()
     }
