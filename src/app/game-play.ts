@@ -143,12 +143,12 @@ export class GamePlay {
     let rv: Array<Hex> = (!color || (hex.stoneColor === color)) ? [hex] : []
     let nhex: Hex = hex
     rv['ds'] = ds
-    while (!!(nhex = nhex[ds])) {
+    while (!!(nhex = nhex.links[ds])) {
       if (!color || nhex.stoneColor === color) rv.push(nhex)
     }
     let dr = S.dirRev[ds]; 
     nhex = hex
-    while (!!(nhex = nhex[dr])) {
+    while (!!(nhex = nhex.links[dr])) {
       if (!color || nhex.stoneColor === color) rv.push(nhex)
     }
     rv.sort((a, b) => b.x - a.x)
@@ -205,7 +205,7 @@ export class GamePlay {
    * @returns 
    */
   skipAndSet(nhex: Hex, ds: HexDir, color: StoneColor, dn: HexDir) {
-    while (!!nhex && nhex.isInf(ds, color, dn)) { nhex = nhex[dn]}
+    while (!!nhex && nhex.isInf(ds, color, dn)) { nhex = nhex.links[dn]}
     if (!nhex) return
     let inf: boolean = nhex.setInf(ds, color, dn)
     if (inf && nhex.isCapture(color) && nhex != this.curHex) {

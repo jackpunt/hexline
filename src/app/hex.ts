@@ -4,6 +4,8 @@ import { Stone } from "./table";
 import { TP, StoneColor, stoneColor0, stoneColor1 } from "./table-params";
 
 // Note: graphics.drawPolyStar(x,y,radius, sides, pointSize, angle) will do a regular polygon
+
+type LINKS = { NE: Hex, E: Hex, SE: Hex, SW: Hex, W: Hex, NW: Hex }
 class InfMark extends Shape {
   static gE0: Graphics
   static gE1: Graphics
@@ -58,9 +60,43 @@ export class Hex extends Container {
   /** color of the Stone or undefined */
   get stoneColor(): StoneColor { return !!this.stone ? this.stone.color : undefined};
   inf: INF
+  width: number;
+  height: number;
 
   /** Link to neighbor in each S.dirs direction [NE, E, SE, SW, W, NW] */
-  NE: Hex; E: Hex; SE: Hex; SW: Hex; W: Hex; NW: Hex
+  links: LINKS = {
+    NE: undefined,
+    E: undefined,
+    SE: undefined,
+    SW: undefined,
+    W: undefined,
+    NW: undefined
+  }
+  
+
+  constructor(color: string, radius: number, row?: number, col?: number, xy?: XY) {
+    super();
+    this.setNoInf()
+    let dir = Dir.E
+    this.color = color
+    let hexShape = this.hex(radius, color)
+    hexShape.rotation = S.dirRot[dir]
+    hexShape.name = this.Aname
+    this.hitArea = hexShape
+    this.addChild(hexShape)
+    this.hexShape = hexShape
+    if (!!xy) { this.x = xy.x; this.y = xy.y }
+
+    if (row === undefined || col === undefined) return
+    this.Aname = `Hex@[${row},${col}]`
+    this.row = row
+    this.col = col
+    let h = radius * Math.sqrt(3)/2
+    this.x = col * 2 * h + Math.abs(row % 2) * h
+    this.y = row * 1.5 * radius
+    this.width = h
+    this.height = radius
+  }
   /**
    * 
    * @param ds one of S.Dir3 (major axis)
@@ -132,27 +168,6 @@ export class Hex extends Container {
     return ns
   }
 
-  constructor(color: string, radius: number, row?: number, col?: number, xy?: XY) {
-    super();
-    this.setNoInf()
-    let dir = Dir.E
-    this.color = color
-    let hexShape = this.hex(radius, color)
-    hexShape.rotation = S.dirRot[dir]
-    hexShape.name = this.Aname
-    this.hitArea = hexShape
-    this.addChild(hexShape)
-    this.hexShape = hexShape
-    if (!!xy) { this.x = xy.x; this.y = xy.y }
-
-    if (row === undefined || col === undefined) return
-    this.Aname = `Hex@[${row},${col}]`
-    this.row = row
-    this.col = col
-    let h = radius * Math.sqrt(3)/2
-    this.x = col * 2 * h + Math.abs(row % 2) * h
-    this.y = row * 1.5 * radius
-  }
 }
 /** HexMap[row][col] keep registry of all Hex items map to/from [row, col] */
 export class HexMap extends Array<Array<Hex>> {
@@ -227,13 +242,13 @@ export class HexMap extends Array<Array<Hex>> {
         SW: {dc: 0, dr: 1}, W: {dc: -1, dr: 0}, NW: {dc: 0, dr: -1}}
 
   link(hex: Hex) {
-    let n = (hex.row % 2 == 0) ? this.n0 : this.n1
+    let nt = (hex.row % 2 == 0) ? this.n0 : this.n1
     S.dirs.forEach(dir => {
-      let nr = hex.row + n[dir].dr , nc = hex.col + n[dir].dc 
+      let nr = hex.row + nt[dir].dr , nc = hex.col + nt[dir].dc 
       let nHex = this[nr] && this[nr][nc]
       if (!!nHex) {
-        hex[dir] = nHex
-        nHex[S.dirRev[dir]] = hex
+        hex.links[dir] = nHex
+        nHex.links[S.dirRev[dir]] = hex
       }
     });
   }

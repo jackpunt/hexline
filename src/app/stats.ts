@@ -83,16 +83,20 @@ export class BoardStats {
   update() {
     this.zeroCounters()
     this.hexMap.forEachHex((hex) => this.incCounters(hex))
+    let win: StoneColor | ""
     // forEachDistrict(d => {})
     for (let d = 0; d < 7; d++) {
       stoneColors.forEach(color => {
         let pstats = this.pStats[color] as PlayerStats
         let dStones = pstats.dStones[d]
         let min = pstats.dMinControl[d] = (dStones >= TP.nMinControl)
-        if (min && dStones - (this.pStats[otherColor(color)] as PlayerStats).dStones[d] >= TP.nDiffControl)
+        if (min && dStones - (this.pStats[otherColor(color)] as PlayerStats).dStones[d] >= TP.nDiffControl) {
           this.inControl[d] = color
+          win = (this.inControl[d].length >= TP.nVictory) && color
+        }
       })
     }
+    if (!!win) alert(`Win! ${win}`)
   }
 }
 
