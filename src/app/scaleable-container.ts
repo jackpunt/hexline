@@ -3,23 +3,6 @@ import { XY, S } from './basic-intfs';
 
 export type SC = ScaleableContainer
 
-/** the 'dragCtx' values, and scale things. */
-export interface DragInfo {
-  first: boolean,      // true on the first drag event of this dragCtx, false thereafter
-  nameD: string,       // name from DispObj (Card)
-  srcCont: Container,  // original obj.parent (expect CardContainer)
-  lastCont: Container, // latest 'dropTarget' updated when over legal dropTarget
-  eventX: number,      // original mouse hit: e.stageX (global coords)
-  eventY: number,
-  dxy: XY;             // original offset from mouse to regXY (local coords)
-  objx: number,        // obj location on parent (drag cont or stage)
-  objy: number,
-  scalmat: Matrix2D,   // original/current scale/translate (to detect change of scale/offset)
-  targetC: Container,     // set if dragging whole [Scaleable]Container
-  targetD: DisplayObject, // set if dragging single DisplayObject
-  rotation: number,      // obj.rotation before dragging
-  scope: Object,        // 'this' for dragFunc/dropFunc()
-}
 type ScaleParams = { zscale?: number, initScale?: number, zero?: number, base?: number, min?: number, max?: number, limit?: number }
 
 export class ScaleEvent extends Event {

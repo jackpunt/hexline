@@ -19,12 +19,6 @@ export class Stone extends Shape {
     this.color = color
     this.graphics.beginFill(color).drawCircle(0, 0, radius-1)
   }
-  static onHex(stone: Stone, hex: Hex, cont: Container) {
-    let pt = hex.parent.localToLocal(hex.x, hex.y, cont)
-    stone.x = pt.x; stone.y = pt.y
-    cont.addChild(stone)
-    hex.stone = stone
-  }
 }
 /** layout display components, setup callbacks to GamePlay */
 export class Table extends EventDispatcher  {
@@ -55,7 +49,7 @@ export class Table extends EventDispatcher  {
     this.nextHex.scaleX = this.nextHex.scaleY = 2
   }
 
-  scaleParams = { zscale: .20, initScale: .324, zero: 0.125, max: 30, limit: 2, base: 1.1, min: -2 };
+  scaleParams = { zscale: .20, initScale: .324, zero: 0.125, max: 30, limit: 4, base: 1.1, min: -2 };
   testoff: number = 1
 
   layoutTable() {
@@ -77,17 +71,18 @@ export class Table extends EventDispatcher  {
     this.on(S.remove, this.gamePlay.removeStoneEvent, this.gamePlay)[S.aname] = "removeStone"
     this.stage.update()
   }
-  setNextPlayer(ndx: number = -1) {
+  setNextPlayer(ndx: number = -1, turn?: number) {
     if (ndx < 0) ndx = (this.curPlayer.index + 1) % this.allPlayers.length;
     if (ndx != this.curPlayerNdx) this.endCurPlayer(this.curPlayer)
     this.curPlayerNdx = ndx;
+    this.turnNumber = turn ? turn : this.turnNumber + 1;
+    this.roundNumber = Math.floor((this.turnNumber - 1) / this.allPlayers.length) + 1
+
     let lm = this.gamePlay.history[0], lms = !!lm? lm.toString(): ""
     let curPlayer = this.curPlayer = this.allPlayers[ndx], tn = this.turnNumber, capd = this.gamePlay.lastCaptured
-    let info = { turn: tn+1, plyr: curPlayer.name, prev: lms, capd: capd, undo: this.gamePlay.undoRecs }
+    let info = { turn: tn, plyr: curPlayer.name, prev: lms, capd: capd, undo: this.gamePlay.undoRecs }
     console.log(stime(this, `.setNextPlayer ---------------`), info, '-----------------------------', !!this.stage.canvas);
     this.putButtonOnPlayer(curPlayer);
-    this.turnNumber += 1;
-    this.roundNumber = Math.floor((this.turnNumber - 1) / this.allPlayers.length) + 1
   }
   endCurPlayer(player: Player) {
     Dragger.stopDragable(this.dropStone) // whereever it landed
@@ -98,41 +93,48 @@ export class Table extends EventDispatcher  {
     }
   }
   putButtonOnPlayer(player: Player) {
-    let stone = new Stone(player.color)
-    Stone.onHex(stone, this.nextHex, this.hexMap.hexCont)
-    this.makeDragable(stone)
+    this.setStone(new Stone(player.color)) // new Stone for Player
 
     let color = otherColor(player.color)
     let attacks = this.hexMap.filterEachHex(hex => hex.isAttack(color)).map(h => h.Aname)
     console.log(stime(this, `.putButtonOnPlayer:${player.color}`), attacks)
     this.hexMap.update()
   }
-
-  nextStone(stone: Stone, hex = this.nextHex) {
-    Stone.onHex(stone, hex, this.hexMap.stoneCont)
-    this.makeDragable(stone)
+  /** set hex.stone & addChild,  */
+  setStone(stone: Stone, hex: Hex = this.nextHex, cont: Container = this.hexMap.stoneCont) {
+    let pt = hex.parent.localToLocal(hex.x, hex.y, cont)
+    stone.x = pt.x; stone.y = pt.y
+    cont.addChild(stone)
+    hex.stone = stone
+    if (hex == this.nextHex) Dragger.makeDragable(stone, this, this.dragFunc, this.dropFunc)
   }
-
-  makeDragable(stone: Stone) {
-    Dragger.makeDragable(stone, this, this.dragFunc, this.dropFunc)
+  /** clear hex.stone & removeChild */
+  clearStone(hex: Hex): Stone {
+    let stone = hex.stone
+    if (stone) {
+      stone.parent.removeChild(stone)
+      hex.stone = undefined
+    }
+    return stone
   }
   dragFunc(stone: Stone, ctx: DragInfo) {
     if (stone.color !== this.curPlayer.color) return
-    if (ctx.first && this.nextHex.stone == stone) this.nextHex.stone = undefined  // remove 
     let pt = stone.parent.localToLocal(stone.x, stone.y, this.hexMap.hexCont)
     let x = pt.x, y = pt.y
     if (ctx.first) {
+      // ctx.lastCont == stone.parent == hexMap.stoneCont (putButtonOnPlayer & nextStone)
       this.hexMap.showMark()
     } else {
       let hex = this.hexMap.hexUnderPoint(x, y)
       if (!hex) return
       if (!!hex.captured) return
-      if (!!hex.stone) return
-      this.dropTarget = hex
+      if (!!hex.stone && hex.stone != stone) return // Ok to drop on itself
+      this.dropTarget = hex // hex.parent == hexMap.hexCont
       this.hexMap.showMark(hex)
     }
   }
   dropFunc(stone: Stone, ctx: DragInfo) {
+    // stone.parent == hexMap.stoneCont
     this.dropStone = stone
     let mark = this.hexMap.mark
     if (!mark.visible) return
@@ -147,6 +149,7 @@ export class Table extends EventDispatcher  {
     this.allPlayers[0] = new Player(this, 0, stoneColors[0])
     this.allPlayers[1] = new Player(this, 1, stoneColors[1])
   }
+  otherPlayer(plyr: Player) { return plyr == this.allPlayers[0] ? this.allPlayers[0] : this.allPlayers[1]}
   forEachPlayer(f: (p:Player, index?: number, players?: Player[]) => void) {
     this.allPlayers.forEach((p, index, players) => f(p, index, players));
   }

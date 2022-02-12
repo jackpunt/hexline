@@ -1,6 +1,9 @@
 import { C } from "./basic-intfs";
 
-export const stoneColors = ['black', 'white'] as const // StoneColor is not: string C.black
+//export const stoneColors = ['black', 'white'] as const
+export const stoneColors = ['blue', 'red'] as const
+export const stoneColor0 = stoneColors[0]
+export const stoneColor1 = stoneColors[1]
 //type stoneColorTuple = typeof stoneColors
 export type StoneColor = typeof stoneColors[number]
 export function otherColor(color: StoneColor): StoneColor { return color == stoneColors[0] ? stoneColors[1] : stoneColors[0] }

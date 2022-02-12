@@ -66,8 +66,24 @@ export namespace S {
 }
 /** color strings */
 export namespace C {
+  /** Returns array<number> in RGBA order in the range 0 to 255 */
+  export function nameToRgba(name: string) {
+    var canvas = document.createElement('canvas');
+    var context = canvas.getContext('2d');
+    context.fillStyle = name;
+    context.fillRect(0,0,1,1);
+    return context.getImageData(0,0,1,1).data;
+  }
   /** add alpha value to an "rgb(r,g,b)" string */
   export function rgba(rgb: string, a: number): string { return "rgba" + rgb.substring(3, rgb.length - 1) + ", "+a+")" }
+  /** array of color components: [r, g, b, a] */
+  export function values(rgb: string) { return rgb.match(/[.|\d]+/g).map(Number)}
+  /** distance between two rgb colors */
+  export function dist(rgb1: string, rgb2: string) { 
+    let v1 = C.nameToRgba(rgb1), v2 = C.nameToRgba(rgb2) 
+    let ds = (v1: Uint8ClampedArray, v2: Uint8ClampedArray, i: number) => { return (v1[i] - v2[i]) * (v1[i] - v2[i]) }
+    return Math.sqrt(ds(v1, v2, 0) + ds(v1, v2, 1) + ds(v1, v2, 2))
+  }
   export const RED:         string = "RED"          // nominal player color
   export const BLUE:        string = "BLUE"         // nominal player color
   export const GREEN:       string = "GREEN"        // nominal player color
@@ -87,6 +103,7 @@ export namespace C {
   export const legalGreen:  string = "rgba(  0, 100,   0, .3)"
   export const legalRed:    string = "rgba(100,   0,   0, .3)"
   export const demoRed:     string = "rgba(100,   0,   0, .8)"
+  export const dimYellow:   string = "rgba(235, 235, 108,  1)" // contrasts with 'white' [also: khaki]
   export const targetMark:  string = "rgba(190, 250, 190, .8)"
   export const debtMark:    string = "rgba( 50,   0,   0, .3)"
   export const markColor:   string = "rgba( 50,  50,  50, .3)"
