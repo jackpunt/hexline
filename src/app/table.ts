@@ -6,6 +6,7 @@ import { Hex, HexMap } from "./hex";
 import { HexEvent } from "./hex-event";
 import { KeyBinder } from "./key-binder";
 import { ScaleableContainer } from "./scaleable-container";
+import { BoardStats } from "./stats";
 import { TP, StoneColor, stoneColors, otherColor } from "./table-params";
 import { stime } from "./types";
 
@@ -23,6 +24,7 @@ export class Stone extends Shape {
 /** layout display components, setup callbacks to GamePlay */
 export class Table extends EventDispatcher  {
 
+  bStats: BoardStats
   gamePlay: GamePlay;
   stage: Stage;
   scaleCont: Container
@@ -31,7 +33,7 @@ export class Table extends EventDispatcher  {
   roundNumber: number = 0;
   turnNumber: number = 0
   dropStone: Stone
-  nextHex: Hex = new Hex("grey", Stone.radius, undefined, undefined, {x: 150, y: 150})
+  nextHex: Hex = new Hex("grey", Stone.radius, undefined, undefined, {x: Stone.radius * 3, y: Stone.radius})
 
   allPlayers: Player[] = [];
   getNumPlayers(): number { return this.allPlayers.length; }
@@ -54,18 +56,28 @@ export class Table extends EventDispatcher  {
 
   layoutTable() {
     let radius = Stone.radius
-    this.scaleCont = this.makeScaleCont(!!this.stage)
+    this.scaleCont = this.makeScaleCont(!!this.stage) // scaleCont & background
     let mapCont = new Container(); mapCont.y = 100; mapCont.x = 200
     mapCont[S.aname] = "mapCont"
     this.scaleCont.addChild(mapCont)
 
     this.hexMap = new HexMap(radius, mapCont)
     this.hexMap.hexCont.addChild(this.nextHex)  // single Hex to hold a Stone to play
+    Dragger.makeDragable(this.nextHex, undefined, undefined, undefined, true)
     this.gamePlay.hexMap = this.hexMap
     this.make7Districts(TP.nHexes) // typically: 4
+    // background sized for nHexes:    
+    let hex0 = this.districtHexAry[0][TP.nHexes-1]  // center Hex in central district
+    let dim = (hex0.y + hex0.height * 2) * 2 
+    this.bgRect = { x: 0, y: 0, w: dim, h: dim }
+    this.setBackground(this.scaleCont)
+    // align center of hexMap with center of background
+    mapCont.x = this.bgRect.w/2 - hex0.x
+    mapCont.y = this.bgRect.h/2 - hex0.y
 
     this.makeAllPlayers()
     this.setNextPlayer(0)   // make a placeable Stone for Player[0]
+    this.bStats = new BoardStats(this)
 
     this.on(S.add, this.gamePlay.addStoneEvent, this.gamePlay)[S.aname] = "addStone"
     this.on(S.remove, this.gamePlay.removeStoneEvent, this.gamePlay)[S.aname] = "removeStone"
@@ -163,6 +175,7 @@ export class Table extends EventDispatcher  {
     this.makeDistrict(n, 3, 6*n2-2, 6*n2+0)  // 6: (16, 17)
     this.makeDistrict(n, 4, 8*n2-2, 3*n2+1+k)  // 6: (22, 10)
   }
+  /** Array of Hex for each District */
   districtHexAry: Array<Array<Hex>> = []
   makeDistrict(n: number, district: number, roff: number = 0, coff: number = 0) {
     let hexAry = []
@@ -177,7 +190,7 @@ export class Table extends EventDispatcher  {
     }
     this.districtHexAry[district] = hexAry
   }
-
+  bgRect = {x: 0, y: 0, w: 2000, h: 2000}
   /** default scaling-up value */
   upscale: number = 1.5;
   /** change cont.scale to given scale value. */
@@ -187,29 +200,32 @@ export class Table extends EventDispatcher  {
   /** makeScaleableBack and setup scaleParams 
    * @param bindkeys true if there's a GUI/user/keyboard
    */
-  makeScaleCont(bindKeys: boolean, bgColor: string = TP.bgColor): ScaleableContainer {
-    let scale = this.scaleParams.initScale = 0.324; // .125 if full-size cards
+  makeScaleCont(bindKeys: boolean): ScaleableContainer {
+    this.scaleParams.initScale = 0.324; // .125 if full-size cards
     /** scaleCont: a scalable background */
     let scaleC = new ScaleableContainer(this.stage, this.scaleParams);
     if (!!scaleC.stage.canvas) {
       Dragger.makeDragable(scaleC); // THE case where not "dragAsDispObj"
       scaleC.addChild(Dragger.dragCont); // so dragCont is in ScaleableContainer
       //this.scaleUp(Dragger.dragCont, 1.7); // Items being dragged appear larger!
-    }    
+    }
+    if (bindKeys) {
+      let scale = this.scaleParams.initScale
+      this.bindKeysToScale(scaleC, 100, 0, scale)
+      KeyBinder.keyBinder.dispatchChar("a")
+    }
+    return scaleC
+  }
+  setBackground(scaleC: Container, bgColor: string = TP.bgColor) {
     if (!!bgColor) {
       // specify an Area that is Dragable (mouse won't hit "empty" space)
       let background = new Shape();
-      background.graphics.beginFill(bgColor).drawRect(0, 0, 2000, 2000);
+      background.graphics.beginFill(bgColor).drawRect(this.bgRect.x, this.bgRect.y, this.bgRect.w, this.bgRect.h);
       scaleC.addChildAt(background, 0);
       background.x = 0;
       background.y = 0;
       //console.log(stime(this, ".makeScalableBack: background="), background);
     }
-    if (bindKeys) {
-      this.bindKeysToScale(scaleC, 100, 0, scale)
-      KeyBinder.keyBinder.dispatchChar("a")
-    }
-    return scaleC
   }
   bindKeysToScale(scaleC: ScaleableContainer, xos: number, yos: number, scale: number) {
     let xoff= scaleC.x, yoff = scaleC.y

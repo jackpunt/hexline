@@ -57,6 +57,7 @@ export class GamePlay {
     if (undoTurn) {
       this.table.setNextPlayer(undefined, this.table.turnNumber - 1)
     }
+    this.table.bStats.update()
     this.hexMap.update()
   }
   redoMove() {
@@ -123,7 +124,7 @@ export class GamePlay {
     } else {
       this.table.setNextPlayer()
     }
-
+    this.table.bStats.update()
     this.hexMap.update()
   }
   showLine(str: string, line: Hex[], fn = (h: Hex)=>`${h.Aname}-${h.stoneColor}`) {

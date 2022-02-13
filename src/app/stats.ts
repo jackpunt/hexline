@@ -14,12 +14,12 @@ export class PlayerStats {
   plyr: Player; // 
   op: Player;   // op = this.table.otherPlayer(this.plyr)
 
-  dStones: number[];       // per-district
-  dMinControl: boolean[];  // per-district true if minControl of district
-  nStones: number;   // total on board
-  nInf: number;      // (= nStones*6 - edge effects - E/W-underlap)
-  nThreats: number;  // (Hex w/ inf && [op].stone)
-  nAttacks: number;  // (Hex w/ inf >= 2)
+  dStones: number[] = Array(7);       // per-district
+  dMinControl: boolean[] = Array(7);  // per-district true if minControl of district
+  nStones: number = 0;   // total on board
+  nInf: number = 0;      // (= nStones*6 - edge effects - E/W-underlap)
+  nThreats: number = 0;  // (Hex w/ inf && [op].stone)
+  nAttacks: number = 0;  // (Hex w/ inf >= 2)
 
   get rStones(): number  { return this.op.stats.nStones};   // [op].nStones
   get rInf(): number     { return this.op.stats.rInf};      // [op].nInf
@@ -27,7 +27,7 @@ export class PlayerStats {
   get rAttacks(): number { return this.op.stats.nAttacks};  // [op].nStones
   // -per District:
   inControl(d)  { return this.bStats.inControl[this.plyr.color][d]; }
- 
+
   constructor(plyr: Player, bStats: BoardStats) {
     this.bStats = bStats
     plyr.stats = this
@@ -41,19 +41,21 @@ export class BoardStats {
   table: Table
   gamePlay: GamePlay
   hexMap: HexMap
-  pStats: PlayerStats[] // indexed by StoneColor
+  pStats: PlayerStats[] = [] // indexed by StoneColor
   // turn?
   // -per District: 
   minControl: boolean[][] = [] // (nStones[color] >= TP.minControl ) -> [dist][color] = true
   inControl:  StoneColor[] = [] // (nStones[color] - nStones[oc] >= TP.diffControl) -> [district]=color
-
+  score(color: StoneColor): number {
+    return this.inControl.filter(ic => ic == color).length
+  }
   constructor(table: Table) {
     this.table = table
     this.gamePlay = table.gamePlay
     this.hexMap = table.gamePlay.hexMap
     this.zeroCounters()
   }
-  pStat(color: StoneColor): PlayerStats { return this.pStat[color] }
+  pStat(color: StoneColor): PlayerStats { return this.pStats[color] }
   zeroCounters() {
     this.minControl = Array<Array<boolean>>(7) // [district][color]
     this.inControl = Array<StoneColor>(7)
@@ -64,8 +66,8 @@ export class BoardStats {
     let stone = hex.stone
     if (!!stone) {
       let color = stone.color, district = hex.district, pstats = this.pStats[color] as PlayerStats
-      ++pstats.nStones
-      ++pstats.dStones[district]
+      pstats.nStones += 1
+      pstats.dStones[district] = (pstats.dStones[district] || 0) + 1
     }
     // count influence, threats, & attacks
     stoneColors.forEach(color => {
@@ -90,13 +92,17 @@ export class BoardStats {
         let pstats = this.pStats[color] as PlayerStats
         let dStones = pstats.dStones[d]
         let min = pstats.dMinControl[d] = (dStones >= TP.nMinControl)
-        if (min && dStones - (this.pStats[otherColor(color)] as PlayerStats).dStones[d] >= TP.nDiffControl) {
+        if (min && dStones - ((this.pStats[otherColor(color)] as PlayerStats).dStones[d] || 0) >= TP.nDiffControl) {
           this.inControl[d] = color
-          win = (this.inControl[d].length >= TP.nVictory) && color
+          if (this.score(color) >= TP.nVictory) win = color
         }
       })
     }
-    if (!!win) alert(`Win! ${win}`)
+    if (!!win) {
+      this.hexMap.update()
+      let lose = otherColor(win), winS = this.score(win), loseS = this.score(lose)
+      setTimeout(() => alert(`${win} WINS! ${winS} -- ${loseS}`), 200)
+    }
   }
 }
 
