@@ -14,7 +14,12 @@ export class TP {
   static nVictory = 4  // number of Districts to control
   static nMinControl  = (TP.nHexes <= 1) ? 1 : TP.nHexes + 1 // [1, 1, 3, 4, 5, ...]
   static nDiffControl = (TP.nHexes <= 1) ? 0 : TP.nHexes - 1 // [0, 0, 1, 2, 3, ...]
-  
+  static fnHexes(n:number) {
+    TP.nHexes = n
+    TP.nMinControl  = (TP.nHexes <= 1) ? 1 : TP.nHexes + 1 // [1, 1, 3, 4, 5, ...]
+    TP.nDiffControl = (TP.nHexes <= 1) ? 0 : TP.nHexes - 1 // [0, 0, 1, 2, 3, ...]
+  }
+
   /** exclude whole Extension sets */
   static excludeExt: string[] = ["Policy", "Event", "Roads", "Transit"]; // url?ext=Transit,Roads
   // timeout: see also 'autoEvent'

@@ -68,12 +68,13 @@ export class Table extends EventDispatcher  {
     this.make7Districts(TP.nHexes) // typically: 4
     // background sized for nHexes:    
     let hex0 = this.districtHexAry[0][TP.nHexes-1]  // center Hex in central district
-    let dim = (hex0.y + hex0.height * 2) * 2 
+    let x0= hex0.x, y0 = hex0.y, dim = (hex0.y + hex0.height * 2) * 2 
     this.bgRect = { x: 0, y: 0, w: dim, h: dim }
+    if (TP.nHexes <= 2) { this.bgRect.w += 300; this.nextHex.x -= 200; x0 -= 100 }
     this.setBackground(this.scaleCont)
     // align center of hexMap with center of background
-    mapCont.x = this.bgRect.w/2 - hex0.x
-    mapCont.y = this.bgRect.h/2 - hex0.y
+    mapCont.x = this.bgRect.w/2 - x0
+    mapCont.y = this.bgRect.h/2 - y0
 
     this.makeAllPlayers()
     this.setNextPlayer(0)   // make a placeable Stone for Player[0]
@@ -211,7 +212,7 @@ export class Table extends EventDispatcher  {
     }
     if (bindKeys) {
       let scale = this.scaleParams.initScale
-      this.bindKeysToScale(scaleC, 100, 0, scale)
+      this.bindKeysToScale(scaleC, 400, 0, scale)
       KeyBinder.keyBinder.dispatchChar("a")
     }
     return scaleC
