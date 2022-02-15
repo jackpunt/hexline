@@ -4,7 +4,7 @@ import { TP } from "./table-params";
 import { F } from "./basic-intfs";
 import { stime } from './types';
 
-type ParamType = any; // string | number | boolean
+export type ParamType = any; // string | number | boolean
 /** Supplied by user */
 export interface ParamOpts {
   fontName?: string
@@ -29,7 +29,7 @@ export interface ParamItem extends DropdownItem {
 // in each Item: {[button:DropdownButton], text: string, fieldName: string, value: ParamType}
 // when onItemChanged: TP[fieldName] = value
 
-class ParamLine extends Container {
+export class ParamLine extends Container {
   get height():number { return this.getBounds().height }
   get width(): number { return this.getBounds().width }
   chooser_w: number = 0 // width of chooser component
@@ -80,9 +80,9 @@ export class ParamGUI extends Container {
     ddc.x = line.chooser_x // ddc.y = line.text.y = 0 relative to ParamLine, same as line.text
     line.chooser = ddc
     line.addChild(ddc)
-    ddc.onItemChanged(line.spec.onChange || this.setTableParam)
-    let fieldName = line.spec.fieldName
-    this.selectValue(fieldName, TP[fieldName], line)
+    ddc.onItemChanged(line.spec.onChange || this.setValue)
+    let fieldName = line.spec.fieldName, value = this.getValue(fieldName)
+    this.selectValue(fieldName, value, line)
     ddc.enable()
   }
   findLine(fieldName: string): ParamLine {
@@ -98,10 +98,18 @@ export class ParamGUI extends Container {
     line.chooser.select(choice) // will auto-invoke onItemChanged => setTableParam
     return choice
   }
-
-  /** update TP[item.fieldname] = item.value */
-  setTableParam(item: ParamItem) {
-    TP[item.fieldName] = item.value
+  target: object = undefined
+  /** return target[fieldName] */
+  getValue(fieldName: string) {
+    return this.target === undefined ? TP[fieldName] : this.target[fieldName]
+  }
+  /** update target[item.fieldname] = item.value */
+  setValue(item: ParamItem) {
+    if (this.target === undefined) {
+      TP[item.fieldName] = item.value
+    } else {
+      this.target[item.fieldName] = item.value
+    }
     //console.log(stime(this, `.setTableParam: TP.${item.fieldName} =`), item.value, {item: item})
   }
 }
