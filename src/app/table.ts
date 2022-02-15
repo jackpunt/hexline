@@ -6,7 +6,7 @@ import { Hex, HexMap } from "./hex";
 import { HexEvent } from "./hex-event";
 import { KeyBinder } from "./key-binder";
 import { ScaleableContainer } from "./scaleable-container";
-import { BoardStats } from "./stats";
+import { BoardStats, StatsPanel } from "./stats";
 import { TP, StoneColor, stoneColors, otherColor } from "./table-params";
 import { stime } from "./types";
 
@@ -25,6 +25,7 @@ export class Stone extends Shape {
 export class Table extends EventDispatcher  {
 
   bStats: BoardStats
+  statsPanel: StatsPanel;
   gamePlay: GamePlay;
   stage: Stage;
   scaleCont: Container

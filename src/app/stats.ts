@@ -4,8 +4,10 @@
 
 import { GamePlay, Player } from "./game-play";
 import { Hex, HexMap } from "./hex";
+import { ParamGUI, ParamItem, ParamLine, ParamType } from "./param-gui";
 import { Table } from "./table";
-import { otherColor, StoneColor, stoneColors, TP } from "./table-params";
+import { otherColor, StoneColor, stoneColor0, stoneColor1, stoneColors, TP } from "./table-params";
+import { ValueCounter } from "./value-counter";
 
 export class PlayerStats {
   table: Table
@@ -26,7 +28,7 @@ export class PlayerStats {
   get rThreats(): number { return this.op.stats.nThreats};  // [op].nStones
   get rAttacks(): number { return this.op.stats.nAttacks};  // [op].nStones
   // -per District:
-  inControl(d)  { return this.bStats.inControl[this.plyr.color][d]; }
+  inControl(d: StoneColor)  { return this.bStats.inControl[this.plyr.color][d]; }
 
   constructor(plyr: Player, bStats: BoardStats) {
     this.bStats = bStats
@@ -75,9 +77,9 @@ export class BoardStats {
       let infColor = Object.keys(hex.inf[color]).length
       if (infColor > 0) {
         pstats.nInf++
+        if (infColor > 1) pstats.nAttacks++
         if (!!stone && stone.color != color) {
           pstats.nThreats++
-          if (infColor > 1) pstats.nAttacks++
         }
       }
     })
@@ -98,11 +100,64 @@ export class BoardStats {
         }
       })
     }
+    this.table.statsPanel.update()
     if (!!win) {
       this.hexMap.update()
       let lose = otherColor(win), winS = this.score(win), loseS = this.score(lose)
       setTimeout(() => alert(`${win} WINS! ${winS} -- ${loseS}`), 200)
     }
+  }
+}
+/**
+  dStones: number[] = Array(7);       // per-district
+  dMinControl: boolean[] = Array(7);  // per-district true if minControl of district
+  nStones: number = 0;   // total on board
+  nInf: number = 0;      // (= nStones*6 - edge effects - E/W-underlap)
+  nThreats: number = 0;  // (Hex w/ inf && [op].stone)
+  nAttacks: number = 0;  // (Hex w/ inf >= 2)
+  inControl(d: StoneColor)  { return this.bStats.inControl[this.plyr.color][d]; }
+
+ */
+export class StatsPanel extends ParamGUI {
+
+  bStats: BoardStats
+  bFields = ['score', ] //
+  pFields = ['nStones', 'nInf', 'nThreats', 'nAttacks', ] // 'dStones', 'dMinControl', 
+  constructor(bStats: BoardStats) {
+    super()
+    this.bStats = bStats
+  }
+  targetValue(target: object, fieldName: string, color: StoneColor) {
+    let value = target[fieldName] as (color: StoneColor)=>any | Array<number>
+    if (typeof(value) === "function") {
+      return value.call(target, color)
+    } else {
+      return target[color][fieldName]
+    }
+  }
+  setValueText(line: ParamLine) {
+    let fieldName = line.spec.fieldName
+    let lineValue = "?"
+    let target = this.pFields.includes(fieldName) ? this.bStats.pStats : this.bStats
+    let v0 = this.targetValue(target, fieldName, stoneColor0)
+    let v1 = this.targetValue(target, fieldName, stoneColor1)
+    let { width: w0, height: h0, text: t0 } = ValueCounter.ovalSize(v0)
+    let { width: w1, height: h1, text: t1 } = ValueCounter.ovalSize(v1)
+    lineValue = `${t0.text} --  ${t1.text}   `
+
+    line.chooser._rootButton.text.text = lineValue
+  }
+  /** suitable entry-point for eval_params: (fieldName, value) */
+  // Note: return value is never used!
+  override selectValue(fieldName: string, value?: ParamType, line?: ParamLine): ParamItem | undefined {
+    line = line || this.findLine(fieldName)
+    if (!line) return null
+    this.setValueText(line)
+    return undefined
+  }
+  update() {
+    this.pFields.forEach(fn => this.selectValue(fn))
+    this.bFields.forEach(fn => this.selectValue(fn))
   }
 }
 

@@ -3,6 +3,7 @@ import { C, Obj } from "./basic-intfs";
 import { DropdownButton } from "./dropdown";
 import { GamePlay } from "./game-play";
 import { ParamGUI, ParamItem, ParamOpts, ParamSpec } from "./param-gui";
+import { StatsPanel } from "./stats";
 import { Table } from "./table";
 import { TP } from "./table-params";
 import { stime } from "./types";
@@ -45,6 +46,26 @@ export class GameSetup {
     startup(gs: GameSetup = this, ext: string[] = []) {
       this.table.layoutTable()
       this.makeParamGUI(this.table.scaleCont)
+      this.table.statsPanel = this.makeStatsPanel(this.table.scaleCont)
+    }
+    makeStatsPanel(parent: Container): StatsPanel {
+      let specs: ParamSpec[] = [], sp = "                 "
+      let spec = (fieldName: string) => { return specs.find(s => s.fieldName == fieldName) }
+      specs.push(this.makeParamSpec("nStones", [sp]))
+      specs.push(this.makeParamSpec("nInf", [sp]))
+      specs.push(this.makeParamSpec("nAttacks", [sp]))
+      specs.push(this.makeParamSpec("nThreats", [sp]))
+      specs.push(this.makeParamSpec("score", [sp]))
+      //specs.push(this.makeParamSpec("dStones", []))
+      //specs.push(this.makeParamSpec("dMinControl", []))
+
+      let panel = new StatsPanel(this.table.bStats)
+      parent.addChild(panel)
+      panel.x = -200 // (3*cw+1*ch+6*m) + max(line.width) - (max(choser.width) + 20)
+      panel.y = 600
+      panel.makeLines(specs)
+      panel.stage.update()
+      return panel
     }
     makeParamGUI(parent: Container): ParamGUI {    
       let specs: ParamSpec[] = []
