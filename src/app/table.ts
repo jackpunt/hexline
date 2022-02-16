@@ -66,8 +66,8 @@ export class Table extends EventDispatcher  {
     this.hexMap.hexCont.addChild(this.nextHex)  // single Hex to hold a Stone to play
     Dragger.makeDragable(this.nextHex, undefined, undefined, undefined, true)
     this.gamePlay.hexMap = this.hexMap
-    this.makeDistrict(1, 0, 0, 0, 0, 0);
-    console.log(`------------------------------------`)
+    //this.makeDistrict(1, 0, 0, 0, 0, 0);
+    //console.log(`------------------------------------`)
     this.make7Districts(TP.nHexes) // typically: 4
     // background sized for nHexes:    
     let hex0 = this.districtHexAry[0][TP.nHexes-1]  // center Hex in central district
@@ -79,8 +79,8 @@ export class Table extends EventDispatcher  {
     mapCont.x = this.bgRect.w/2 - x0
     mapCont.y = this.bgRect.h/2 - y0
 
-    console.log(`------------------------------------`)
-    this.make7Districts(TP.nHexes-1, {x: 8*TP.nHexes*50, y: 0}) // 3 .. to the right
+    // console.log(`------------------------------------`)
+    // this.make7Districts(TP.nHexes-1, {x: 8*TP.nHexes*50, y: 0}) // 3 .. to the right
 
     this.makeAllPlayers()
     this.setNextPlayer(0)   // make a placeable Stone for Player[0]
@@ -175,24 +175,56 @@ export class Table extends EventDispatcher  {
   make7Districts(n: number, xy?: XY) {
     let n2 = (n/2), k = (n % 2)
 
-    this.makeDistrict(n, 6, 0, 1, 1*n+0, 0*n2+1 , xy)  // 6: (6, 1)    // Mc: 0, Mr: 1
-    this.makeDistrict(n, 1, 1, 1, 0*n+0, 3*n2+k , xy)  // 6: (0, 9)    // Mc: 1, Mr: 1
-    this.makeDistrict(n, 2, 2, 1, 1*n-1, 6*n2+0 , xy)  // 6: (5, 18)   // Mc: 2, Mr: 1
+    this.makeDistrict(n, 5, 0, 0, xy)  // 6: (17, 1)   // Mc: 0, Mr: 2
+    this.makeDistrict(n, 4, 1, 0, xy)  // 6: (11, 10)  // Mc: 1, Mr: 2
+    this.makeDistrict(n, 3, 2, 0, xy)  // 6: (16, 17)  // Mc: 2, Mr: 2
 
-    this.makeDistrict(n, 5, 0, 2, 3*n-1, 0*n2+2 , xy)  // 6: (17, 1)   // Mc: 0, Mr: 2
-    this.makeDistrict(n, 0, 1, 2, 2*n-1, 3*n2+1 , xy)  // 6: (11, 10)  // Mc: 1, Mr: 2
-    this.makeDistrict(n, 3, 2, 2, 3*n-2, 6*n2+0 , xy)  // 6: (16, 17)  // Mc: 2, Mr: 2
+    this.makeDistrict(n, 6, 0, 1, xy)  // 6: (6, 1)    // Mc: 0, Mr: 1
+    this.makeDistrict(n, 1, 1, 1, xy)  // 6: (0, 9)    // Mc: 1, Mr: 1
+    this.makeDistrict(n, 2, 2, 1, xy)  // 6: (5, 18)   // Mc: 2, Mr: 1
 
-    this.makeDistrict(n, 4, 1, 3, 4*n-2, 3*n2+1+k,xy)  // 6: (22, 10)  // Mc: 1, Mr: 3
+    this.makeDistrict(n, 5, 0, 2, xy)  // 6: (17, 1)   // Mc: 0, Mr: 2
+    this.makeDistrict(n, 0, 1, 2, xy)  // 6: (11, 10)  // Mc: 1, Mr: 2
+    this.makeDistrict(n, 3, 2, 2, xy)  // 6: (16, 17)  // Mc: 2, Mr: 2
+
+    this.makeDistrict(n, 4, 1, 3, xy)  // 6: (22, 10)  // Mc: 1, Mr: 3
+    this.makeDistrict(n, 6, 0, 3, xy)  // 6: (22, 10)  // Mc: 1, Mr: 3
+    this.makeDistrict(n, 2, 2, 3, xy)  // 6: (22, 10)  // Mc: 1, Mr: 3
+    this.makeDistrict(n, 1, 1, 4, xy)  // 6: (22, 10)  // Mc: 1, Mr: 3
+
+    this.makeDistrict(n, 5, 3, 1, xy)  // 6: (17, 1)   // Mc: 0, Mr: 2
+    this.makeDistrict(n, 0, 3, 2, xy)  // 6: (11, 10)  // Mc: 1, Mr: 2
+    this.makeDistrict(n, 6, 3, 3, xy)  // 6: (16, 17)  // Mc: 2, Mr: 2
+
+    this.makeDistrict(n, 4, -1, 1, xy)  // 6: (17, 1)   // Mc: 0, Mr: 2
+    this.makeDistrict(n, 1, -1, 2, xy)  // 6: (11, 10)  // Mc: 1, Mr: 2
+    this.makeDistrict(n, 3, -1, 3, xy)  // 6: (16, 17)  // Mc: 2, Mr: 2
+
+    this.makeDistrict(n, 4, 4, 1, xy)  // 6: (17, 1)   // Mc: 0, Mr: 2
+    this.makeDistrict(n, 1, 4, 2, xy)  // 6: (11, 10)  // Mc: 1, Mr: 2
+    this.makeDistrict(n, 3, 4, 3, xy)  // 6: (16, 17)  // Mc: 2, Mr: 2
+
+    this.makeDistrict(n, 2, 5, 1, xy)  // 6: (17, 1)   // Mc: 0, Mr: 2
+    this.makeDistrict(n, 3, 6, 1, xy)  // 6: (17, 1)   // Mc: 0, Mr: 2
+    this.makeDistrict(n, 4, 7, 1, xy)  // 6: (17, 1)   // Mc: 0, Mr: 2
+    this.makeDistrict(n, 5, 8, 1, xy)  // 6: (17, 1)   // Mc: 0, Mr: 2
+    this.makeDistrict(n, 6, 9, 1, xy)  // 6: (17, 1)   // Mc: 0, Mr: 2
+    this.makeDistrict(n, 1, 10, 1, xy)  // 6: (17, 1)   // Mc: 0, Mr: 2
+    this.makeDistrict(n, 2, 11, 1, xy)  // 6: (17, 1)   // Mc: 0, Mr: 2
+    this.makeDistrict(n, 3, 12, 1, xy)  // 6: (17, 1)   // Mc: 0, Mr: 2
+    this.makeDistrict(n, 5, 13, 1, xy)  // 6: (17, 1)   // Mc: 0, Mr: 2
+    this.makeDistrict(n, 6, 14, 1, xy)  // 6: (17, 1)   // Mc: 0, Mr: 2
+    this.makeDistrict(n, 1, 15, 1, xy)  // 6: (17, 1)   // Mc: 0, Mr: 2
+    this.makeDistrict(n, 2, 16, 1, xy)  // 6: (17, 1)   // Mc: 0, Mr: 2
+
   }
   /** Array of Hex for each District */
   districtHexAry: Array<Array<Hex>> = []
   /** left most [row,col] goes in [roff,coff] 
    * @param n number of hexes on a side
    */
-  makeDistrict(n: number, district: number, mc, mr, roff: number = 0, coff: number = 0, xy?: XY) {
-    coff = Math.floor(coff)
-    let mcp = Math.abs(mc % 2), mrp = Math.abs(mr % 2), dia = 2*n-1, c0 = 0 
+  makeDistrict(n: number, district: number, mc, mr, xy?: XY) {
+    let mcp = Math.abs(mc % 2), mrp = Math.abs(mr % 2), dia = 2*n-1
     let irow = (mc, mr) => { 
       let ir
       ir = n * (2 * mr - 1 - mcp) - (mr-1) // 2*mr -1 (or -2 for odd mc)
@@ -204,16 +236,14 @@ export class Table extends EventDispatcher  {
     }
     let icol = (mc, mr, row) => {
       let ic, np = Math.abs(n % 2), rp = Math.abs(row % 2)
-      //ic = mc * (n-1 + n/2) + mrp
-      let ic0 = Math.floor(mc * ((n*3 -1)/2))
-      //ic = ic + .5*(1-mcp)*(1-np)
+      let ic0 = Math.floor(mc * ((n*3 -1)/2)) - Math.floor((mc+np)/4)
       ic = ic0 + Math.floor((mr-rp)/2) // 
-      //console.log(`.makeDistrictIC(${n}, ${district} [${mc}, ${mr}] = (${ic0}, ${.5*(1-mcp)*(1-np)}, ${Math.floor(mr/2)}, ${ic}))`)
+      if (mr == 1)
+      console.log(`.makeDistrictIC(${n}, ${district} [${mc}, ${mr}] = (${row}, ${ic0}, ${Math.floor((mr-rp)/2)}, ${ic}))`)
       return ic
     }
-    let row = irow(mc, mr)+(n-1), col = icol(mc, mr, row)+(c0)
+    let row = irow(mc, mr)+(n-1), col = icol(mc, mr, row)
     let hexAry = []
-    //let row = n-1 + (roff), col = (c0-1) + coff
     let rp = Math.abs(row % 2), cp = Math.abs(col % 2)
     //console.log(`.makeDistrict(${n}, ${district} [${mr}, ${mc}] = (${iroff} ${row},${col} ${icoff}))`)
     for (let dr = 0; dr < n; dr++) {

@@ -45,7 +45,7 @@ export class GameSetup {
      */
     startup(gs: GameSetup = this, ext: string[] = []) {
       this.table.layoutTable()
-      this.makeParamGUI(this.table.scaleCont)
+      this.paramGui = this.makeParamGUI(this.table.scaleCont)
       this.table.statsPanel = this.makeStatsPanel(this.table.scaleCont)
     }
     makeStatsPanel(parent: Container): StatsPanel {
@@ -74,7 +74,10 @@ export class GameSetup {
       specs.push(this.makeParamSpec("nHexes", [1, 2, 3, 4, 5, 6]))
 
       spec("Start").onChange = (item: ParamItem) => { if (item.value == "yes") this.restart.call(this) }
-      spec("nHexes").onChange = (item: ParamItem) => { TP.fnHexes(item.value)}
+      spec("nHexes").onChange = (item: ParamItem) => { 
+        TP.fnHexes(item.value)
+        !!this.paramGui && this.paramGui.selectValue("Start", "yes")
+       }
       let gui = new ParamGUI()
       parent.addChild(gui)
       gui.x = -200 // (3*cw+1*ch+6*m) + max(line.width) - (max(choser.width) + 20)
