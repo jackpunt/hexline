@@ -71,7 +71,7 @@ export class GameSetup {
       let specs: ParamSpec[] = []
       let spec = (fieldName: string) => { return specs.find(s => s.fieldName == fieldName) }
       specs.push(this.makeParamSpec("Start", [" ", "yes", "no"], { fontSize: 40, fontColor: "red" }))
-      specs.push(this.makeParamSpec("nHexes", [1, 2, 3, 4, 5]))
+      specs.push(this.makeParamSpec("nHexes", [1, 2, 3, 4, 5, 6]))
 
       spec("Start").onChange = (item: ParamItem) => { if (item.value == "yes") this.restart.call(this) }
       spec("nHexes").onChange = (item: ParamItem) => { TP.fnHexes(item.value)}

@@ -1,5 +1,5 @@
 import { Stage, EventDispatcher, Container, Shape } from "createjs-module";
-import { C, S } from "./basic-intfs";
+import { C, S, XY } from "./basic-intfs";
 import { Dragger, DragInfo } from "./dragger";
 import { GamePlay, Player } from "./game-play";
 import { Hex, HexMap } from "./hex";
@@ -66,6 +66,8 @@ export class Table extends EventDispatcher  {
     this.hexMap.hexCont.addChild(this.nextHex)  // single Hex to hold a Stone to play
     Dragger.makeDragable(this.nextHex, undefined, undefined, undefined, true)
     this.gamePlay.hexMap = this.hexMap
+    this.makeDistrict(1, 0, 0, 0, 0, 0);
+    console.log(`------------------------------------`)
     this.make7Districts(TP.nHexes) // typically: 4
     // background sized for nHexes:    
     let hex0 = this.districtHexAry[0][TP.nHexes-1]  // center Hex in central district
@@ -76,6 +78,9 @@ export class Table extends EventDispatcher  {
     // align center of hexMap with center of background
     mapCont.x = this.bgRect.w/2 - x0
     mapCont.y = this.bgRect.h/2 - y0
+
+    console.log(`------------------------------------`)
+    this.make7Districts(TP.nHexes-1, {x: 8*TP.nHexes*50, y: 0}) // 3 .. to the right
 
     this.makeAllPlayers()
     this.setNextPlayer(0)   // make a placeable Stone for Player[0]
@@ -167,27 +172,56 @@ export class Table extends EventDispatcher  {
   forEachPlayer(f: (p:Player, index?: number, players?: Player[]) => void) {
     this.allPlayers.forEach((p, index, players) => f(p, index, players));
   }
-  make7Districts(n: number) {
+  make7Districts(n: number, xy?: XY) {
     let n2 = (n/2), k = (n % 2)
-    this.makeDistrict(n, 1, 0*n2+0, 3*n2+k)  // 6: (0, 9)
-    this.makeDistrict(n, 6, 2*n2+0, 0*n2+1)  // 6: (6, 1)
-    this.makeDistrict(n, 2, 2*n2-1, 6*n2+0)  // 6: (5, 18)
-    this.makeDistrict(n, 0, 4*n2-1, 3*n2+1)  // 6: (11, 10)
-    this.makeDistrict(n, 5, 6*n2-1, 0*n2+2)  // 6: (17, 1)
-    this.makeDistrict(n, 3, 6*n2-2, 6*n2+0)  // 6: (16, 17)
-    this.makeDistrict(n, 4, 8*n2-2, 3*n2+1+k)  // 6: (22, 10)
+
+    this.makeDistrict(n, 6, 0, 1, 1*n+0, 0*n2+1 , xy)  // 6: (6, 1)    // Mc: 0, Mr: 1
+    this.makeDistrict(n, 1, 1, 1, 0*n+0, 3*n2+k , xy)  // 6: (0, 9)    // Mc: 1, Mr: 1
+    this.makeDistrict(n, 2, 2, 1, 1*n-1, 6*n2+0 , xy)  // 6: (5, 18)   // Mc: 2, Mr: 1
+
+    this.makeDistrict(n, 5, 0, 2, 3*n-1, 0*n2+2 , xy)  // 6: (17, 1)   // Mc: 0, Mr: 2
+    this.makeDistrict(n, 0, 1, 2, 2*n-1, 3*n2+1 , xy)  // 6: (11, 10)  // Mc: 1, Mr: 2
+    this.makeDistrict(n, 3, 2, 2, 3*n-2, 6*n2+0 , xy)  // 6: (16, 17)  // Mc: 2, Mr: 2
+
+    this.makeDistrict(n, 4, 1, 3, 4*n-2, 3*n2+1+k,xy)  // 6: (22, 10)  // Mc: 1, Mr: 3
   }
   /** Array of Hex for each District */
   districtHexAry: Array<Array<Hex>> = []
-  makeDistrict(n: number, district: number, roff: number = 0, coff: number = 0) {
+  /** left most [row,col] goes in [roff,coff] 
+   * @param n number of hexes on a side
+   */
+  makeDistrict(n: number, district: number, mc, mr, roff: number = 0, coff: number = 0, xy?: XY) {
+    coff = Math.floor(coff)
+    let mcp = Math.abs(mc % 2), mrp = Math.abs(mr % 2), dia = 2*n-1, c0 = 0 
+    let irow = (mc, mr) => { 
+      let ir
+      ir = n * (2 * mr - 1 - mcp) - (mr-1) // 2*mr -1 (or -2 for odd mc)
+      ir = mr * (2*n-1) - n * (mcp+1) + 1
+      ir = mr * dia - n * (mcp+1) + 1
+      ir -= Math.floor((mc)/2)  // - half a row for each mc
+      //console.log(`.makeDistrictIR(${n}, ${district} [${mc}, ${mr}] = (${ir} ${roff}, ${coff}))`)
+      return ir
+    }
+    let icol = (mc, mr, row) => {
+      let ic, np = Math.abs(n % 2), rp = Math.abs(row % 2)
+      //ic = mc * (n-1 + n/2) + mrp
+      let ic0 = Math.floor(mc * ((n*3 -1)/2))
+      //ic = ic + .5*(1-mcp)*(1-np)
+      ic = ic0 + Math.floor((mr-rp)/2) // 
+      //console.log(`.makeDistrictIC(${n}, ${district} [${mc}, ${mr}] = (${ic0}, ${.5*(1-mcp)*(1-np)}, ${Math.floor(mr/2)}, ${ic}))`)
+      return ic
+    }
+    let row = irow(mc, mr)+(n-1), col = icol(mc, mr, row)+(c0)
     let hexAry = []
-    let row = n-1 + Math.floor(roff), col = 0 + Math.floor(coff), rp = Math.abs(row % 2)
+    //let row = n-1 + (roff), col = (c0-1) + coff
+    let rp = Math.abs(row % 2), cp = Math.abs(col % 2)
+    //console.log(`.makeDistrict(${n}, ${district} [${mr}, ${mc}] = (${iroff} ${row},${col} ${icoff}))`)
     for (let dr = 0; dr < n; dr++) {
       let c0 = col + ((rp == 0) ? Math.floor(dr/2) : Math.ceil(dr/2))
       let len = (2*n - 1) - dr
       for (let dc = 0; dc < len; dc++) {
-        hexAry.push(this.hexMap.addHex(row + dr, c0 + dc, district))
-        if (dr !== 0) hexAry.push(this.hexMap.addHex(row - dr, c0 + dc, district))
+        hexAry.push(this.hexMap.addHex(row + dr, c0 + dc, district, xy))
+        if (dr !== 0) hexAry.push(this.hexMap.addHex(row - dr, c0 + dc, district, xy))
       }
     }
     this.districtHexAry[district] = hexAry

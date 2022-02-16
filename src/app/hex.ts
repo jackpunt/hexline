@@ -1,5 +1,5 @@
-import { Container, Graphics, Shape } from "createjs-module";
-import { C, Dir, HexDir, S, XY } from "./basic-intfs";
+import { Container, Graphics, Shape, Text } from "createjs-module";
+import { C, Dir, F, HexDir, S, XY } from "./basic-intfs";
 import { Stone } from "./table";
 import { TP, StoneColor, stoneColor0, stoneColor1 } from "./table-params";
 
@@ -81,19 +81,20 @@ export class Hex extends Container {
     this.color = color
     let hexShape = this.hex(radius, color)
     hexShape.rotation = S.dirRot[dir]
-    hexShape.name = this.Aname
     this.hitArea = hexShape
     this.addChild(hexShape)
     this.hexShape = hexShape
     if (!!xy) { this.x = xy.x; this.y = xy.y }
 
     if (row === undefined || col === undefined) return
-    this.Aname = `Hex@[${row},${col}]`
+    this.Aname = hexShape.name = `Hex@[${row},${col}]`
+    let rc = `${row},${col}`, rct = new Text(rc, F.fontSpec(26)); rct.x = -radius/2; rct.y = -15
+    this.addChild(rct)
     this.row = row
     this.col = col
     let h = radius * Math.sqrt(3)/2
-    this.x = col * 2 * h + Math.abs(row % 2) * h
-    this.y = row * 1.5 * radius
+    this.x += col * 2 * h + Math.abs(row % 2) * h
+    this.y += row * 1.5 * radius
     this.width = h
     this.height = radius
   }
@@ -194,9 +195,9 @@ export class HexMap extends Array<Array<Hex>> {
   update() { !!this.hexCont.parent && this.hexCont.stage.update()}
   // A color for each District:
   distColor = ["lightgrey","rgb(250,80,80)","rgb(255,165,0)","yellow","limegreen","deepskyblue","violet"]
-  addHex(row: number, col: number, district: number ): Hex {
+  addHex(row: number, col: number, district: number, xy?: XY ): Hex {
     let color = this.distColor[district]
-    let hex = new Hex(color, this.radius, row, col)
+    let hex = new Hex(color, this.radius, row, col, xy)
     hex.district = district
     if (!this[row]) this[row] = new Array<Hex>()
     this[row][col] = hex
