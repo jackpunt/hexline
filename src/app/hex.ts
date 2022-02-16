@@ -195,8 +195,8 @@ export class HexMap extends Array<Array<Hex>> {
   update() { !!this.hexCont.parent && this.hexCont.stage.update()}
   // A color for each District:
   distColor = ["lightgrey","rgb(250,80,80)","rgb(255,165,0)","yellow","limegreen","deepskyblue","violet"]
-  addHex(row: number, col: number, district: number, xy?: XY ): Hex {
-    let color = this.distColor[district]
+  addHex(row: number, col: number, district: number, dc: number, xy?: XY ): Hex {
+    let color = this.distColor[dc]
     let hex = new Hex(color, this.radius, row, col, xy)
     hex.district = district
     if (!this[row]) this[row] = new Array<Hex>()

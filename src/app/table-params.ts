@@ -10,7 +10,8 @@ export function otherColor(color: StoneColor): StoneColor { return color == ston
 
 export class TP {
   static numPlayers = 2;
-  static nHexes = 4    // number of Hexes on side of District
+  static mHexes = 3    // number hexes on side of Meta-Hex
+  static nHexes = 3    // number of Hexes on side of District
   static nVictory = 4  // number of Districts to control
   static nMinControl  = (TP.nHexes <= 1) ? 1 : TP.nHexes + 1 // [1, 1, 3, 4, 5, ...]
   static nDiffControl = (TP.nHexes <= 1) ? 0 : TP.nHexes - 1 // [0, 0, 1, 2, 3, ...]
