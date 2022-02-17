@@ -59,8 +59,9 @@ export class BoardStats {
   }
   pStat(color: StoneColor): PlayerStats { return this.pStats[color] }
   zeroCounters() {
-    this.minControl = Array<Array<boolean>>(7) // [district][color]
-    this.inControl = Array<StoneColor>(7)
+    let nDist = TP.ftHexes(TP.mHexes)
+    this.minControl = Array<Array<boolean>>(nDist) // [district][color]
+    this.inControl = Array<StoneColor>(nDist)
     this.table.allPlayers.forEach((p) => this.pStats[p.color] = new PlayerStats(p, this))
   }
   incCounters(hex: Hex) {
@@ -85,11 +86,12 @@ export class BoardStats {
     })
   }
   update() {
+    let nDist = TP.ftHexes(TP.mHexes)  // district for each MetaHex
     this.zeroCounters()
     this.hexMap.forEachHex((hex) => this.incCounters(hex))
     let win: StoneColor | ""
     // forEachDistrict(d => {})
-    for (let d = 0; d < 7; d++) {
+    for (let d = 0; d < nDist; d++) {
       stoneColors.forEach(color => {
         let pstats = this.pStats[color] as PlayerStats
         let dStones = pstats.dStones[d]

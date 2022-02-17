@@ -50,7 +50,7 @@ class CapMark extends Shape {
 export class Hex extends Container {
   Aname: string
   hexShape: Shape // not currently used
-  district: number
+  district: number // district ID
   color: string  // district color of Hex
   row: number
   col: number
@@ -72,31 +72,36 @@ export class Hex extends Container {
     W: undefined,
     NW: undefined
   }
+  setHexColor(color: string, dist?: number) {
+    if (dist !== undefined) this.district = dist
+    let hexShape = this.hex(this.height, color)
+    if (!!this.hexShape) this.removeChild(this.hexShape)
+    this.addChildAt(hexShape, 0)
+    this.hitArea = hexShape
+    this.color = color
+    this.hexShape = hexShape
+  }
   
 
-  constructor(color: string, radius: number, row?: number, col?: number, xy?: XY) {
+/** One Hex cell in the game, shown as a polyStar Shape of radius @ (0,0) */
+constructor(color: string, radius: number, row?: number, col?: number, xy?: XY) {
     super();
+    let h = radius * Math.sqrt(3)/2
+    this.width = h
+    this.height = radius
+
     this.setNoInf()
-    let dir = Dir.E
-    this.color = color
-    let hexShape = this.hex(radius, color)
-    hexShape.rotation = S.dirRot[dir]
-    this.hitArea = hexShape
-    this.addChild(hexShape)
-    this.hexShape = hexShape
+    this.setHexColor(color)
     if (!!xy) { this.x = xy.x; this.y = xy.y }
 
     if (row === undefined || col === undefined) return
-    this.Aname = hexShape.name = `Hex@[${row},${col}]`
+    this.Aname = this.hexShape.name = `Hex@[${row},${col}]`
     let rc = `${row},${col}`, rct = new Text(rc, F.fontSpec(26)); rct.x = -radius/2; rct.y = -15
     this.addChild(rct)
-    this.row = row
-    this.col = col
-    let h = radius * Math.sqrt(3)/2
     this.x += col * 2 * h + Math.abs(row % 2) * h
     this.y += row * 1.5 * radius
-    this.width = h
-    this.height = radius
+    this.row = row
+    this.col = col
   }
   /**
    * 
@@ -166,7 +171,8 @@ export class Hex extends Container {
     let ns = new Shape(), tilt = 30
     ns.graphics.beginStroke(TP.bgColor).drawPolyStar(0, 0, rad+1, 6, 0, tilt)
     ns.graphics.beginFill(color).drawPolyStar(0, 0, rad, 6, 0, tilt)
-    return ns
+    ns.rotation = S.dirRot[Dir.E]
+  return ns
   }
 
 }

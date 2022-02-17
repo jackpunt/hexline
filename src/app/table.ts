@@ -54,53 +54,56 @@ export class Table extends EventDispatcher  {
 
   scaleParams = { zscale: .20, initScale: .324, zero: 0.125, max: 30, limit: 4, base: 1.1, min: -2 };
   testoff: number = 1
-  hex00: Hex
-  
+  markHex00() {
+    // transparent Hex@[0,0] with black outline on markCont; but remove other references:
+    let tc = TP.bgColor; TP.bgColor = C.black
+    let h00 = this.makeDistrict(1, 0, 0, 0)[0]; h00.setHexColor("rgba(1,1,1,0)"); this.hexMap.markCont.addChild(h00)
+    TP.bgColor = tc
+    delete this.hexMap[0][0] // make un-linkable
+    this.districtHexAry = []
+    console.log(`------------------------------------`)
+  }
   layoutTable() {
     let radius = Stone.radius
     this.scaleCont = this.makeScaleCont(!!this.stage) // scaleCont & background
-    let mapCont = new Container(); mapCont.y = 100; mapCont.x = 200
+    let mapCont = new Container();
     mapCont[S.aname] = "mapCont"
     this.scaleCont.addChild(mapCont)
 
     this.hexMap = new HexMap(radius, mapCont)
     this.hexMap.hexCont.addChild(this.nextHex)  // single Hex to hold a Stone to play
-    Dragger.makeDragable(this.nextHex, undefined, undefined, undefined, true)
     this.gamePlay.hexMap = this.hexMap
-    //this.makeDistrict(1, 0, 0, 0, 0, 0);
-    //console.log(`------------------------------------`)
-    this.make7Districts(TP.mHexes) // typically: 3
+    this.markHex00()
+    this.makeAllDistricts(TP.mHexes, TP.nHexes) // typically: 3,3 or 2,4
+    let findHex00 = () => {
+      let dist00 = this.districtHexAry[TP.mHexes]
+      dist00.forEach(hex => hex.setHexColor(this.hexMap.distColor[0], 0))
+      return dist00[TP.nHexes-1]
+    }
     // background sized for nHexes:
-    let minx, miny = minx = 99999, minDx, minDy;
-    let maxx, maxy = maxx = -99999, maxDx, maxDy;
-    this.districtHexAry.forEach((dHexAry, dNdx) => dHexAry.forEach(hex => {
-      if (hex.x < minx) { minx = hex.x; minDx = dNdx }
-      if (hex.y < miny) { miny = hex.y; minDy = dNdx }
-      if (hex.x > maxx) { maxx = hex.x; maxDx = dNdx }
-      if (hex.y > maxy) { maxy = hex.y; maxDy = dNdx }
-    })) 
-    let border = 2 * Stone.radius
-    minx -= border; maxx+=border; miny-=border; maxy+=border
-    let hex0 = this.hex00
-    // let hex0 = this.districtHexAry[0][TP.nHexes-1]  // center Hex in central district
-    let x0= hex0.x, y0 = hex0.y, dim = (hex0.y + hex0.height * 2) * 2 
-    let x00 = (minx+maxx)/2, y00 = (miny+maxy)/2
-    this.bgRect = { x: 0, y: 0, w: dim, h: dim }
-    this.bgRect = { x: minx, y: miny, w: (maxx - minx), h: (maxy - miny) }
-    if (TP.nHexes <= 2) { this.bgRect.w += 300; this.nextHex.x -= 200; minx -= 100 }
-    console.log({hex: hex0.Aname, x0, y0, x00, y00}, this.bgRect)
-    console.log({minx, miny, maxx, maxy}, this.bgRect, {minDx, minDy, maxDx, maxDy})
-    console.log(this.districtHexAry)
+    let hex00 = findHex00(), r0=hex00.row, c0=hex00.col
+    let mh = TP.mHexes, nh= TP.nHexes, high = hex00.height * 1.5, wide = hex00.width * 2.0
+    let minc = c0 - c0 - Math.abs((nh+1)%2), minr = r0 - c0 - Math.floor(nh/1.5 + mh -2)
+    let maxc = c0 + c0 + Math.abs((nh+1)%2), maxr = r0 + c0 + Math.floor(nh/1.5 + mh -2)
+    let miny = --minr * high, maxy = ++maxr * high
+    let minx = --minc * wide, maxx = ++maxc * wide
+    this.bgRect = { x: 0, y: 0, w: (maxx - minx), h: (maxy - miny) }
+
+    Dragger.makeDragable(this.nextHex, undefined, undefined, undefined, true)
+    this.nextHex.x = minx + 2*wide ; this.nextHex.y = miny+ 2*high;
+    if (TP.nHexes <= 2) { this.bgRect.w += 400; this.nextHex.x -= 3*wide; minx -= 2*high }
+    // console.log({hex: hex0.Aname, x0, y0, x00, y00}, this.bgRect)
+    console.log({minx, miny, maxx, maxy}, {minr, maxr, minc, maxc}, this.bgRect)
+    // console.log(this.districtHexAry)
     this.setBackground(this.scaleCont)
     // align center of hexMap with center of background
-    mapCont.x = (this.bgRect.x + this.bgRect.w) / 2 - x0 //(maxx + minx) / 2
-    mapCont.y = (this.bgRect.y + this.bgRect.h) / 2 - y0 - TP.nHexes*border/2 //(maxy + miny) / 2
-    //mapCont.x = minx-border/2 
-    //mapCont.y = miny+2*border + border/2
+    mapCont.x = this.bgRect.x + (this.bgRect.w) / 2 - hex00.x
+    mapCont.y = this.bgRect.y + (this.bgRect.h) / 2 - hex00.y
+    console.log({mapx: mapCont.x, mapy: mapCont.y, hex00x: hex00.x, hex00y: hex00.y})
 
     // console.log(`------------------------------------`)
-    // this.make7Districts(TP.nHexes-1, {x: 8*TP.nHexes*50, y: 0}) // 3 .. to the right
-
+    // this.makeAllDistricts(TP.nHexes-1, {x: 8*TP.nHexes*50, y: 0}) // 3 .. to the right
+    //for (let ndx=TP.mHexes+1; ndx<14; ndx++) {this.makeDistrict(TP.nHexes, ndx%6+1, 1, ndx)}
     this.makeAllPlayers()
     this.setNextPlayer(0)   // make a placeable Stone for Player[0]
     this.bStats = new BoardStats(this)
@@ -194,18 +197,19 @@ export class Table extends EventDispatcher  {
   // meta-n: 1:1, 2:7, 3:19, 4:37
   /**
    * 
-   * @param n number of hexes on a side, also: number of layers of meta-hexes
+   * @param mh order of meta-hexes (2 or 3 for this game)
+   * @param nh size of meta-hex (1..6)
    * @param xy (graphical display offset)
    */
-  make7Districts(n: number, xy?: XY) {
-    let col = Math.ceil(n/2), row = 0, rp = Math.abs(row % 2), cp = Math.abs(col % 2), district = 0
-    let hex00: Hex, dist = 0
-    for (let dc = 0; dc < n; dc++) {
+  makeAllDistricts(mh: number, nh: number, xy?: XY) {
+    let col = Math.ceil(mh/2), row = 0, rp = Math.abs(row % 2), cp = Math.abs(col % 2)
+    let dist = 1          // Note: dist00 uses [dist == mh]
+    for (let dc = 0; dc < mh; dc++) {
       let r0 = row + ((cp == 1) ? Math.floor(dc/2) : Math.ceil(dc/2))
-      let len = (2*n - 1) - dc
+      let len = (2*mh - 1) - dc
       for (let dr = 0; dr < len; dr++) {
-        this.makeDistrict(TP.nHexes, dist++, r0 + dr, col + dc, xy)
-        if (dc !== 0) this.makeDistrict(TP.nHexes, dist++, r0 + dr, col - dc, xy)
+        this.makeDistrict(nh, dist++, r0 + dr, col + dc, xy)
+        if (dc !== 0) this.makeDistrict(nh, dist++, r0 + dr, col - dc, xy)
       }
     }
 
@@ -213,40 +217,40 @@ export class Table extends EventDispatcher  {
   /** Array of Hex for each District */
   districtHexAry: Array<Array<Hex>> = []
   /** left most [row,col] goes in [roff,coff] 
-   * @param n number of hexes on a side
+   * @param nh number of hexes on a side
    */
-  makeDistrict(n: number, district: number, mr, mc, xy?: XY) {
-    let mcp = Math.abs(mc % 2), mrp = Math.abs(mr % 2), dia = 2*n-1, dcolor = district % 7
+  makeDistrict(nh: number, district: number, mr, mc, xy?: XY): Hex[] {
+    let mcp = Math.abs(mc % 2), mrp = Math.abs(mr % 2), dia = 2*nh-1, dcolor = 1 + ((district+nh+mr) % 6)
     let irow = (mr, mc) => { 
       let ir
-      ir = n * (2 * mr - 1 - mcp) - (mr-1) // 2*mr -1 (or -2 for odd mc)
-      ir = mr * (2*n-1) - n * (mcp+1) + 1
-      ir = mr * dia - n * (mcp+1) + 1
-      ir -= Math.floor((mc)/2)  // - half a row for each mc
+      ir = nh * (2 * mr - 1 - mcp) - (mr-1) // 2*mr -1 (or -2 for odd mc)
+      ir = mr * (2 * nh - 1) - nh * (mcp + 1) + 1
+      ir = mr * dia - nh * (mcp+1) + 1
+      ir -= Math.floor((mc)/2)  // - half a row for each metaCol
       //console.log(`.makeDistrictIR(${n}, ${district} [${mc}, ${mr}] = (${ir} ${roff}, ${coff}))`)
       return ir
     }
     let icol = (mr, mc, row) => {
-      let ic, np = Math.abs(n % 2), rp = Math.abs(row % 2)
-      let ic0 = Math.floor(mc * ((n*3 -1)/2)) - Math.floor((mc+np)/4)
-      ic = ic0 + Math.floor((mr-rp)/2) // 
+      let ic, np = Math.abs(nh % 2), rp = Math.abs(row % 2)
+      let ic0 = Math.floor(mc * ((nh*3 -1)/2))
+      ic0 -= Math.floor((mc + (2 - np)) / 4) // 4-metaCol means 2-rows, mean 1-col 
+      ic = ic0 + Math.floor((mr - rp) / 2)   // 2-metaRow means +1 col
       //if (mr == 1)console.log(`.makeDistrictIC(${n}, ${district} [${mc}, ${mr}] = (${row}, ${ic0}, ${Math.floor((mr-rp)/2)}, ${ic}))`)
       return ic
     }
-    let row = irow(mr, mc)+(n-1), col = icol(mr, mc, row)
+    let row = irow(mr, mc), col = icol(mr, mc, row)
     let hexAry = []; hexAry['Mr'] = mr; hexAry['Mc'] = mc
     let rp = Math.abs(row % 2), cp = Math.abs(col % 2)
-    console.log(`.makeDistrict(${n}, ${district} [${mr}, ${mc}] = (${row},${col}))`)
-    for (let dr = 0; dr < n; dr++) {
+    console.log(`.makeDistrict(${nh}, ${district} [${mr}, ${mc}] = (${row},${col}))`)
+    for (let dr = 0; dr < nh; dr++) {
       let c0 = col + ((rp == 0) ? Math.floor(dr/2) : Math.ceil(dr/2))
-      let len = (2*n - 1) - dr
+      let len = (2 * nh - 1) - dr
       for (let dc = 0; dc < len; dc++) {
         hexAry.push(this.hexMap.addHex(row + dr, c0 + dc, district, dcolor, xy))
         if (dr !== 0) hexAry.push(this.hexMap.addHex(row - dr, c0 + dc, district, dcolor, xy))
-        if (mr == TP.mHexes-1 && dr == 0 && dc == n-1 && !this.hex00) this.hex00 = hexAry[hexAry.length -1]
       }
     }
-    this.districtHexAry[district] = hexAry
+    return this.districtHexAry[district] = hexAry
   }
   bgRect = {x: 0, y: 0, w: 2000, h: 2000}
   /** default scaling-up value */
@@ -269,7 +273,7 @@ export class Table extends EventDispatcher  {
     }
     if (bindKeys) {
       let scale = this.scaleParams.initScale
-      this.bindKeysToScale(scaleC, 400, 0, scale)
+      this.bindKeysToScale(scaleC, 600, 0, scale)
       KeyBinder.keyBinder.dispatchChar("a")
     }
     return scaleC
