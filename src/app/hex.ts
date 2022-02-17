@@ -50,7 +50,15 @@ class CapMark extends Shape {
 export class Hex extends Container {
   Aname: string
   hexShape: Shape // not currently used
-  district: number // district ID
+  _district: number // district ID
+  get district() {return this._district}
+  set district(d: number) {
+    this._district = d
+    let dt = new Text(`${d}`, F.fontSpec(20)); dt.x = -this.width/2+15; dt.y = 20
+    if (!!this.distText) this.removeChild(this.distText)
+    this.distText = this.addChild(dt)
+  }
+  distText: Text
   color: string  // district color of Hex
   row: number
   col: number
@@ -184,6 +192,7 @@ export class HexMap extends Array<Array<Hex>> {
   stoneCont: Container = new Container()   // Stone in middle
   markCont: Container = new Container()    // infMark on the top
   mark: Shape
+  minRow: number = undefined
   constructor(radius: number = 50, mapCont?: Container) {
     super()
     this.radius = radius
@@ -205,7 +214,10 @@ export class HexMap extends Array<Array<Hex>> {
     let color = this.distColor[dc]
     let hex = new Hex(color, this.radius, row, col, xy)
     hex.district = district
-    if (!this[row]) this[row] = new Array<Hex>()
+    if (!this[row]) {
+      this[row] = new Array<Hex>()
+      if (row < (this.minRow || 1)) this.minRow = row
+    }
     this[row][col] = hex
     hex.map = this
     if (!!this.hexCont) this.hexCont.addChild(hex)
@@ -213,22 +225,18 @@ export class HexMap extends Array<Array<Hex>> {
     return hex
   }
   forEachHex(fn: (hex: Hex) => void) {
-    this.forEach((hexRow: Hex[]) => {
-      hexRow.forEach((hex: Hex) => fn(hex))
-    })
+    for (let ir = this.minRow || 0; ir < this.length; ir++) {
+      !!this[ir] && this[ir].forEach((hex: Hex) => fn(hex))
+    }
   }
   mapEachHex<T>(fn: (hex: Hex) => T): T[] {
     let rv: T[] = []
-    this.forEach((hexRow: Hex[]) => {
-      hexRow.forEach((hex: Hex) => rv.push(fn(hex)))
-    })
+    this.forEachHex((hex: Hex) => rv.push(fn(hex)))
     return rv
   }
   filterEachHex(fn: (hex: Hex) => boolean): Hex[] {
     let rv: Hex[] = []
-    this.forEach((hexRow: Hex[]) => {
-      hexRow.forEach((hex: Hex) => fn(hex) && rv.push(hex))
-    })
+    this.forEachHex((hex: Hex) => fn(hex) && rv.push(hex))
     return rv
   }
   showMark(hex?: Hex) {

@@ -158,8 +158,8 @@ export class StatsPanel extends ParamGUI {
     return undefined
   }
   update() {
-    this.pFields.forEach(fn => this.selectValue(fn))
-    this.bFields.forEach(fn => this.selectValue(fn))
+    this.pFields.forEach(fieldName => this.selectValue(fieldName))
+    this.bFields.forEach(fieldName => this.selectValue(fieldName))
   }
 }
 

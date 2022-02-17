@@ -15,12 +15,15 @@ export class TP {
   static nVictory = 4  // number of Districts to control
   static nMinControl  = (TP.nHexes <= 1) ? 1 : TP.nHexes + 1 // [1, 1, 3, 4, 5, ...]
   static nDiffControl = (TP.nHexes <= 1) ? 0 : TP.nHexes - 1 // [0, 0, 1, 2, 3, ...]
-  static fnHexes(n: number) {
-    TP.nHexes = n
+  /** set victory conditions for (nh, mh) */
+  static fnHexes(nh: number, mh: number) {
+    TP.mHexes = mh
+    TP.nHexes = nh
+    TP.nVictory = Math.ceil(TP.ftHexes(nh) * TP.ftHexes(mh) / 2) // ceil((odd*odd)/2) -> odd
     TP.nMinControl  = (TP.nHexes <= 1) ? 1 : TP.nHexes + 1 // [1, 1, 3, 4, 5, ...]
-    TP.nDiffControl = (TP.nHexes <= 1) ? 0 : TP.nHexes - 1 // [0, 0, 1, 2, 3, ...]
+    TP.nDiffControl = (TP.nHexes <= 1) ? 1 : TP.nHexes - 1 // [0, 0, 1, 2, 3, ...]
   }
-  static ftHexes(n): number { return (n == 1) ? 1 : 2 * n + TP.ftHexes(n - 1) }
+  static ftHexes(n: number): number { return (n == 1) ? 1 : 6 * (n-1) + TP.ftHexes(n - 1) }
 
   /** exclude whole Extension sets */
   static excludeExt: string[] = ["Policy", "Event", "Roads", "Transit"]; // url?ext=Transit,Roads

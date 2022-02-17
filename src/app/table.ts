@@ -75,13 +75,18 @@ export class Table extends EventDispatcher  {
     this.gamePlay.hexMap = this.hexMap
     this.markHex00()
     this.makeAllDistricts(TP.mHexes, TP.nHexes) // typically: 3,3 or 2,4
-    let findHex00 = () => {
-      let dist00 = this.districtHexAry[TP.mHexes]
+    let findMetaHex00 = (): Hex => {
+      let dist00 = this.districtHexAry[TP.mHexes], lastNdx = this.districtHexAry.length -1 // == TP.ftHexes(TP.mHexes)
       dist00.forEach(hex => hex.setHexColor(this.hexMap.distColor[0], 0))
+      this.districtHexAry[0] = this.districtHexAry[TP.mHexes]
+      // set *last* district to the overwritten distId, so dist[0..TP.ftHexes(mh)]
+      this.districtHexAry[lastNdx].forEach(hex => hex.setHexColor(hex.color, TP.mHexes))
+      this.districtHexAry[TP.mHexes] = this.districtHexAry[lastNdx]
+      delete this.districtHexAry[lastNdx] // aka pop()
       return dist00[TP.nHexes-1]
     }
     // background sized for nHexes:
-    let hex00 = findHex00(), r0=hex00.row, c0=hex00.col
+    let hex00 = findMetaHex00(), r0=hex00.row, c0=hex00.col
     let mh = TP.mHexes, nh= TP.nHexes, high = hex00.height * 1.5, wide = hex00.width * 2.0
     let minc = c0 - c0 - Math.abs((nh+1)%2), minr = r0 - c0 - Math.floor(nh/1.5 + mh -2)
     let maxc = c0 + c0 + Math.abs((nh+1)%2), maxr = r0 + c0 + Math.floor(nh/1.5 + mh -2)
@@ -202,8 +207,8 @@ export class Table extends EventDispatcher  {
    * @param xy (graphical display offset)
    */
   makeAllDistricts(mh: number, nh: number, xy?: XY) {
-    let col = Math.ceil(mh/2), row = 0, rp = Math.abs(row % 2), cp = Math.abs(col % 2)
-    let dist = 1          // Note: dist00 uses [dist == mh]
+    let col = mh-1, row = 0, rp = Math.abs(row % 2), cp = Math.abs(col % 2)
+    let dist = 1          // Note: dist00 assigned [dist == mh]
     for (let dc = 0; dc < mh; dc++) {
       let r0 = row + ((cp == 1) ? Math.floor(dc/2) : Math.ceil(dc/2))
       let len = (2*mh - 1) - dc

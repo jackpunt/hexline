@@ -76,11 +76,11 @@ export class GameSetup {
 
       spec("Start").onChange = (item: ParamItem) => { if (item.value == "yes") this.restart.call(this) }
       spec("nHexes").onChange = (item: ParamItem) => { 
-        TP.fnHexes(item.value)
+        TP.fnHexes(item.value, TP.mHexes)
         !!this.paramGui && this.paramGui.selectValue("Start", "yes")
       }
       spec("mHexes").onChange = (item: ParamItem) => {
-        TP.mHexes = (item.value)
+        TP.fnHexes(TP.nHexes, item.value)
         !!this.paramGui && this.paramGui.selectValue("Start", "yes")
        }
       let gui = new ParamGUI()
