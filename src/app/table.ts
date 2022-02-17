@@ -213,7 +213,10 @@ export class Table extends EventDispatcher  {
         if (dc !== 0) this.makeDistrict(nh, dist++, r0 + dr, col - dc, xy)
       }
     }
-
+  }
+  makeSpiralDistrict(nh: number, district: number, mr, mc, xy?: XY): Hex[] {
+    let mcp = Math.abs(mc % 2), mrp = Math.abs(mr % 2), dia = 2*nh-1, dcolor = 1 + ((district+nh+mr) % 6)
+    return this.districtHexAry[district]
   }
   /** Array of Hex for each District */
   districtHexAry: Array<Array<Hex>> = []
@@ -223,20 +226,15 @@ export class Table extends EventDispatcher  {
   makeDistrict(nh: number, district: number, mr, mc, xy?: XY): Hex[] {
     let mcp = Math.abs(mc % 2), mrp = Math.abs(mr % 2), dia = 2*nh-1, dcolor = 1 + ((district+nh+mr) % 6)
     let irow = (mr, mc) => { 
-      let ir
-      ir = nh * (2 * mr - 1 - mcp) - (mr-1) // 2*mr -1 (or -2 for odd mc)
-      ir = mr * (2 * nh - 1) - nh * (mcp + 1) + 1
-      ir = mr * dia - nh * (mcp+1) + 1
-      ir -= Math.floor((mc)/2)  // - half a row for each metaCol
-      //console.log(`.makeDistrictIR(${n}, ${district} [${mc}, ${mr}] = (${ir} ${roff}, ${coff}))`)
+      let ir = mr * dia - nh * (mcp+1) + 1
+      ir -= Math.floor((mc)/2)              // - half a row for each metaCol
       return ir
     }
     let icol = (mr, mc, row) => {
-      let ic, np = Math.abs(nh % 2), rp = Math.abs(row % 2)
-      let ic0 = Math.floor(mc * ((nh*3 -1)/2))
-      ic0 -= Math.floor((mc + (2 - np)) / 4) // 4-metaCol means 2-rows, mean 1-col 
-      ic = ic0 + Math.floor((mr - rp) / 2)   // 2-metaRow means +1 col
-      //if (mr == 1)console.log(`.makeDistrictIC(${n}, ${district} [${mc}, ${mr}] = (${row}, ${ic0}, ${Math.floor((mr-rp)/2)}, ${ic}))`)
+      let np = Math.abs(nh % 2), rp = Math.abs(row % 2)
+      let ic = Math.floor(mc * ((nh*3 -1)/2))
+      ic -= Math.floor((mc + (2 - np)) / 4) // 4-metaCol means 2-rows, mean 1-col 
+      ic += Math.floor((mr - rp) / 2)       // 2-metaRow means +1 col
       return ic
     }
     let row = irow(mr, mc), col = icol(mr, mc, row)
