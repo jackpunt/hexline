@@ -36,6 +36,7 @@ export class ParamLine extends Container {
   chooser_x: number = 0 // where (on the line) to place chooser 
   chooser: DropdownChoice
   spec: ParamSpec
+  nameText: Text
 }
 
 export class ParamGUI extends Container {
@@ -50,15 +51,26 @@ export class ParamGUI extends Container {
     specs.forEach(this.addLine, this)
     //this.lines.forEach((line, nth) => this.addChooser(line, specs[nth].choices, nth), this)
   }
-
+  findLine(fieldName: string): ParamLine {
+    return this.lines.find(pl => pl.spec.fieldName === fieldName)
+  }
+  setNameText(fieldName: string, name: string = fieldName): Text {
+    let line = this.findLine(fieldName)
+    if (!!line.nameText) line.removeChild(line.nameText)
+    let spec = line.spec
+    let text = new Text(name, F.fontSpec(spec.fontSize || 32, spec.fontName), spec.fontColor)
+    line.addChild(text)
+    line.nameText = text
+    return text
+  }
   addLine(spec: ParamSpec, nth: number) {
     let line = new ParamLine()
     line.spec = spec
     let y = 0
     this.lines.forEach(pl => y += pl.height)
     line.y = y + nth * this.lead
-    let text = new Text(spec.fieldName, F.fontSpec(spec.fontSize || 32, spec.fontName), spec.fontColor)
-    line.addChild(text)
+    this.lines.push(line) // so nameText can findLine()
+    let text = this.setNameText(spec.fieldName)
     this.addChild(line)
     let width = text.getMeasuredWidth()
     let height = text.getMeasuredLineHeight()     
@@ -70,7 +82,6 @@ export class ParamGUI extends Container {
     line.chooser_w = maxw + 1.5*fs // text_width, some space, Arrow
     line.chooser_x = 0 - line.chooser_w - .5*fs
     this.addChooser(line)
-    this.lines.push(line)
   }
 
   addChooser(line: ParamLine) {
@@ -84,9 +95,6 @@ export class ParamGUI extends Container {
     let fieldName = line.spec.fieldName, value = this.getValue(fieldName)
     this.selectValue(fieldName, value, line)
     ddc.enable()
-  }
-  findLine(fieldName: string): ParamLine {
-    return this.lines.find(pl => pl.spec.fieldName === fieldName)
   }
   /** suitable entry-point for eval_params: (fieldName, value) */
   selectValue(fieldName: string, value: ParamType, line?: ParamLine): ParamItem | undefined {

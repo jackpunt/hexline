@@ -19,10 +19,11 @@ export class TP {
   static fnHexes(nh: number, mh: number) {
     TP.mHexes = mh
     TP.nHexes = nh
-    TP.nVictory = Math.ceil(TP.ftHexes(nh) * TP.ftHexes(mh) / 2) // ceil((odd*odd)/2) -> odd
-    TP.nMinControl  = (TP.nHexes <= 1) ? 1 : TP.nHexes + 1 // [1, 1, 3, 4, 5, ...]
-    TP.nDiffControl = (TP.nHexes <= 1) ? 1 : TP.nHexes - 1 // [0, 0, 1, 2, 3, ...]
+    TP.nVictory = Math.ceil(TP.ftHexes(mh) / 2)
+    TP.nMinControl  = (nh <= 1) ? 1 : nh + 1 // [1, 1, 3, 4, 5, ...]
+    TP.nDiffControl = (nh <= 1) ? 1 : nh - 1 // [0, 0, 1, 2, 3, ...]
   }
+  /** an odd number: 1, 7, 19, 37, 61, 97, ... */
   static ftHexes(n: number): number { return (n == 1) ? 1 : 6 * (n-1) + TP.ftHexes(n - 1) }
 
   /** exclude whole Extension sets */

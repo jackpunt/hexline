@@ -49,7 +49,8 @@ export class GameSetup {
       this.paramGui = this.makeParamGUI(this.table.scaleCont)
     }
     makeStatsPanel(parent: Container): StatsPanel {
-      let specs: ParamSpec[] = [], sp = "                 "
+      let panel = new StatsPanel(this.table.bStats)
+      let specs: ParamSpec[] = [], sp = "                    "
       let spec = (fieldName: string) => { return specs.find(s => s.fieldName == fieldName) }
       specs.push(this.makeParamSpec("nStones", [sp]))
       specs.push(this.makeParamSpec("nInf", [sp]))
@@ -58,8 +59,11 @@ export class GameSetup {
       specs.push(this.makeParamSpec("score", [sp]))
       //specs.push(this.makeParamSpec("dStones", []))
       //specs.push(this.makeParamSpec("dMinControl", []))
+      spec("score").onChange = (item: ParamItem) => {
+        panel.setNameText(item.fieldName, `score: ${TP.nVictory}`) 
+        panel.stage.update()
+      }
 
-      let panel = new StatsPanel(this.table.bStats)
       parent.addChild(panel)
       panel.x = -300 // (3*cw+1*ch+6*m) + max(line.width) - (max(choser.width) + 20)
       panel.y = 50
@@ -71,7 +75,7 @@ export class GameSetup {
       let specs: ParamSpec[] = []
       let spec = (fieldName: string) => { return specs.find(s => s.fieldName == fieldName) }
       specs.push(this.makeParamSpec("Start", [" ", "yes", "no"], { fontSize: 40, fontColor: "red" }))
-      specs.push(this.makeParamSpec("mHexes", [2, 3]))
+      specs.push(this.makeParamSpec("mHexes", [2, 3, 4]))
       specs.push(this.makeParamSpec("nHexes", [1, 2, 3, 4, 5, 6]))
 
       spec("Start").onChange = (item: ParamItem) => { if (item.value == "yes") this.restart.call(this) }

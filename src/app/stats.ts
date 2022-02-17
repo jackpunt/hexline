@@ -154,7 +154,9 @@ export class StatsPanel extends ParamGUI {
   override selectValue(fieldName: string, value?: ParamType, line?: ParamLine): ParamItem | undefined {
     line = line || this.findLine(fieldName)
     if (!line) return null
+    let item = line.spec.choices.find(item => (item.fieldName === fieldName))
     this.setValueText(line)
+    line.chooser.changed(item)
     return undefined
   }
   update() {

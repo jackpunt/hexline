@@ -76,14 +76,10 @@ export class Table extends EventDispatcher  {
     this.markHex00()
     this.makeAllDistricts(TP.mHexes, TP.nHexes) // typically: 3,3 or 2,4
     let findMetaHex00 = (): Hex => {
-      let dist00 = this.districtHexAry[TP.mHexes], lastNdx = this.districtHexAry.length -1 // == TP.ftHexes(TP.mHexes)
-      dist00.forEach(hex => hex.setHexColor(this.hexMap.distColor[0], 0))
-      this.districtHexAry[0] = this.districtHexAry[TP.mHexes]
-      // set *last* district to the overwritten distId, so dist[0..TP.ftHexes(mh)]
-      this.districtHexAry[lastNdx].forEach(hex => hex.setHexColor(hex.color, TP.mHexes))
-      this.districtHexAry[TP.mHexes] = this.districtHexAry[lastNdx]
-      delete this.districtHexAry[lastNdx] // aka pop()
-      return dist00[TP.nHexes-1]
+      this.moveDistrict(TP.mHexes, 0)
+      this.moveDistrict(this.districtHexAry.length-1, TP.mHexes)
+      this.districtHexAry.pop() // delete last element
+      return this.districtHexAry[0][TP.nHexes-1]
     }
     // background sized for nHexes:
     let hex00 = findMetaHex00(), r0=hex00.row, c0=hex00.col
@@ -207,7 +203,7 @@ export class Table extends EventDispatcher  {
    * @param xy (graphical display offset)
    */
   makeAllDistricts(mh: number, nh: number, xy?: XY) {
-    let col = mh-1, row = 0, rp = Math.abs(row % 2), cp = Math.abs(col % 2)
+    let col = Math.ceil(mh/2), row = 0, rp = Math.abs(row % 2), cp = Math.abs(col % 2)
     let dist = 1          // Note: dist00 assigned [dist == mh]
     for (let dc = 0; dc < mh; dc++) {
       let r0 = row + ((cp == 1) ? Math.floor(dc/2) : Math.ceil(dc/2))
@@ -256,6 +252,13 @@ export class Table extends EventDispatcher  {
       }
     }
     return this.districtHexAry[district] = hexAry
+  }
+  moveDistrict(src, dst) {
+    let color = this.hexMap.distColor[dst]
+    let hexAry = this.districtHexAry[src]
+    hexAry.forEach(hex => hex.setHexColor(color, dst))
+    this.districtHexAry[dst] = hexAry
+    delete this.districtHexAry[src]
   }
   bgRect = {x: 0, y: 0, w: 2000, h: 2000}
   /** default scaling-up value */
