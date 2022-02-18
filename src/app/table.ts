@@ -76,9 +76,11 @@ export class Table extends EventDispatcher  {
     this.markHex00()
     this.makeAllDistricts(TP.mHexes, TP.nHexes) // typically: 3,3 or 2,4
     let findMetaHex00 = (): Hex => {
+      if (!TP.spiralHex) {
       this.moveDistrict(TP.mHexes, 0)
       this.moveDistrict(this.districtHexAry.length-1, TP.mHexes)
       this.districtHexAry.pop() // delete last element
+      }
       return this.districtHexAry[0][TP.nHexes-1]
     }
     // background sized for nHexes:
@@ -203,15 +205,18 @@ export class Table extends EventDispatcher  {
    * @param xy (graphical display offset)
    */
   makeAllDistricts(mh: number, nh: number, xy?: XY) {
-    let col = Math.ceil(mh/2), row = 0, rp = Math.abs(row % 2), cp = Math.abs(col % 2)
-    let dist = 1          // Note: dist00 assigned [dist == mh]
-    for (let dc = 0; dc < mh; dc++) {
-      let r0 = row + ((cp == 1) ? Math.floor(dc/2) : Math.ceil(dc/2))
-      let len = (2*mh - 1) - dc
-      for (let dr = 0; dr < len; dr++) {
-        this.makeDistrict(nh, dist++, r0 + dr, col + dc, xy)
-        if (dc !== 0) this.makeDistrict(nh, dist++, r0 + dr, col - dc, xy)
-      }
+    let mrc: RC = { col: Math.ceil(mh / 2), row: 2 }, district = 0
+    let dirs: HexDir[] = ['SE', 'S', 'SW', 'NW', 'N', 'NE']
+    this.makeDistrict(nh, district++, mrc.row, mrc.col, xy)
+    for (let ring = 1; ring < mh; ring++) {
+      mrc.row -= 1 // start to North
+      dirs.forEach(dir => {
+        // newMetaHexesOnLine(ring, rc, dir, district, dcolor, hexAry, xy)
+        for (let i = 0; i < ring; i++) {
+          this.makeDistrict(nh, district++, mrc.row, mrc.col, xy)
+          mrc = this.hexMap.nextRowCol(mrc, dir, this.hexMap.nsTopo(mrc))
+        }
+      })
     }
     console.log(this.districtHexAry)
   }
@@ -219,7 +224,8 @@ export class Table extends EventDispatcher  {
     return TP.spiralHex ? this.makeSpiralDistrict(nh, district, mr, mc, xy) : this.makeLinearDistrict(nh, district, mr, mc, xy)
   }
   makeSpiralDistrict(nh: number, district: number, mr, mc, xy?: XY): Hex[] {
-    let mcp = Math.abs(mc % 2), mrp = Math.abs(mr % 2), dia = 2*nh-1, dcolor = 1 + ((district+nh+mr) % 6)
+    let mcp = Math.abs(mc % 2), mrp = Math.abs(mr % 2), dia = 2*nh-1 
+    let dcolor = (district == 0) ? 0 : (1 + ((district+nh+mr) % 6))
     // irow-icol define topology of MetaHex composed of HexDistrict 
     // [spiral defines topo of basic HexDistrict]
     let irow = (mr, mc) => { 
@@ -236,15 +242,16 @@ export class Table extends EventDispatcher  {
     }
     let row0 = irow(mr, mc), col0 = icol(mr, mc, row0), hex: Hex;
     let hexAry = []; hexAry['Mr'] = mr; hexAry['Mc'] = mc; this.districtHexAry[district] = hexAry
-
     hexAry.push(hex = this.hexMap.addHex(row0, col0, district, dcolor, xy)) // The *center* hex
-    let rc: RC = {row: hex.row, col: hex.col}
-    console.log(`.makeSpiralDistrict: [${mr},${mc}] hex0= ${hex.Aname}`, hex)
-    for (let ring=1; ring < nh; ring++) {
+    let rc: RC = hex //{row: hex.row, col: hex.col} == {row0, col0}
+    console.groupCollapsed(`makeSpiralDistrict [mr: ${mr}, mc: ${mc}] hex0= ${hex.Aname}:${district}-${dcolor}`)
+    console.log(`.makeSpiralDistrict: [mr: ${mr}, mc: ${mc}] hex0= ${hex.Aname}`, hex)
+    for (let ring = 1; ring < nh; ring++) {
       rc.col -= 1 // step West to start a ring
       // place 'ring' hexes along each axis-line:
       S.dirs.forEach(dir => rc = this.newHexesOnLine(ring, rc, dir, district, dcolor, hexAry, xy))
     }
+    console.groupEnd()
     return hexAry
   }
   /**
@@ -255,7 +262,7 @@ export class Table extends EventDispatcher  {
    * @param district 
    * @param hexAry push created Hex(s) on this array
    * @param xy 
-   * @returns last Hex created
+   * @returns RC of next Hex to create (==? RC of original hex)
    */
   newHexesOnLine(n, rc: RC, dir: HexDir, district: number, dcolor: number, hexAry: Hex[], xy?: XY): RC {
       //let dcolor = this.hexMap.distColor[district]

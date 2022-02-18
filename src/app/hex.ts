@@ -256,17 +256,27 @@ export class HexMap extends Array<Array<Hex>> {
       this.update()
     }
   }
-  /** neighborhood topology */
-  n0 = {NE: {dc: 0, dr: -1}, E: {dc: 1, dr: 0}, SE: {dc: 0, dr: 1}, 
-        SW: {dc: -1, dr: 1}, W: {dc: -1, dr: 0}, NW: {dc: -1, dr: -1}}
-  n1 = {NE: {dc: 1, dr: -1}, E: {dc: 1, dr: 0}, SE: {dc: 1, dr: 1}, 
-        SW: {dc: 0, dr: 1}, W: {dc: -1, dr: 0}, NW: {dc: 0, dr: -1}}
-  nextRowCol(hex: Hex, dir: HexDir, nt: {} = (hex.row % 2 == 0) ? this.n0 : this.n1): RC {
+  /** neighborhood topology, E-W & N-S orientation; even(n0) & odd(n1) rows: */
+  ewEvenRow = {
+    NE: { dc: 0, dr: -1 }, E: { dc: 1, dr: 0 }, SE: { dc: 0, dr: 1 },
+    SW: { dc: -1, dr: 1 }, W: { dc: -1, dr: 0 }, NW: { dc: -1, dr: -1 }}
+  ewOddRow = {
+    NE: { dc: 1, dr: -1 }, E: { dc: 1, dr: 0 }, SE: { dc: 1, dr: 1 },
+    SW: {dc: 0, dr: 1}, W: {dc: -1, dr: 0}, NW: {dc: 0, dr: -1}}
+  nsOddCol = {
+    NE: { dc: 1, dr: -1 }, SE: { dc: 1, dr: 0 }, S: { dc: 0, dr: 1 }, N: { dc: 0, dr: -1 },
+    SW: { dc: -1, dr: 0 }, NW: { dc: -1, dr: -1 }}
+  nsEvenCol = {
+    NE: { dc: 1, dr: 0 }, SE: { dc: 1, dr: 1 }, S: { dc: 0, dr: 1 }, N: { dc: 0, dr: -1 },
+    SW: { dc: -1, dr: 1}, NW: { dc: -1, dr: 0 }}
+  nsTopo(rc: RC): {} { return (rc.col % 2 == 0) ? this.nsEvenCol : this.nsOddCol }
+
+  nextRowCol(hex: RC, dir: HexDir, nt: {} = (hex.row % 2 == 0) ? this.ewEvenRow : this.ewOddRow): RC {
     let row = hex.row + nt[dir].dr, col = hex.col + nt[dir].dc 
     return {row, col}
   }
   link(hex: Hex) {
-    let nt = (hex.row % 2 == 0) ? this.n0 : this.n1
+    let nt = (hex.row % 2 == 0) ? this.ewEvenRow : this.ewOddRow
     S.dirs.forEach(dir => {
       let row = hex.row + nt[dir].dr, col = hex.col + nt[dir].dc //let {row, col} = this.nextRowCol(hex, dir, nt)
       let nHex = this[row] && this[row][col]

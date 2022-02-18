@@ -21,7 +21,7 @@ export namespace M {
 }
 /** Hexagonal canonical directions */
 export enum Dir { C, NE, E, SE, SW, W, NW }
-export type HexDir = 'NE' | 'E' | 'SE' | 'SW' | 'W' | 'NW'
+export type HexDir = 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW' | 'N'
 
 /** String things */
 export namespace S {
