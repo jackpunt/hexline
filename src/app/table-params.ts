@@ -24,7 +24,7 @@ export class TP {
     TP.nDiffControl = (nh <= 1) ? 1 : nh - 1 // [0, 0, 1, 2, 3, ...]
   }
   /** an odd number: 1, 7, 19, 37, 61, 97, ... */
-  static ftHexes(n: number): number { return (n == 1) ? 1 : 6 * (n-1) + TP.ftHexes(n - 1) }
+  static ftHexes(n: number): number { return (n <= 1) ? n : 6 * (n-1) + TP.ftHexes(n - 1) }
   static spiralHex: boolean = true
 
   /** exclude whole Extension sets */

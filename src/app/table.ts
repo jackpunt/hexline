@@ -75,19 +75,17 @@ export class Table extends EventDispatcher  {
     this.gamePlay.hexMap = this.hexMap
     this.markHex00()
     this.makeAllDistricts(TP.mHexes, TP.nHexes) // typically: 3,3 or 2,4
-    let findMetaHex00 = (): Hex => {
-      if (!TP.spiralHex) {
-      this.moveDistrict(TP.mHexes, 0)
-      this.moveDistrict(this.districtHexAry.length-1, TP.mHexes)
-      this.districtHexAry.pop() // delete last element
-      }
-      return this.districtHexAry[0][TP.nHexes-1]
+    let findMetaHex00 = (spiral: boolean): Hex => {
+      return this.districtHexAry[0][spiral ? 0 : (TP.nHexes-1)]
     }
     // background sized for nHexes:
-    let hex00 = findMetaHex00(), r0=hex00.row, c0=hex00.col
+    let hex00 = findMetaHex00(TP.spiralHex), r0=hex00.row, c0=hex00.col
     let mh = TP.mHexes, nh= TP.nHexes, high = hex00.height * 1.5, wide = hex00.width * 2.0
-    let minc = c0 - c0 - Math.abs((nh+1)%2), minr = r0 - c0 - Math.floor(nh/1.5 + mh -2)
-    let maxc = c0 + c0 + Math.abs((nh+1)%2), maxr = r0 + c0 + Math.floor(nh/1.5 + mh -2)
+    let metaL = this.districtHexAry.length - mh + 1, hexL = TP.spiralHex ? TP.ftHexes(TP.nHexes-1) : 0
+    let hexLL = this.districtHexAry[metaL][hexL], cl = hexLL.col, dc = c0 - cl
+    console.log({metaL, hexL, c0, cl, dc}, hex00.Aname, hex00, hexLL.Aname)
+    let minc = c0 - dc - Math.abs((nh+1)%2), minr = r0 - dc - Math.floor(nh/1.5 + mh -2)
+    let maxc = c0 + dc + Math.abs((nh+1)%2), maxr = r0 + dc + Math.floor(nh/1.5 + mh -2)
     let miny = --minr * high, maxy = ++maxr * high
     let minx = --minc * wide, maxx = ++maxc * wide
     this.bgRect = { x: 0, y: 0, w: (maxx - minx), h: (maxy - miny) }
@@ -235,7 +233,7 @@ export class Table extends EventDispatcher  {
     }
     let icol = (mr, mc, row) => {
       let np = Math.abs(nh % 2), rp = Math.abs(row % 2)
-      let ic = Math.floor(mc * ((nh*3 -1)/2))
+      let ic = Math.floor(mc * ((nh*3 -1)/2)) + (nh-1)
       ic -= Math.floor((mc + (2 - np)) / 4) // 4-metaCol means 2-rows, mean 1-col 
       ic += Math.floor((mr - rp) / 2)       // 2-metaRow means +1 col
       return ic
@@ -243,7 +241,7 @@ export class Table extends EventDispatcher  {
     let row0 = irow(mr, mc), col0 = icol(mr, mc, row0), hex: Hex;
     let hexAry = []; hexAry['Mr'] = mr; hexAry['Mc'] = mc; this.districtHexAry[district] = hexAry
     hexAry.push(hex = this.hexMap.addHex(row0, col0, district, dcolor, xy)) // The *center* hex
-    let rc: RC = hex //{row: hex.row, col: hex.col} == {row0, col0}
+    let rc: RC = {row: row0, col: col0} // == {hex.row, hex.col}
     console.groupCollapsed(`makeSpiralDistrict [mr: ${mr}, mc: ${mc}] hex0= ${hex.Aname}:${district}-${dcolor}`)
     console.log(`.makeSpiralDistrict: [mr: ${mr}, mc: ${mc}] hex0= ${hex.Aname}`, hex)
     for (let ring = 1; ring < nh; ring++) {
@@ -281,7 +279,8 @@ export class Table extends EventDispatcher  {
    * @param nh number of hexes on a side
    */
   makeLinearDistrict(nh: number, district: number, mr, mc, xy?: XY): Hex[] {
-    let mcp = Math.abs(mc % 2), mrp = Math.abs(mr % 2), dia = 2*nh-1, dcolor = 1 + ((district+nh+mr) % 6)
+    let mcp = Math.abs(mc % 2), mrp = Math.abs(mr % 2), dia = 2*nh-1
+    let dcolor = (district == 0) ? 0 : (1 + ((district+nh+mr) % 6))
     let irow = (mr, mc) => { 
       let ir = mr * dia - nh * (mcp+1) + 1
       ir -= Math.floor((mc)/2)              // - half a row for each metaCol
@@ -297,7 +296,7 @@ export class Table extends EventDispatcher  {
     let row = irow(mr, mc), col = icol(mr, mc, row)
     let hexAry = []; hexAry['Mr'] = mr; hexAry['Mc'] = mc
     let rp = Math.abs(row % 2), cp = Math.abs(col % 2)
-    console.log(`.makeLinearDistrict(${nh}, ${district} [${mr}, ${mc}] = (${row},${col}))`)
+    console.groupCollapsed(`.makeLinearDistrict(${nh}, ${district} [${mr}, ${mc}] = (${row},${col})) :${district}-${dcolor}`)
     for (let dr = 0; dr < nh; dr++) {
       let c0 = col + ((rp == 0) ? Math.floor(dr/2) : Math.ceil(dr/2))
       let len = (2 * nh - 1) - dr
@@ -306,6 +305,8 @@ export class Table extends EventDispatcher  {
         if (dr !== 0) hexAry.push(this.hexMap.addHex(row - dr, c0 + dc, district, dcolor, xy))
       }
     }
+    hexAry.forEach(hex => console.log(`${hex.district}, (${hex.row}, ${hex.col})`, hex))
+    console.groupEnd()
     return this.districtHexAry[district] = hexAry
   }
   moveDistrict(src, dst) {
