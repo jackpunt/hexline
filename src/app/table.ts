@@ -210,13 +210,24 @@ export class Table extends EventDispatcher  {
         // newMetaHexesOnLine(ring, rc, dir, district, dcolor, hexAry, xy)
         for (let i = 0; i < ring; i++) {
           mrc = this.hexMap.nextRowCol(mrc, dir, this.hexMap.nsTopo(mrc))
-          this.makeDistrict(nh, district++, mrc.row, mrc.col, xy)
+          let hexAry = this.makeDistrict(nh, district++, mrc.row, mrc.col, xy)
+          let dcolor = this.pickColor(hexAry[0])
+          hexAry.forEach(hex => hex.setHexColor(dcolor))
         }
       })
     }
     console.log(this.districtHexAry)
   }
-
+  pickColor(hex: Hex): string {
+    let adjColor: string[] = [hex.map.distColor[0]], dist0 = hex.district
+    S.dirs.forEach(hd => {
+      let nhex: Hex = hex
+      while (!!(nhex = nhex.links[hd])) {
+        if (nhex.district != dist0) { adjColor.push(nhex.color); return }
+      }
+    })
+    return hex.map.distColor.find(ci => !adjColor.includes(ci))
+  }
   /** 
    * @param nh number of hexes on a side
    */

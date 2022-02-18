@@ -83,7 +83,7 @@ export class Hex extends Container {
     NW: undefined
   }
   setHexColor(color: string, dist?: number) {
-    if (dist !== undefined) this.district = dist
+    if (dist !== undefined) this.district = dist // hex.setHexColor update district
     let hexShape = this.hex(this.height, color)
     if (!!this.hexShape) this.removeChild(this.hexShape)
     this.addChildAt(hexShape, 0)
@@ -186,7 +186,7 @@ export class Hex extends Container {
   /** return last Hex on axis in given direction */
   lastHex(ds: HexDir) {
     let hex: Hex = this, nhex: Hex
-    while (!!(nhex = hex[ds])) { hex = nhex }
+    while (!!(nhex = hex.links[ds])) { hex = nhex }
     return hex    
   }
 }
@@ -199,6 +199,9 @@ export class HexMap extends Array<Array<Hex>> {
   markCont: Container = new Container()    // infMark on the top
   mark: Shape
   minRow: number = undefined
+  // A color for each District:
+  distColor = ["lightgrey","limegreen","deepskyblue","rgb(255,165,0)","violet","rgb(250,80,80)","yellow"]
+
   constructor(radius: number = 50, mapCont?: Container) {
     super()
     this.radius = radius
@@ -214,8 +217,6 @@ export class HexMap extends Array<Array<Hex>> {
     InfMark.initStatic(this)
   }
   update() { !!this.hexCont.parent && this.hexCont.stage.update()}
-  // A color for each District:
-  distColor = ["lightgrey","rgb(250,80,80)","rgb(255,165,0)","yellow","limegreen","deepskyblue","violet"]
   addHex(row: number, col: number, district: number, dc: number, xy?: XY ): Hex {
     let color = this.distColor[dc]
     let hex = new Hex(color, this.radius, row, col, xy)
