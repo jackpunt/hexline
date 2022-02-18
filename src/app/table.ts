@@ -79,7 +79,7 @@ export class Table extends EventDispatcher  {
     // background sized for nHexes:
     let hex00 = this.districtHexAry[0][0], r0=hex00.row, c0=hex00.col
     let mh = TP.mHexes, nh= TP.nHexes, high = hex00.height * 1.5, wide = hex00.width * 2.0
-    let metaL = this.districtHexAry.length - mh + 1, hexL = TP.ftHexes(TP.nHexes-1)
+    let metaL = this.districtHexAry.length - mh, hexL = TP.ftHexes(TP.nHexes-1)
     let hexLL = this.districtHexAry[metaL][hexL], cl = hexLL.col, dc = c0 - cl
     console.log({metaL, hexL, c0, cl, dc}, hex00.Aname, hex00, hexLL.Aname)
     let minc = c0 - dc - Math.abs((nh+1)%2), minr = r0 - dc - Math.floor(nh/1.5 + mh -2)
@@ -203,14 +203,14 @@ export class Table extends EventDispatcher  {
   makeAllDistricts(mh: number, nh: number, xy?: XY) {
     let mrc: RC = { col: Math.ceil(mh / 2), row: 2 }, district = 0
     let dirs: HexDir[] = ['SE', 'S', 'SW', 'NW', 'N', 'NE']
-    this.makeDistrict(nh, district++, mrc.row, mrc.col, xy)
+    this.makeDistrict(nh, district++, mrc.row, mrc.col, xy) // Central District [0]
     for (let ring = 1; ring < mh; ring++) {
       mrc.row -= 1 // start to North
       dirs.forEach(dir => {
         // newMetaHexesOnLine(ring, rc, dir, district, dcolor, hexAry, xy)
         for (let i = 0; i < ring; i++) {
-          this.makeDistrict(nh, district++, mrc.row, mrc.col, xy)
           mrc = this.hexMap.nextRowCol(mrc, dir, this.hexMap.nsTopo(mrc))
+          this.makeDistrict(nh, district++, mrc.row, mrc.col, xy)
         }
       })
     }
