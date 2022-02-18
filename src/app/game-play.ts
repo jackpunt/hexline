@@ -131,12 +131,6 @@ export class GamePlay {
     let dss = (line['ds']+' ').substring(0,2)
     console.log(stime(this, str), dss, line.map(fn))
   }
-  /** return East-most Hex in this line */
-  eastHex(hex: Hex, ds: HexDir): Hex {
-    let nhex: Hex
-    while (!!(nhex = hex[ds])) { hex = nhex }
-    return hex
-  }
   /** return Array<Hex> where each Hex in on the given axis, with Stone of color. 
    * @param color if undefined, return all Hex on axis
    */
@@ -161,7 +155,7 @@ export class GamePlay {
     // addUndoRec for each new Influence
     S.dir3.forEach(ds => {
       if (!!linesDone) {
-        let eHex = this.eastHex(hex, ds)
+        let eHex = hex.lastHex(ds)
         if (linesDone[ds].includes(eHex[0])) return
         linesDone[ds] = eHex[0]
       }

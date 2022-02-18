@@ -1,6 +1,7 @@
 
 export type WH = { width: number, height: number };
 export type XY = { x: number, y: number }; // less than a Point
+export type RC = { row: number, col: number}
 
 /** Font things */
 export namespace F {

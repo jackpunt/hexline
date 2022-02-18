@@ -1,5 +1,5 @@
 import { Container, Graphics, Shape, Text } from "createjs-module";
-import { C, Dir, F, HexDir, S, XY } from "./basic-intfs";
+import { C, Dir, F, HexDir, RC, S, XY } from "./basic-intfs";
 import { Stone } from "./table";
 import { TP, StoneColor, stoneColor0, stoneColor1 } from "./table-params";
 
@@ -48,6 +48,8 @@ class CapMark extends Shape {
 }
 /** One Hex cell in the game, shown as a polyStar Shape */
 export class Hex extends Container {
+  static borderColor = 'saddlebrown'
+
   Aname: string
   hexShape: Shape // not currently used
   _district: number // district ID
@@ -89,10 +91,9 @@ export class Hex extends Container {
     this.color = color
     this.hexShape = hexShape
   }
-  
 
-/** One Hex cell in the game, shown as a polyStar Shape of radius @ (0,0) */
-constructor(color: string, radius: number, row?: number, col?: number, xy?: XY) {
+  /** One Hex cell in the game, shown as a polyStar Shape of radius @ (0,0) */
+  constructor(color: string, radius: number, row?: number, col?: number, xy?: XY) {
     super();
     let h = radius * Math.sqrt(3)/2
     this.width = h
@@ -177,12 +178,17 @@ constructor(color: string, radius: number, row?: number, col?: number, xy?: XY) 
   /** makes a colored hex, outlined with bgColor */
   hex(rad: number, color: string): Shape {
     let ns = new Shape(), tilt = 30
-    ns.graphics.beginStroke(TP.bgColor).drawPolyStar(0, 0, rad+1, 6, 0, tilt)
+    ns.graphics.beginStroke(Hex.borderColor).drawPolyStar(0, 0, rad+1, 6, 0, tilt)
     ns.graphics.beginFill(color).drawPolyStar(0, 0, rad, 6, 0, tilt)
     ns.rotation = S.dirRot[Dir.E]
   return ns
   }
-
+  /** return last Hex on axis in given direction */
+  lastHex(ds: HexDir) {
+    let hex: Hex = this, nhex: Hex
+    while (!!(nhex = hex[ds])) { hex = nhex }
+    return hex    
+  }
 }
 /** HexMap[row][col] keep registry of all Hex items map to/from [row, col] */
 export class HexMap extends Array<Array<Hex>> {
@@ -255,18 +261,22 @@ export class HexMap extends Array<Array<Hex>> {
         SW: {dc: -1, dr: 1}, W: {dc: -1, dr: 0}, NW: {dc: -1, dr: -1}}
   n1 = {NE: {dc: 1, dr: -1}, E: {dc: 1, dr: 0}, SE: {dc: 1, dr: 1}, 
         SW: {dc: 0, dr: 1}, W: {dc: -1, dr: 0}, NW: {dc: 0, dr: -1}}
-
+  nextRowCol(hex: Hex, dir: HexDir, nt: {} = (hex.row % 2 == 0) ? this.n0 : this.n1): RC {
+    let row = hex.row + nt[dir].dr, col = hex.col + nt[dir].dc 
+    return {row, col}
+  }
   link(hex: Hex) {
     let nt = (hex.row % 2 == 0) ? this.n0 : this.n1
     S.dirs.forEach(dir => {
-      let nr = hex.row + nt[dir].dr , nc = hex.col + nt[dir].dc 
-      let nHex = this[nr] && this[nr][nc]
+      let row = hex.row + nt[dir].dr, col = hex.col + nt[dir].dc //let {row, col} = this.nextRowCol(hex, dir, nt)
+      let nHex = this[row] && this[row][col]
       if (!!nHex) {
         hex.links[dir] = nHex
         nHex.links[S.dirRev[dir]] = hex
       }
     });
   }
+
   /**
    * The Hex under the given x,y coordinates.
    * If on the line, then the top (last drawn) Hex.

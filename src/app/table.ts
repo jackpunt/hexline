@@ -1,5 +1,5 @@
 import { Stage, EventDispatcher, Container, Shape } from "createjs-module";
-import { C, S, XY } from "./basic-intfs";
+import { C, HexDir, RC, S, XY } from "./basic-intfs";
 import { Dragger, DragInfo } from "./dragger";
 import { GamePlay, Player } from "./game-play";
 import { Hex, HexMap } from "./hex";
@@ -56,9 +56,9 @@ export class Table extends EventDispatcher  {
   testoff: number = 1
   markHex00() {
     // transparent Hex@[0,0] with black outline on markCont; but remove other references:
-    let tc = TP.bgColor; TP.bgColor = C.black
+    let tc = Hex.borderColor; Hex.borderColor = C.black
     let h00 = this.makeDistrict(1, 0, 0, 0)[0]; h00.setHexColor("rgba(1,1,1,0)"); this.hexMap.markCont.addChild(h00)
-    TP.bgColor = tc
+    Hex.borderColor = tc
     delete this.hexMap[0][0] // make un-linkable
     this.districtHexAry = []
     console.log(`------------------------------------`)
@@ -213,17 +213,67 @@ export class Table extends EventDispatcher  {
         if (dc !== 0) this.makeDistrict(nh, dist++, r0 + dr, col - dc, xy)
       }
     }
+    console.log(this.districtHexAry)
+  }
+  makeDistrict(nh: number, district: number, mr, mc, xy?: XY): Hex[] {
+    return TP.spiralHex ? this.makeSpiralDistrict(nh, district, mr, mc, xy) : this.makeLinearDistrict(nh, district, mr, mc, xy)
   }
   makeSpiralDistrict(nh: number, district: number, mr, mc, xy?: XY): Hex[] {
     let mcp = Math.abs(mc % 2), mrp = Math.abs(mr % 2), dia = 2*nh-1, dcolor = 1 + ((district+nh+mr) % 6)
-    return this.districtHexAry[district]
+    // irow-icol define topology of MetaHex composed of HexDistrict 
+    // [spiral defines topo of basic HexDistrict]
+    let irow = (mr, mc) => { 
+      let ir = mr * dia - nh * (mcp+1) + 1
+      ir -= Math.floor((mc)/2)              // - half a row for each metaCol
+      return ir
+    }
+    let icol = (mr, mc, row) => {
+      let np = Math.abs(nh % 2), rp = Math.abs(row % 2)
+      let ic = Math.floor(mc * ((nh*3 -1)/2))
+      ic -= Math.floor((mc + (2 - np)) / 4) // 4-metaCol means 2-rows, mean 1-col 
+      ic += Math.floor((mr - rp) / 2)       // 2-metaRow means +1 col
+      return ic
+    }
+    let row0 = irow(mr, mc), col0 = icol(mr, mc, row0), hex: Hex;
+    let hexAry = []; hexAry['Mr'] = mr; hexAry['Mc'] = mc; this.districtHexAry[district] = hexAry
+
+    hexAry.push(hex = this.hexMap.addHex(row0, col0, district, dcolor, xy)) // The *center* hex
+    let rc: RC = {row: hex.row, col: hex.col}
+    console.log(`.makeSpiralDistrict: [${mr},${mc}] hex0= ${hex.Aname}`, hex)
+    for (let ring=1; ring < nh; ring++) {
+      rc.col -= 1 // step West to start a ring
+      // place 'ring' hexes along each axis-line:
+      S.dirs.forEach(dir => rc = this.newHexesOnLine(ring, rc, dir, district, dcolor, hexAry, xy))
+    }
+    return hexAry
   }
+  /**
+   * 
+   * @param n number of Hex to create
+   * @param hex start with a Hex to the West of this Hex
+   * @param dir after first Hex move this Dir for each other hex
+   * @param district 
+   * @param hexAry push created Hex(s) on this array
+   * @param xy 
+   * @returns last Hex created
+   */
+  newHexesOnLine(n, rc: RC, dir: HexDir, district: number, dcolor: number, hexAry: Hex[], xy?: XY): RC {
+      //let dcolor = this.hexMap.distColor[district]
+      let hex: Hex
+      //hexAry.push(hex = this.hexMap.addHex(row, col-1, district, district, xy))
+      for (let i = 0; i< n; i++) { 
+        hexAry.push(hex = this.hexMap.addHex(rc.row, rc.col, district, dcolor, xy))
+        console.log(`.makeSpiralDistrict: [${hex.Aname}] hex=`, hex)
+        rc = this.hexMap.nextRowCol(hex, dir)
+      }
+      return rc
+    }
   /** Array of Hex for each District */
   districtHexAry: Array<Array<Hex>> = []
   /** left most [row,col] goes in [roff,coff] 
    * @param nh number of hexes on a side
    */
-  makeDistrict(nh: number, district: number, mr, mc, xy?: XY): Hex[] {
+  makeLinearDistrict(nh: number, district: number, mr, mc, xy?: XY): Hex[] {
     let mcp = Math.abs(mc % 2), mrp = Math.abs(mr % 2), dia = 2*nh-1, dcolor = 1 + ((district+nh+mr) % 6)
     let irow = (mr, mc) => { 
       let ir = mr * dia - nh * (mcp+1) + 1
@@ -240,7 +290,7 @@ export class Table extends EventDispatcher  {
     let row = irow(mr, mc), col = icol(mr, mc, row)
     let hexAry = []; hexAry['Mr'] = mr; hexAry['Mc'] = mc
     let rp = Math.abs(row % 2), cp = Math.abs(col % 2)
-    console.log(`.makeDistrict(${nh}, ${district} [${mr}, ${mc}] = (${row},${col}))`)
+    console.log(`.makeLinearDistrict(${nh}, ${district} [${mr}, ${mc}] = (${row},${col}))`)
     for (let dr = 0; dr < nh; dr++) {
       let c0 = col + ((rp == 0) ? Math.floor(dr/2) : Math.ceil(dr/2))
       let len = (2 * nh - 1) - dr
