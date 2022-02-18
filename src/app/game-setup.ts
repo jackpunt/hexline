@@ -77,7 +77,6 @@ export class GameSetup {
       specs.push(this.makeParamSpec("Start", [" ", "yes", "no"], { fontSize: 40, fontColor: "red" }))
       specs.push(this.makeParamSpec("mHexes", [2, 3, 4]))
       specs.push(this.makeParamSpec("nHexes", [1, 2, 3, 4, 5, 6]))
-      specs.push(this.makeParamSpec("spiralHex", [true, false]))
 
       spec("Start").onChange = (item: ParamItem) => { if (item.value == "yes") this.restart.call(this) }
       spec("nHexes").onChange = (item: ParamItem) => { 

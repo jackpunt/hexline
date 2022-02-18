@@ -25,7 +25,6 @@ export class TP {
   }
   /** an odd number: 1, 7, 19, 37, 61, 97, ... */
   static ftHexes(n: number): number { return (n <= 1) ? n : 6 * (n-1) + TP.ftHexes(n - 1) }
-  static spiralHex: boolean = true
 
   /** exclude whole Extension sets */
   static excludeExt: string[] = ["Policy", "Event", "Roads", "Transit"]; // url?ext=Transit,Roads
