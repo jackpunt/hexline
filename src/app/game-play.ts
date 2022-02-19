@@ -25,9 +25,12 @@ export class GamePlay {
     KeyBinder.keyBinder.globalSetKeyFromChar('M-z', {thisArg: this, func: this.undoMove})
     KeyBinder.keyBinder.globalSetKeyFromChar('q', {thisArg: this, func: this.undoMove})
     KeyBinder.keyBinder.globalSetKeyFromChar('r', {thisArg: this, func: this.redoMove})
-    KeyBinder.keyBinder.globalSetKeyFromChar('t', {thisArg: this.table, func: () => this.table.setNextPlayer()})
+    KeyBinder.keyBinder.globalSetKeyFromChar('t', {thisArg: this, func: this.skipTurn})
   }
-
+  skipTurn() {
+    this.history[0] && this.history[0].captured.forEach(hex => hex.unmarkCapture())
+    this.table.setNextPlayer()
+  }
   undoRecs: Undo = new Undo();
   addUndoRec(obj: Object, name: string, value: any | Function = obj[name]) { this.undoRecs.addUndoRec(obj, name, value); }
   /** undo last undo block */
@@ -105,6 +108,9 @@ export class GamePlay {
       this.addUndoRec(this, `undoCapture(${hex.Aname}:${stone.color})`, () => this.addStone(hex, stone))
     }
     this.hexMap.update()
+  }
+  unmarkOldCaptures() {
+    this.history[0] && this.history[0].captured.forEach(hex => hex.unmarkCapture())
   }
 
   /** remove captured Stones, from placing Stone on Hex */
