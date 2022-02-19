@@ -27,7 +27,6 @@ export interface ParamItem extends DropdownItem {
   bgColor?: string
 }
 // in each Item: {[button:DropdownButton], text: string, fieldName: string, value: ParamType}
-// when onItemChanged: TP[fieldName] = value
 
 export class ParamLine extends Container {
   get height():number { return this.getBounds().height }
