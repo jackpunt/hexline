@@ -73,7 +73,7 @@ export class Table extends EventDispatcher  {
     this.hexMap = new HexMap(radius, mapCont)
     this.hexMap.hexCont.addChild(this.nextHex)  // single Hex to hold a Stone to play
     this.gamePlay.hexMap = this.hexMap
-    this.markHex00()
+    //this.markHex00()
     this.makeAllDistricts(TP.mHexes, TP.nHexes) // typically: 3,3 or 2,4
 
     // background sized for nHexes:
@@ -90,7 +90,7 @@ export class Table extends EventDispatcher  {
 
     Dragger.makeDragable(this.nextHex, undefined, undefined, undefined, true)
     this.nextHex.x = minx + 2*wide ; this.nextHex.y = miny+ 2*high;
-    if (TP.nHexes <= 2) { this.bgRect.w += 400; this.nextHex.x -= 3*wide; minx -= 2*high }
+    if (TP.nHexes <= 2) { this.bgRect.w += 400; this.nextHex.x -= 2.5*wide; minx -= 2*high }
     // console.log({hex: hex0.Aname, x0, y0, x00, y00}, this.bgRect)
     console.log({minx, miny, maxx, maxy}, {minr, maxr, minc, maxc}, this.bgRect)
     // console.log(this.districtHexAry)
