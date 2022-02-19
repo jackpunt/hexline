@@ -39,10 +39,10 @@ type INF = NES[] // keyof INF === StoneColor
 type InfDir = keyof NES        // 'NE' | 'E' | 'SE'
 class CapMark extends Shape {
   static capSize = 4   // depends on HexMap.height
-  constructor() {
+  constructor(hex: Hex) {
     super()
     this.graphics.beginFill(C.capColor).drawPolyStar(0, 0, CapMark.capSize, 6, 0, 30)
-
+    hex.parent.localToLocal(hex.x, hex.y, hex.map.markCont, this)
   }
 
 }
@@ -64,7 +64,7 @@ export class Hex extends Container {
   color: string  // district color of Hex
   row: number
   col: number
-  map: HexMap;  // Note: this.parent == this.map.cont
+  map: HexMap;  // Note: this.parent == this.map.hexCont [cached]
   stone: Stone
   captured: CapMark; // set if recently captured (markCapture)
   /** color of the Stone or undefined */
@@ -141,9 +141,9 @@ export class Hex extends Container {
       infMark = new InfMark(ds, color, dt)
       this.inf[color][ds] = infMark
       // place InfMark on HexMap:
-      let pt = this.parent.localToLocal(this.x, this.y, this.map.markCont)
+      let pt = this.parent.localToLocal(this.x, this.y, this.map.infCont)
       infMark.x = pt.x; infMark.y = pt.y
-      this.map.markCont.addChild(infMark)
+      this.map.infCont.addChild(infMark)
     }
     return true
   }
@@ -168,10 +168,10 @@ export class Hex extends Container {
 
   markCapture() {
     if (!!this.captured) return // only 1 CapMark per Hex
-    this.addChild(this.captured = new CapMark())
+    this.map.markCont.addChild(this.captured = new CapMark(this))
   }
   unmarkCapture() {
-    this.captured && this.removeChild(this.captured)
+    this.captured && this.map.markCont.removeChild(this.captured)
     this.captured = undefined
   }
 
@@ -195,10 +195,11 @@ export class HexMap extends Array<Array<Hex>> {
   radius: number = 50
   height: number;
   hexCont: Container = new Container()     // hex shapes on bottom
+  markCont: Container = new Container()    // showMark under Stones
   stoneCont: Container = new Container()   // Stone in middle
-  markCont: Container = new Container()    // infMark on the top
+  infCont: Container = new Container()     // infMark on the top
   mark: Shape
-  minRow: number = undefined
+  minRow: number = undefined               // Array.forEach does not look at negative indices!
   // A color for each District:
   distColor = ["lightgrey","limegreen","deepskyblue","rgb(255,165,0)","violet","rgb(250,80,80)","yellow"]
 
@@ -209,8 +210,9 @@ export class HexMap extends Array<Array<Hex>> {
     CapMark.capSize = this.height
     if (!!mapCont) {                 // hexCont, stoneCont, markCont all x,y aligned
       mapCont.addChild(this.hexCont)  ; this.hexCont[S.aname]   = "hexCont"
+      mapCont.addChild(this.markCont) ; this.hexCont[S.aname]   = "markCont"
       mapCont.addChild(this.stoneCont); this.stoneCont[S.aname] = "stoneCont"
-      mapCont.addChild(this.markCont) ; this.markCont[S.aname]  = "markCont"
+      mapCont.addChild(this.infCont) ; this.infCont[S.aname]    = "infCont"
     }
     this.mark = new Shape();
     this.mark.graphics.beginFill(C.markColor).drawPolyStar(0, 0, radius, 6, 0, 30)
@@ -252,7 +254,7 @@ export class HexMap extends Array<Array<Hex>> {
     } else {
       this.mark.x = hex.x
       this.mark.y = hex.y
-      this.hexCont.addChild(this.mark) // show mark *below* Stone & infMark
+      this.markCont.addChild(this.mark) // show mark *below* Stone & infMark
       this.mark.visible = true
       this.update()
     }

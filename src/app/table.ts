@@ -99,6 +99,7 @@ export class Table extends EventDispatcher  {
     mapCont.x = this.bgRect.x + (this.bgRect.w) / 2 - hex00.x
     mapCont.y = this.bgRect.y + (this.bgRect.h) / 2 - hex00.y
     console.log({mapx: mapCont.x, mapy: mapCont.y, hex00x: hex00.x, hex00y: hex00.y})
+    this.hexMap.hexCont.cache(minx, miny, maxx-minx, maxy-miny)
 
     // console.log(`------------------------------------`)
     // this.makeAllDistricts(TP.nHexes-1, {x: 8*TP.nHexes*50, y: 0}) // 3 .. to the right
