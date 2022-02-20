@@ -10,6 +10,7 @@ import { BoardStats, StatsPanel } from "./stats";
 import { TP, StoneColor, stoneColors, otherColor } from "./table-params";
 import { stime } from "./types";
 
+type XYWH = {x: number, y: number, w: number, h: number} // like a Rectangle
 export class Stone extends Shape {
   static radius: number = 50
   static height: number = Stone.radius*Math.sqrt(3)/2
@@ -81,31 +82,25 @@ export class Table extends EventDispatcher  {
     this.hexMap.markCont.addChild(this.undoCont)
     this.makeAllDistricts(TP.mHexes, TP.nHexes) // typically: 3,3 or 2,4
 
+    let hexRect = this.hexMap.hexCont.getBounds()
     // background sized for nHexes:
-    let hex00 = this.districtHexAry[0][0], r0=hex00.row, c0=hex00.col
+    let hex00 = this.districtHexAry[0][0]
     let mh = TP.mHexes, nh= TP.nHexes, high = hex00.height * 1.5, wide = hex00.width * 2.0 // h=rad*1.5; w=rad*r(3)
-    let metaL = this.districtHexAry.length - mh, hexL = TP.ftHexes(TP.nHexes-1)
-    let hexLL = this.districtHexAry[metaL][hexL], cl = hexLL.col, dc = c0 - cl
-    console.log({metaL, hexL, c0, cl, dc}, hex00.Aname, hex00, hexLL.Aname)
-    let minc = c0 - dc - Math.abs((nh+1)%2), minr = r0 - dc - Math.floor(nh/1.5 + mh -2)
-    let maxc = c0 + dc + Math.abs((nh+1)%2), maxr = r0 + dc + Math.floor(nh/1.5 + mh -2)
-    let miny = --minr * high, maxy = ++maxr * high
-    let minx = --minc * wide, maxx = ++maxc * wide
-    let bgr = this.bgRect = { x: 0, y: 0, w: (maxx - minx), h: (maxy - miny) }
-
-    console.log({minx, miny, maxx, maxy}, {minr, maxr, minc, maxc}, 'bgRect=', this.bgRect)
+    let miny = hexRect.y - high, maxy = hexRect.y+hexRect.height + high
+    let minx = hexRect.x - wide, maxx = hexRect.x+hexRect.width + wide
+    let bgr: XYWH = { x: 0, y: 0, w: (maxx - minx), h: (maxy - miny) }
     // align center of mapCont == hexMap with center of background
     mapCont.x = bgr.x + (bgr.w) / 2 - hex00.x
     mapCont.y = bgr.y + (bgr.h) / 2 - hex00.y
-    console.log({mapx: mapCont.x, mapy: mapCont.y, hex00x: hex00.x, hex00y: hex00.y})
+    //console.log({mapx: mapCont.x, mapy: mapCont.y, hex00x: hex00.x, hex00y: hex00.y})
 
-    this.nextHex.x = minx + 2*wide ; this.nextHex.y = miny+ 2*high;
+    this.nextHex.x = minx + 2 * wide; this.nextHex.y = miny + 2.0 * high;
     // tweak when hexMap is tiny:
-    if (TP.nHexes == 1 || TP.nHexes +TP.mHexes <= 4) { bgr.w += 3*wide; mapCont.x += 3*wide; this.nextHex.x = minx - .5*wide }
+    if (nh == 1 || nh + mh <= 5) { bgr.w += 3*wide; mapCont.x += 3*wide; this.nextHex.x = minx - .5*wide }
     this.undoCont.x = this.nextHex.x
     this.undoCont.y = this.nextHex.y + 100
 
-    this.setBackground(this.scaleCont) // bounded by bgr
+    this.setBackground(this.scaleCont, bgr) // bounded by bgr
     let p00 = this.scaleCont.localToLocal(bgr.x, bgr.y, this.hexMap.hexCont) 
     let pbr = this.scaleCont.localToLocal(bgr.x+bgr.w, bgr.y+bgr.h, this.hexMap.hexCont)
     this.hexMap.hexCont.cache(p00.x, p00.y, pbr.x-p00.x, pbr.y-p00.y) // cache hexCont (bounded by bgr)
@@ -305,7 +300,6 @@ export class Table extends EventDispatcher  {
     this.districtHexAry[dst] = hexAry
     delete this.districtHexAry[src]
   }
-  bgRect = {x: 0, y: 0, w: 2000, h: 2000}
   /** default scaling-up value */
   upscale: number = 1.5;
   /** change cont.scale to given scale value. */
@@ -333,12 +327,12 @@ export class Table extends EventDispatcher  {
     }
     return scaleC
   }
-  setBackground(scaleC: Container, bgColor: string = TP.bgColor) {
+  setBackground(scaleC: Container, bounds: XYWH, bgColor: string = TP.bgColor) {
     if (!!bgColor) {
       // specify an Area that is Dragable (mouse won't hit "empty" space)
-      let background = new Shape();
-      background.graphics.beginFill(bgColor).drawRect(this.bgRect.x, this.bgRect.y, this.bgRect.w, this.bgRect.h);
-      scaleC.addChildAt(background, 0);
+      let bgRect = new Shape();
+      bgRect.graphics.f(bgColor).r(bounds.x, bounds.y, bounds.w, bounds.h);
+      scaleC.addChildAt(bgRect, 0);
       //console.log(stime(this, ".makeScalableBack: background="), background);
     }
   }
