@@ -1,5 +1,5 @@
-import { Stage, EventDispatcher, Container, Shape } from "createjs-module";
-import { C, HexDir, RC, S, XY } from "./basic-intfs";
+import { Stage, EventDispatcher, Container, Shape, Text } from "createjs-module";
+import { C, F, HexDir, RC, S, XY } from "./basic-intfs";
 import { Dragger, DragInfo } from "./dragger";
 import { GamePlay, Player } from "./game-play";
 import { Hex, HexMap } from "./hex";
@@ -33,8 +33,14 @@ export class Table extends EventDispatcher  {
   dropTarget: Hex;
   roundNumber: number = 0;
   turnNumber: number = 0
-  dropStone: Stone
+  dropStone: Stone   // set when player drops Stone to indicate a Move
   nextHex: Hex = new Hex("grey", Stone.radius, undefined, undefined, {x: Stone.radius * 3, y: Stone.radius})
+  undoCont: Container = new Container()
+  undoShape: Shape = new Shape();
+  skipShape: Shape = new Shape();
+  redoShape: Shape = new Shape(); 
+  undoText: Text = new Text('', F.fontSpec(30));  // length of undo stack
+  redoText: Text = new Text('', F.fontSpec(30));  // length of history stack
 
   allPlayers: Player[] = [];
   getNumPlayers(): number { return this.allPlayers.length; }
@@ -50,19 +56,18 @@ export class Table extends EventDispatcher  {
     this.stage = stage
     this.nextHex.Aname = "nextHex"
     this.nextHex.scaleX = this.nextHex.scaleY = 2
+    this.undoShape.graphics.f("red").dp(-40, 0, 50, 3, 0, 180); this.undoText.x = -40;
+    this.redoShape.graphics.f("green").dp(+40, 0, 50, 3, 0, 0); this.redoText.x = 40;
+    this.skipShape.graphics.f("black").dp(0, 0, 30, 4, 0, 45)  
+    let undoC = this.undoCont
+    undoC.addChild(this.skipShape)
+    undoC.addChild(this.undoShape)
+    undoC.addChild(this.redoShape)
+    undoC.addChild(this.undoText); this.undoText.y -= 10
+    undoC.addChild(this.redoText); this.redoText.y -= 10
+    this.undoText.mouseEnabled = this.redoText.mouseEnabled = false
   }
 
-  scaleParams = { zscale: .20, initScale: .324, zero: 0.125, max: 30, limit: 4, base: 1.1, min: -2 };
-  testoff: number = 1
-  markHex00() {
-    // transparent Hex@[0,0] with black outline on markCont; but remove other references:
-    let tc = Hex.borderColor; Hex.borderColor = C.black
-    let h00 = this.makeDistrict(1, 0, 0, 0)[0]; h00.setHexColor("rgba(1,1,1,0)"); this.hexMap.markCont.addChild(h00)
-    Hex.borderColor = tc
-    delete this.hexMap[0][0] // make un-linkable
-    this.districtHexAry = []
-    console.log(`------------------------------------`)
-  }
   layoutTable() {
     let radius = Stone.radius
     this.scaleCont = this.makeScaleCont(!!this.stage) // scaleCont & background
@@ -71,14 +76,14 @@ export class Table extends EventDispatcher  {
     this.scaleCont.addChild(mapCont)
 
     this.hexMap = new HexMap(radius, mapCont)
+    this.gamePlay.hexMap = this.hexMap          // ;this.markHex00()
     this.hexMap.hexCont.addChild(this.nextHex)  // single Hex to hold a Stone to play
-    this.gamePlay.hexMap = this.hexMap
-    //this.markHex00()
+    this.hexMap.markCont.addChild(this.undoCont)
     this.makeAllDistricts(TP.mHexes, TP.nHexes) // typically: 3,3 or 2,4
 
     // background sized for nHexes:
     let hex00 = this.districtHexAry[0][0], r0=hex00.row, c0=hex00.col
-    let mh = TP.mHexes, nh= TP.nHexes, high = hex00.height * 1.5, wide = hex00.width * 2.0
+    let mh = TP.mHexes, nh= TP.nHexes, high = hex00.height * 1.5, wide = hex00.width * 2.0 // h=rad*1.5; w=rad*r(3)
     let metaL = this.districtHexAry.length - mh, hexL = TP.ftHexes(TP.nHexes-1)
     let hexLL = this.districtHexAry[metaL][hexL], cl = hexLL.col, dc = c0 - cl
     console.log({metaL, hexL, c0, cl, dc}, hex00.Aname, hex00, hexLL.Aname)
@@ -86,24 +91,25 @@ export class Table extends EventDispatcher  {
     let maxc = c0 + dc + Math.abs((nh+1)%2), maxr = r0 + dc + Math.floor(nh/1.5 + mh -2)
     let miny = --minr * high, maxy = ++maxr * high
     let minx = --minc * wide, maxx = ++maxc * wide
-    this.bgRect = { x: 0, y: 0, w: (maxx - minx), h: (maxy - miny) }
+    let bgr = this.bgRect = { x: 0, y: 0, w: (maxx - minx), h: (maxy - miny) }
 
-    Dragger.makeDragable(this.nextHex, undefined, undefined, undefined, true)
-    this.nextHex.x = minx + 2*wide ; this.nextHex.y = miny+ 2*high;
-    if (TP.nHexes <= 2) { this.bgRect.w += 400; this.nextHex.x -= 2.5*wide; minx -= 2*high }
-    // console.log({hex: hex0.Aname, x0, y0, x00, y00}, this.bgRect)
-    console.log({minx, miny, maxx, maxy}, {minr, maxr, minc, maxc}, this.bgRect)
-    // console.log(this.districtHexAry)
-    this.setBackground(this.scaleCont)
-    // align center of hexMap with center of background
-    mapCont.x = this.bgRect.x + (this.bgRect.w) / 2 - hex00.x
-    mapCont.y = this.bgRect.y + (this.bgRect.h) / 2 - hex00.y
+    console.log({minx, miny, maxx, maxy}, {minr, maxr, minc, maxc}, 'bgRect=', this.bgRect)
+    // align center of mapCont == hexMap with center of background
+    mapCont.x = bgr.x + (bgr.w) / 2 - hex00.x
+    mapCont.y = bgr.y + (bgr.h) / 2 - hex00.y
     console.log({mapx: mapCont.x, mapy: mapCont.y, hex00x: hex00.x, hex00y: hex00.y})
-    this.hexMap.hexCont.cache(minx, miny, maxx-minx, maxy-miny)
 
-    // console.log(`------------------------------------`)
-    // this.makeAllDistricts(TP.nHexes-1, {x: 8*TP.nHexes*50, y: 0}) // 3 .. to the right
-    //for (let ndx=TP.mHexes+1; ndx<14; ndx++) {this.makeDistrict(TP.nHexes, ndx%6+1, 1, ndx)}
+    this.nextHex.x = minx + 2*wide ; this.nextHex.y = miny+ 2*high;
+    // tweak when hexMap is tiny:
+    if (TP.nHexes == 1 || TP.nHexes +TP.mHexes <= 4) { bgr.w += 3*wide; mapCont.x += 3*wide; this.nextHex.x = minx - .5*wide }
+    this.undoCont.x = this.nextHex.x
+    this.undoCont.y = this.nextHex.y + 100
+
+    this.setBackground(this.scaleCont) // bounded by bgr
+    let p00 = this.scaleCont.localToLocal(bgr.x, bgr.y, this.hexMap.hexCont) 
+    let pbr = this.scaleCont.localToLocal(bgr.x+bgr.w, bgr.y+bgr.h, this.hexMap.hexCont)
+    this.hexMap.hexCont.cache(p00.x, p00.y, pbr.x-p00.x, pbr.y-p00.y) // cache hexCont (bounded by bgr)
+
     this.makeAllPlayers()
     this.setNextPlayer(0)   // make a placeable Stone for Player[0]
     this.bStats = new BoardStats(this)
@@ -123,10 +129,15 @@ export class Table extends EventDispatcher  {
     let curPlayer = this.curPlayer = this.allPlayers[ndx], tn = this.turnNumber, capd = this.gamePlay.lastCaptured
     let info = { turn: tn, plyr: curPlayer.name, prev: lms, capd: capd, undo: this.gamePlay.undoRecs }
     console.log(stime(this, `.setNextPlayer ---------------`), info, '-----------------------------', !!this.stage.canvas);
+    this.undoText.text = `${this.gamePlay.undoRecs.length}`
+    this.redoText.text = `${this.gamePlay.redos.length}`
     this.putButtonOnPlayer(curPlayer);
   }
   endCurPlayer(player: Player) {
-    Dragger.stopDragable(this.dropStone) // whereever it landed
+    if (!!this.dropStone) {
+      Dragger.stopDragable(this.dropStone) // whereever it landed
+      delete this.dropStone 
+    }
     let stone: Stone = this.nextHex.stone
     if (!!stone) {
       stone.parent.removeChild(stone)
@@ -217,7 +228,7 @@ export class Table extends EventDispatcher  {
         }
       })
     }
-    console.log(this.districtHexAry)
+    //console.log(this.districtHexAry)
   }
   pickColor(hex: Hex): string {
     let adjColor: string[] = [hex.map.distColor[0]], dist0 = hex.district
@@ -253,14 +264,14 @@ export class Table extends EventDispatcher  {
     let hexAry = []; hexAry['Mr'] = mr; hexAry['Mc'] = mc; this.districtHexAry[district] = hexAry
     hexAry.push(hex = this.hexMap.addHex(row0, col0, district, dcolor, xy)) // The *center* hex
     let rc: RC = {row: row0, col: col0} // == {hex.row, hex.col}
-    console.groupCollapsed(`makelDistrict [mr: ${mr}, mc: ${mc}] hex0= ${hex.Aname}:${district}-${dcolor}`)
-    console.log(`.makeDistrict: [mr: ${mr}, mc: ${mc}] hex0= ${hex.Aname}`, hex)
+    //console.groupCollapsed(`makelDistrict [mr: ${mr}, mc: ${mc}] hex0= ${hex.Aname}:${district}-${dcolor}`)
+    //console.log(`.makeDistrict: [mr: ${mr}, mc: ${mc}] hex0= ${hex.Aname}`, hex)
     for (let ring = 1; ring < nh; ring++) {
       rc.col -= 1 // step West to start a ring
       // place 'ring' hexes along each axis-line:
       S.dirs.forEach(dir => rc = this.newHexesOnLine(ring, rc, dir, district, dcolor, hexAry, xy))
     }
-    console.groupEnd()
+    //console.groupEnd()
     return hexAry
   }
   /**
@@ -279,7 +290,7 @@ export class Table extends EventDispatcher  {
       //hexAry.push(hex = this.hexMap.addHex(row, col-1, district, district, xy))
       for (let i = 0; i< n; i++) { 
         hexAry.push(hex = this.hexMap.addHex(rc.row, rc.col, district, dcolor, xy))
-        console.log(`.newHexesOnLine: [${hex.Aname}] hex=`, hex)
+        //console.log(`.newHexesOnLine: [${hex.Aname}] hex=`, hex)
         rc = this.hexMap.nextRowCol(hex, dir)
       }
       return rc
@@ -301,6 +312,8 @@ export class Table extends EventDispatcher  {
   scaleUp(cont: Container, scale = this.upscale) {
     cont.scaleX = cont.scaleY = scale;
   }
+  scaleParams = { zscale: .20, initScale: .324, zero: 0.125, max: 30, limit: 4, base: 1.1, min: -2 };
+
   /** makeScaleableBack and setup scaleParams 
    * @param bindkeys true if there's a GUI/user/keyboard
    */
@@ -326,8 +339,6 @@ export class Table extends EventDispatcher  {
       let background = new Shape();
       background.graphics.beginFill(bgColor).drawRect(this.bgRect.x, this.bgRect.y, this.bgRect.w, this.bgRect.h);
       scaleC.addChildAt(background, 0);
-      background.x = 0;
-      background.y = 0;
       //console.log(stime(this, ".makeScalableBack: background="), background);
     }
   }

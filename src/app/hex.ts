@@ -82,8 +82,9 @@ export class Hex extends Container {
     W: undefined,
     NW: undefined
   }
-  setHexColor(color: string, dist?: number) {
-    if (dist !== undefined) this.district = dist // hex.setHexColor update district
+  /** set hexShape using color */
+  setHexColor(color: string, district?: number) {
+    if (district !== undefined) this.district = district // hex.setHexColor update district
     let hexShape = this.hex(this.height, color)
     if (!!this.hexShape) this.removeChild(this.hexShape)
     this.addChildAt(hexShape, 0)
@@ -92,7 +93,7 @@ export class Hex extends Container {
     this.hexShape = hexShape
   }
 
-  /** One Hex cell in the game, shown as a polyStar Shape of radius @ (0,0) */
+  /** One Hex cell in the game, shown as a polyStar Shape of radius @ (XY=0,0) */
   constructor(color: string, radius: number, row?: number, col?: number, xy?: XY) {
     super();
     let h = radius * Math.sqrt(3)/2
@@ -178,8 +179,8 @@ export class Hex extends Container {
   /** makes a colored hex, outlined with bgColor */
   hex(rad: number, color: string): Shape {
     let ns = new Shape(), tilt = 30
-    ns.graphics.beginStroke(Hex.borderColor).drawPolyStar(0, 0, rad+1, 6, 0, tilt)
-    ns.graphics.beginFill(color).drawPolyStar(0, 0, rad, 6, 0, tilt)
+    ns.graphics.s(Hex.borderColor).dp(0, 0, rad+1, 6, 0, tilt) // s = beginStroke(color) dp:drawPolyStar
+    ns.graphics.f(color).dp(0, 0, rad, 6, 0, tilt)             // f = beginFill(color)
     ns.rotation = S.dirRot[Dir.E]
   return ns
   }
