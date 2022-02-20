@@ -2,7 +2,7 @@ import { Stage, EventDispatcher, Container, Shape, Text } from "createjs-module"
 import { C, F, HexDir, RC, S, XY } from "./basic-intfs";
 import { Dragger, DragInfo } from "./dragger";
 import { GamePlay, Player } from "./game-play";
-import { Hex, HexMap } from "./hex";
+import { Hex, HexMap, InfDir } from "./hex";
 import { HexEvent } from "./hex-event";
 import { KeyBinder } from "./key-binder";
 import { ScaleableContainer } from "./scaleable-container";
@@ -209,10 +209,11 @@ export class Table extends EventDispatcher  {
    */
   makeAllDistricts(mh: number, nh: number, xy?: XY) {
     let mrc: RC = { col: Math.ceil(mh / 2), row: 2 }, district = 0
-    let dirs: HexDir[] = ['SE', 'S', 'SW', 'NW', 'N', 'NE']
+    let dirs: HexDir[] = ['NE', 'SE', 'S', 'SW', 'NW', 'N',] // N-S aligned!
     this.makeDistrict(nh, district++, mrc.row, mrc.col, xy) // Central District [0]
     for (let ring = 1; ring < mh; ring++) {
-      mrc.row -= 1 // start to North
+      //mrc.row -= 1 // start to North
+      mrc = this.hexMap.nextRowCol(mrc, 'NW', this.hexMap.nsTopo(mrc)) // NW + NE => 'N' for next metaHex
       dirs.forEach(dir => {
         // newMetaHexesOnLine(ring, rc, dir, district, dcolor, hexAry, xy)
         for (let i = 0; i < ring; i++) {
@@ -262,9 +263,9 @@ export class Table extends EventDispatcher  {
     //console.groupCollapsed(`makelDistrict [mr: ${mr}, mc: ${mc}] hex0= ${hex.Aname}:${district}-${dcolor}`)
     //console.log(`.makeDistrict: [mr: ${mr}, mc: ${mc}] hex0= ${hex.Aname}`, hex)
     for (let ring = 1; ring < nh; ring++) {
-      rc.col -= 1 // step West to start a ring
+      rc = this.hexMap.nextRowCol(rc, 'W') // step West to start a ring
       // place 'ring' hexes along each axis-line:
-      S.dirs.forEach(dir => rc = this.newHexesOnLine(ring, rc, dir, district, dcolor, hexAry, xy))
+      ;(S.dirs as InfDir[]).forEach(dir => rc = this.newHexesOnLine(ring, rc, dir, district, dcolor, hexAry, xy))
     }
     //console.groupEnd()
     return hexAry
@@ -279,7 +280,7 @@ export class Table extends EventDispatcher  {
    * @param xy 
    * @returns RC of next Hex to create (==? RC of original hex)
    */
-  newHexesOnLine(n, rc: RC, dir: HexDir, district: number, dcolor: number, hexAry: Hex[], xy?: XY): RC {
+  newHexesOnLine(n, rc: RC, dir: InfDir, district: number, dcolor: number, hexAry: Hex[], xy?: XY): RC {
       //let dcolor = this.hexMap.distColor[district]
       let hex: Hex
       //hexAry.push(hex = this.hexMap.addHex(row, col-1, district, district, xy))

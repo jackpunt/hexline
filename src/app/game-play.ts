@@ -1,5 +1,5 @@
-import { C, Dir, HexDir, S } from "./basic-intfs";
-import { Hex, HexMap } from "./hex";
+import { C, Dir, HexDir, HexAxis, S } from "./basic-intfs";
+import { Hex, HexMap, InfDir } from "./hex";
 import { HexEvent } from "./hex-event";
 import { KeyBinder } from "./key-binder";
 import { PlayerStats } from "./stats";
@@ -86,7 +86,7 @@ export class GamePlay {
     this.table.setStone(stone, hex)  // move Stone on Hex
     this.board.push({hex: hex, color: stone.color})
 
-    this.assertInfluence(hex, stone.color)
+    this.assertInfluence(hex, stone.color, false)
     if (!this.undoRecs.isUndoing) {
       this.addUndoRec(this, `removeStone(${hex.Aname}:${stone.color})`, () => this.removeStone(hex)) // remove for undo
     }
@@ -167,43 +167,48 @@ export class GamePlay {
     return rv
   }
 
+  /** 
+   * @param hex center of influence; may be empty after removeStone/clearStone. 
+   * @param remove false to incrementally add new influence; true to erase and reassert.
+   * @param linesDone allow optimization for repeated add (w/remove=false)
+   */
   assertInfluence(hex: Hex, color: StoneColor, remove = true, linesDone?: Array<HexDir>) {
     // addUndoRec for each capture (addStone & addInfluence)
     // addUndoRec for each new Influence
-    S.dir3.forEach(ds => {
+    S.axis.forEach(ds => {
       if (!!linesDone) {
         let eHex = hex.lastHex(ds)
         if (linesDone[ds].includes(eHex[0])) return
         linesDone[ds] = eHex[0]
       }
-      remove && this.removeInfluenceDir(hex, ds, color) // remove all stoneColor influence from line
-      this.assertInfluenceDir(hex, ds, color)
+      if (remove) {
+        this.removeInfluenceDir(hex, ds, color) // remove all stoneColor influence from line
+        this.assertInfluenceDir(hex, ds, color)
+      } else {
+        this.assertInfluenceDir(hex, ds, color, true)
+      }
     })
   }
-  /** remove StoneColor influence & InfMark from line(hex,ds) */
-  removeInfluenceDir(hex: Hex, ds: HexDir, color: StoneColor) {
+  /** remove StoneColor influence & InfMark(axis) from line(hex,ds) */
+  removeInfluenceDir(hex: Hex, ds: HexAxis, color: StoneColor) {
     let line = this.hexlineToArray(hex, ds, undefined) // ALL hexes on the line
     //this.showLine(`.removeInfluence:${hex.Aname}:${color}`, line)
 
     line.forEach(hex => {
-      let infMark = hex.getInf(ds, color)
-      if (!!infMark) {
-        infMark.parent.removeChild(infMark)
-        hex.delInf(ds, color)
-      }
-      this.hexMap.update() // for debug
+      hex.delInf(ds, color)
+      //this.hexMap.update() // for debug
     })
   }
   // from line of Hex -> set Influence in Hex & HexMap
   /** show influence on map AND remove captured stones */
-  assertInfluenceDir(hex: Hex, ds: HexDir, color: StoneColor) {
-    let line = this.hexlineToArray(hex, ds, color) // Hexes with Stones of color on line [E..W]
+  assertInfluenceDir(hex: Hex, ds: HexAxis, color: StoneColor, incr = false) {
+    let line = incr ? [hex] :this.hexlineToArray(hex, ds, color) // Hexes with Stones of color on line [E..W]
     //this.showLine(`.assertInfluence:${hex.Aname}:${color}`, line)
     let dr = S.dirRev[ds]
     // SINGLE pass: alternating from left/right end of line: insert 'final' influence
     for (let low = 0, high = line.length - 1; high >= 0; low++, high--) {
-      this.skipAndSet(line[high], ds, color, ds)
-      this.skipAndSet(line[low], ds, color, dr)
+      this.skipAndSet(line[high], ds, color, ds, incr)
+      this.skipAndSet(line[low], ds, color, dr, incr)
       this.hexMap.update() // for debug
     }
     return
@@ -216,11 +221,15 @@ export class GamePlay {
    * @param dn scan&skip direction
    * @returns 
    */
-  skipAndSet(nhex: Hex, ds: HexDir, color: StoneColor, dn: HexDir) {
-    while (!!nhex && nhex.isInf(ds, color, dn)) { nhex = nhex.links[dn]}
+  skipAndSet(nhex: Hex, ds: HexAxis, color: StoneColor, dn: InfDir, incr = false) {
+    if (incr && nhex.getInf(dn, color)) {
+      nhex.delInf(ds, color);
+      this.skipAndSet(nhex, ds, color, dn)
+    }
+    while (!!nhex && nhex.isInf(dn, color)) { nhex = nhex.links[dn]}
     if (!nhex) return
-    let inf: boolean = nhex.setInf(ds, color, dn)
-    if (inf && nhex.isCapture(color) && nhex != this.curHex) {
+    nhex.setInf(dn, color, ds)
+    if (nhex.isCapture(color) && nhex != this.curHex) {
       this.history[0].captured.push(nhex)
       nhex.markCapture()
       this.removeStone(nhex) // capture Stone of *other* color

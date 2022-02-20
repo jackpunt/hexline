@@ -22,6 +22,7 @@ export namespace M {
 /** Hexagonal canonical directions */
 export enum Dir { C, NE, E, SE, SW, W, NW }
 export type HexDir = 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW' | 'N'
+export type HexAxis = 'NE' | 'E' | 'SE' // 
 
 /** String things */
 export namespace S {
@@ -35,8 +36,8 @@ export namespace S {
   export const SW: HexDir = "SW"
   export const NW: HexDir = "NW"
 
-  export const Dir3: Dir[] = [Dir.NE, Dir.E, Dir.SE]; // minimal reference directions
-  export const dir3: HexDir[] = [NE, E, SE];          // minimal reference directions
+  //export const Dir3: Dir[] = [Dir.NE, Dir.E, Dir.SE]; // minimal reference directions
+  export const axis: HexAxis[] = [NE, E, SE];          // minimal reference directions
   export const dirs: HexDir[] = [NE, E, SE, SW, W, NW]; // standard direction signifiers () ClockWise
   export const dirRot: object = { N: 0, E: 90, S: 180, W: 270, NE: 30, SE: 150, SW: 210, NW: 330 }
   export const dirRev: object = { N: S, S: N, E: W, W: E, NE: SW, SE: NW, SW: NE, NW: SE }
