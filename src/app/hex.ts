@@ -10,6 +10,7 @@ type LINKS = {[key in InfDir] : Hex}
 type INF   = {[key in InfDir] : Hex}[] // index of INF == StoneColor
 type ToAxis= {[key in InfDir] : HexAxis}
 const dnToAxis: ToAxis = { NW: 'SE', W: 'E', SW: 'NE', NE: 'NE', E: 'E', SE: 'SE' }
+type HSC = {hex: Hex, color: StoneColor, Aname?: string}
 
 class InfMark extends Shape {
   static gE0: Graphics
@@ -153,8 +154,9 @@ export class Hex extends Container {
     if (rev) this.delInf(S.dirRev[dn], color, false)
     let infMark = this.getInf(dn, color)
     if (!!infMark) {
-      infMark.parent && infMark.parent.removeChild(infMark)
       delete this.inf[color][dn]
+      if (!this.getInf(S.dirRev[dn], color))
+        infMark.parent && infMark.parent.removeChild(infMark)
     }
   }
   /** create empty inf for each color & InfDir */
@@ -213,6 +215,11 @@ export class HexMap extends Array<Array<Hex>> {
   infCont: Container = new Container()     // infMark on the top
   mark: Shape
   minRow: number = undefined               // Array.forEach does not look at negative indices!
+  minCol: number = undefined
+  maxCol: number = undefined
+  get nCol() { return 1 + this.maxCol - this.minCol }
+  allStones: HSC[] = []                    // Each occupied Hex, with the occupying StoneColor
+
   // A color for each District:
   distColor = ["lightgrey","limegreen","deepskyblue","rgb(255,165,0)","violet","rgb(250,80,80)","yellow"]
 
@@ -240,6 +247,8 @@ export class HexMap extends Array<Array<Hex>> {
       this[row] = new Array<Hex>()
       if (row < (this.minRow || 1)) this.minRow = row
     }
+    if (this.minCol === undefined || col < this.minCol) this.minCol = col
+    if (this.maxCol === undefined || col > this.maxCol) this.maxCol = col
     this[row][col] = hex
     hex.map = this
     if (!!this.hexCont) this.hexCont.addChild(hex)
