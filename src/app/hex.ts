@@ -8,7 +8,7 @@ import { Undo } from "./undo";
 
 export type InfDir = Exclude<HexDir, 'N' | 'S'>        // 
 type LINKS = {[key in InfDir] : Hex}
-type INF   = {[key in InfDir] : Hex}[] // index of INF == StoneColor
+type INF   = {[key in HexAxis]? : {[key in InfDir] : Hex}} // index of INF == StoneColor
 type ToAxis= {[key in InfDir] : HexAxis}
 const dnToAxis: ToAxis = { NW: 'SE', W: 'E', SW: 'NE', NE: 'NE', E: 'E', SE: 'SE' }
 type HSC = {hex: Hex, color: StoneColor, Aname?: string}
@@ -33,10 +33,12 @@ class InfMark extends Shape {
     InfMark.gInf(InfMark.gE0, stoneColor0, w, wo, r)
   }
   /** @param ds assert Influence in direction */
-  constructor(ds: HexAxis, color: StoneColor) {
+  constructor(color: StoneColor, ds: HexAxis, dn?: InfDir) {
     let g: Graphics = (color === stoneColor0) ? InfMark.gE0 : InfMark.gE1
     super(g)
+    this.mouseEnabled = false
     this.rotation = S.dirRot[ds]
+    this[S.aname] = `Inf[${color},${ds},${dn}-${this.id}]`  // for debug, not production
   }
 }
 class CapMark extends Shape {
@@ -139,13 +141,14 @@ export class Hex extends Container {
   setInf(color: StoneColor, dn: InfDir, ds: HexAxis = dnToAxis[dn], undo?: Undo): boolean {
     let infMark: InfMark
     if (!!this.getInf(color, dn)) return false
-    infMark = new InfMark(ds, color)
+    infMark = new InfMark(color, ds, dn)
     this.inf[color][dn] = infMark
     undo && undo.addUndoRec(this, `delInf(${this},${color},${dn})`, () => { this.delInf(color, dn, false) })
     let revMark = this.getInf(color, S.dirRev[dn])
     if (!revMark || !revMark.parent) {
       // place first (of dn|rev[dn]) InfMark on HexMap:
-      this.parent.localToLocal(this.x, this.y, this.map.infCont, infMark)
+      //this.parent.localToLocal(this.x, this.y, this.map.infCont, infMark)
+      infMark.x = this.x; infMark.y = this.y // ASSERT: hexCont aligned with infCont; on mapCont
       this.map.infCont.addChild(infMark)
     }
     return !!infMark
@@ -162,15 +165,16 @@ export class Hex extends Container {
     if (!infMark) return
     delete this.inf[color][dn]
     undo && undo.addUndoRec(this, `setInf(${this},${dn},${color})`, () => { this.setInf(color, dn) })
-    if (!this.getInf(color, S.dirRev[dn]) && !!infMark.parent)
-      infMark.parent.removeChild(infMark)
+    if (!!infMark.parent) infMark.parent.removeChild(infMark)
+    let revMark = this.getInf(color, S.dirRev[dn])
+    if (!!revMark) this.map.infCont.addChild(revMark)
   }
   /** create empty inf for each color & InfDir */
   setNoInf(rmChild = true) {
     if (rmChild) stoneColors.forEach(color => {
       this.inf[color].forEach((inf: InfMark) => inf.parent.removeChild(inf))
     })
-    this.inf = []; this.inf[stoneColor0] = {}; this.inf[stoneColor1] = {};
+    this.inf = {}; this.inf[stoneColor0] = {}; this.inf[stoneColor1] = {};
   }
   
   /** @return true if Hex is doubly influenced by color */
@@ -237,7 +241,7 @@ export class HexMap extends Array<Array<Hex>> {
     CapMark.capSize = this.height
     if (!!mapCont) {                 // hexCont, stoneCont, markCont all x,y aligned
       mapCont.addChild(this.hexCont)  ; this.hexCont[S.aname]   = "hexCont"
-      mapCont.addChild(this.markCont) ; this.hexCont[S.aname]   = "markCont"
+      mapCont.addChild(this.markCont) ; this.markCont[S.aname]  = "markCont"
       mapCont.addChild(this.stoneCont); this.stoneCont[S.aname] = "stoneCont"
       mapCont.addChild(this.infCont) ; this.infCont[S.aname]    = "infCont"
     }

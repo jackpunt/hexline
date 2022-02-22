@@ -7,7 +7,7 @@ import { HexEvent } from "./hex-event";
 import { KeyBinder } from "./key-binder";
 import { ScaleableContainer } from "./scaleable-container";
 import { BoardStats, StatsPanel } from "./stats";
-import { TP, StoneColor, stoneColors, otherColor } from "./table-params";
+import { TP, StoneColor, stoneColors, otherColor, stoneColor0, stoneColor1 } from "./table-params";
 import { stime } from "./types";
 
 type XYWH = {x: number, y: number, w: number, h: number} // like a Rectangle
@@ -69,14 +69,25 @@ export class Table extends EventDispatcher  {
   }
   enableHexInspector() {
     let qShape = new Shape()
-    qShape.graphics.f("black").dp(0, 50, 20, 6, 0, 0)
+    qShape.graphics.f("black").dp(0, 0, 20, 6, 0, 0)
+    qShape.y = 50
     this.undoCont.addChild(qShape)
-    Dragger.makeDragable(qShape, this, () => { },
+    Dragger.makeDragable(qShape, this, 
+      (qShape: Shape, ctx: DragInfo) => { 
+        let hex = this.hexUnderObj(qShape)
+        this.dropTarget = hex
+      },
       (qShape: Shape, ctx: DragInfo) => {
         let hex = this.hexUnderObj(qShape)
-        qShape.x = qShape.y = 0 // return to regular location
+        qShape.x = 0; qShape.y = 50 // return to regular location
         this.undoCont.addChild(qShape)
-        console.log(hex.Aname, { hex, inf: hex.inf })
+        if (!hex) return
+        let InfDisp = this.hexMap.infCont.children.filter(obj => obj.x == hex.x && obj.y == hex.y)
+        let InfName = InfDisp.map(i => i[S.aname])
+        let info = { hex, stone: hex.stoneColor, InfName }
+        info[`Inf[${stoneColor0}]`] = hex.inf[stoneColor0]
+        info[`Inf[${stoneColor1}]`] = hex.inf[stoneColor1]
+        console.log(hex.Aname, info)
       })
   }
 
@@ -181,8 +192,8 @@ export class Table extends EventDispatcher  {
     }
     return stone
   }
-  hexUnderObj(stone: DisplayObject): Hex {
-    let pt = stone.parent.localToLocal(stone.x, stone.y, this.hexMap.hexCont)
+  hexUnderObj(dragObj: DisplayObject): Hex {
+    let pt = dragObj.parent.localToLocal(dragObj.x, dragObj.y, this.hexMap.hexCont)
     return this.hexMap.hexUnderPoint(pt.x, pt.y)
   }
   _dropTarget: Hex;
@@ -220,7 +231,6 @@ export class Table extends EventDispatcher  {
     // stone.parent == hexMap.stoneCont
     this.dropStone = stone
     let mark = this.hexMap.mark
-    if (!mark.visible) return
     stone.x = mark.x
     stone.y = mark.y
     if (this.dropTarget === this.nextHex) return
