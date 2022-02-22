@@ -1,7 +1,8 @@
 import { Container, Graphics, Shape, Text } from "createjs-module";
 import { C, Dir, F, HexDir, RC, S, XY, HexAxis } from "./basic-intfs";
 import { Stone } from "./table";
-import { TP, StoneColor, stoneColor0, stoneColor1, stoneColors } from "./table-params";
+import { StoneColor, stoneColor0, stoneColor1, stoneColors } from "./table-params";
+import { Undo } from "./undo";
 
 // Note: graphics.drawPolyStar(x,y,radius, sides, pointSize, angle) will do a regular polygon
 
@@ -67,7 +68,7 @@ export class Hex extends Container {
   col: number
   map: HexMap;  // Note: this.parent == this.map.hexCont [cached]
   stone: Stone
-  captured: CapMark; // set if recently captured (markCapture)
+  capMark: CapMark; // set if recently captured (markCapture); prevents dragFunc using as dropTarget
   /** color of the Stone or undefined */
   get stoneColor(): StoneColor { return !!this.stone ? this.stone.color : undefined};
   inf: INF
@@ -92,6 +93,9 @@ export class Hex extends Container {
     this.hitArea = hexShape
     this.color = color
     this.hexShape = hexShape
+  }
+  override toString() {
+    return `Hex[${this.row},${this.col}]`
   }
 
   /** One Hex cell in the game, shown as a polyStar Shape of radius @ (XY=0,0) */
@@ -126,23 +130,26 @@ export class Hex extends Container {
   }
   getInf(dn: InfDir, color: StoneColor): InfMark {
     return this.inf[color][dn]
-  }  /**
+  }
+  /**
    * set temp = dn OR set temp = undefined if (temp != dn)
    * @param ds one of S.Dir3 (major axis)
    * @param color 
-   * @returns true if this Hex is now influenced by color (on axis: ds)
+   * @returns true if a *new* InfMark is set.
    */
-  setInf(dn: InfDir, color: StoneColor, ds: HexAxis) {
+  setInf(dn: InfDir, color: StoneColor, ds: HexAxis = dnToAxis[dn], undo?: Undo): boolean {
+    let infMark: InfMark
     if (!this.getInf(dn, color)) {
-      let infMark = new InfMark(ds, color)
+      infMark = new InfMark(ds, color)
       this.inf[color][dn] = infMark
       if (!this.getInf(S.dirRev[dn], color)) {
         // place first (of dt|rev[dt]) InfMark on HexMap:
         let pt = this.parent.localToLocal(this.x, this.y, this.map.infCont)
         infMark.x = pt.x; infMark.y = pt.y
         this.map.infCont.addChild(infMark)
-      }
+        undo && undo.addUndoRec(this, `delInf(${this},${dn},${color})`, () => { this.delInf(dn, color, false)})    }
     }
+    return !!infMark
   }
 
   /**
@@ -150,11 +157,12 @@ export class Hex extends Container {
    * @param color 
    * @param rev if true also remove reverse dir
    */
-  delInf(dn: InfDir, color: StoneColor, rev = true) {
-    if (rev) this.delInf(S.dirRev[dn], color, false)
+  delInf(dn: InfDir, color: StoneColor, rev = true, undo?: Undo) {
+    if (rev) this.delInf(S.dirRev[dn], color, false, undo)
     let infMark = this.getInf(dn, color)
     if (!!infMark) {
       delete this.inf[color][dn]
+      undo && undo.addUndoRec(this, `setInf(${this},${dn},${color})`, () => { this.setInf(dn, color)})
       if (!this.getInf(S.dirRev[dn], color))
         infMark.parent && infMark.parent.removeChild(infMark)
     }
@@ -182,12 +190,13 @@ export class Hex extends Container {
   }
 
   markCapture() {
-    if (!!this.captured) return // only 1 CapMark per Hex
-    this.map.markCont.addChild(this.captured = new CapMark(this))
+    if (this.capMark !== undefined) return // only 1 CapMark per Hex
+    this.map.markCont.addChild(this.capMark = new CapMark(this))
   }
   unmarkCapture() {
-    this.captured && this.map.markCont.removeChild(this.captured)
-    this.captured = undefined
+    if (this.capMark === undefined) return
+    this.map.markCont.removeChild(this.capMark)
+    this.capMark = undefined
   }
 
   /** makes a colored hex, outlined with bgColor */

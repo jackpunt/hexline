@@ -39,9 +39,9 @@ export class Undo extends Array<UndoRec[]> {
   isUndoing: boolean = false;
 
   /** allow addUndoRec & closeUndo */
-  enableUndo(): Undo { this.enabled = true; return this; }
+  enableUndo(): this { this.enabled = true; return this; }
   /** no new undoRecs. */
-  disableUndo(){ this.enabled = false } // this.length = 0?
+  disableUndo(): this { this.enabled = false; return this } // this.length = 0?
   /** add new UndoRec if enabled. */
   addUndoRec(obj: Object, name: string, value: any): UndoRec | undefined {
     let rec: UndoRec
@@ -52,13 +52,14 @@ export class Undo extends Array<UndoRec[]> {
     return rec
   }
   /** close and delete all undoRecs. */
-  flushUndo() { this.openRec = new Array<UndoRec>(0); this.length = 0; } 
+  flushUndo(): this { this.openRec = new Array<UndoRec>(0); this.length = 0; return this } 
   /** push current UndoRec[], open a new one. */
-  closeUndo() {
+  closeUndo(): this {
     if (this.enabled && this.openRec.length > 0) {
       this.push(this.openRec)
       this.openRec = new Array<UndoRec>(0)
     }
+    return this
   }
 
   /** Undo.pop() also pops and applies all the UndoRecs before returning. 

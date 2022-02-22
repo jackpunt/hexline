@@ -1,5 +1,5 @@
 import { Stage, EventDispatcher, Container, Shape, Text } from "createjs-module";
-import { C, F, HexDir, RC, S, XY } from "./basic-intfs";
+import { F, HexDir, RC, S, XY } from "./basic-intfs";
 import { Dragger, DragInfo } from "./dragger";
 import { GamePlay, Player } from "./game-play";
 import { Hex, HexMap, InfDir } from "./hex";
@@ -31,7 +31,6 @@ export class Table extends EventDispatcher  {
   stage: Stage;
   scaleCont: Container
   hexMap: HexMap
-  dropTarget: Hex;
   roundNumber: number = 0;
   turnNumber: number = 0
   dropStone: Stone   // set when player drops Stone to indicate a Move
@@ -120,8 +119,10 @@ export class Table extends EventDispatcher  {
     this.turnNumber = turn ? turn : this.turnNumber + 1;
     this.roundNumber = Math.floor((this.turnNumber - 1) / this.allPlayers.length) + 1
 
-    let lm = this.gamePlay.history[0], lms = !!lm? lm.toString(): ""
-    let curPlayer = this.curPlayer = this.allPlayers[ndx], tn = this.turnNumber, capd = this.gamePlay.lastCaptured
+    let lm = this.gamePlay.history[0] 
+    let lms = !!lm? lm.toString(): ""
+    let capd = lm ? lm.captured : [] //this.gamePlay.lastCaptured 
+    let curPlayer = this.curPlayer = this.allPlayers[ndx], tn = this.turnNumber 
     let info = { turn: tn, plyr: curPlayer.name, prev: lms, capd: capd, undo: this.gamePlay.undoRecs, board: !!this.hexMap.allStones[0] && this.gamePlay.history[0].board}
     console.log(stime(this, `.setNextPlayer ---------------`), info, '-----------------------------', !!this.stage.canvas);
     this.undoText.text = `${this.gamePlay.undoRecs.length}`
@@ -142,13 +143,12 @@ export class Table extends EventDispatcher  {
   putButtonOnPlayer(player: Player) {
     this.setStone(new Stone(player.color)) // new Stone for Player
 
-    let color = otherColor(player.color)
-    let attacks = this.hexMap.filterEachHex(hex => hex.isAttack(color)).map(h => h.Aname)
-    console.log(stime(this, `.putButtonOnPlayer:${player.color}`), attacks)
     this.hexMap.update()
+    this.curPlayer.makeMove()
   }
   /** set hex.stone & addChild,  */
-  setStone(stone: Stone, hex: Hex = this.nextHex, cont: Container = this.hexMap.stoneCont) {
+  setStone(stone: Stone, hex: Hex = this.nextHex) {
+    let cont: Container = this.hexMap.stoneCont
     hex.parent.localToLocal(hex.x, hex.y, cont, stone)
     cont.addChild(stone)
     hex.stone = stone
@@ -168,19 +168,36 @@ export class Table extends EventDispatcher  {
     }
     return stone
   }
-  dragFunc(stone: Stone, ctx: DragInfo) {
+  _dropTarget: Hex;
+  get dropTarget() { return this._dropTarget}
+  set dropTarget(hex: Hex) { this._dropTarget = hex; this.hexMap.showMark(hex)}
+  isSuicide: Hex[]
+  maybeSuicide: Hex[];
+  dragFunc(stone: Stone, ctx: DragInfo): Hex | void {
     if (stone.color !== this.curPlayer.color) return
     if (ctx.first) {
       // ctx.lastCont == stone.parent == hexMap.stoneCont (putButtonOnPlayer & nextStone)
       this.hexMap.showMark()
+      let opc = otherColor(this.curPlayer.color)
+      this.isSuicide = []
+      this.maybeSuicide = this.hexMap.filterEachHex(hex => hex.isAttack(opc))
+      console.log(stime(this, `.dragStart:${stone.color}`), this.maybeSuicide.map(h => h.Aname))
     } else {
       let pt = stone.parent.localToLocal(stone.x, stone.y, this.hexMap.hexCont)
       let hex = this.hexMap.hexUnderPoint(pt.x, pt.y)
       if (!hex) return
-      if (!!hex.captured) return
+      if (hex === this.dropTarget) return
+      // gamePlay.allowDrop(hex)
+      if (!!hex.capMark) return this.dropTarget = this.nextHex
       if (!!hex.stone && hex.stone != stone) return // Ok to drop on itself
+      if (this.isSuicide.includes(hex)) {
+        return this.dropTarget = this.nextHex
+      }
+      if (this.maybeSuicide.includes(hex) && this.gamePlay.isSuicide(hex, stone.color)) {
+        this.isSuicide.push(hex)
+        return this.dropTarget = this.nextHex
+      } else this.maybeSuicide = this.maybeSuicide.filter(h => h !== hex)
       this.dropTarget = hex // hex.parent == hexMap.hexCont
-      this.hexMap.showMark(hex)
     }
   }
   dropFunc(stone: Stone, ctx: DragInfo) {
