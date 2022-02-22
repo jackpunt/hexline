@@ -168,6 +168,7 @@ export class GamePlay {
     this.assertInfluence(hex, color) // may invoke captureStone() -> undoRec(Stone & capMark)
     // capture may *remove* some inf & InfMarks!
     let suicide = hex.isAttack(otherColor(color))
+    //console.log({undo: this.undoInfluence.concat([]), capt: this.captured.concat([]) })
     this.undoInfluence.closeUndo().pop()
     this.undoRecs.closeUndo()
     this.undoRecs.pop()
@@ -236,7 +237,7 @@ export class GamePlay {
     //this.showLine(`.removeInfluence:${hex.Aname}:${color}`, line)
     let rv: Hex[] = [] ; 
     line.forEach(hex => {
-      hex.delInf(ds, color, true)    // do not addUndoRec()
+      hex.delInf(color, ds, true)    // do not addUndoRec()
       if (hex.stoneColor === color) rv.push(hex)
     })
     return rv
@@ -250,8 +251,8 @@ export class GamePlay {
     let dr = S.dirRev[ds]
     // SINGLE pass: alternating from left/right end of line: insert 'final' influence
     for (let low = 0, high = line.length - 1; high >= 0; low++, high--) {
-      this.skipAndSet(line[high], ds, color, ds, incr)
-      this.skipAndSet(line[low], ds, color, dr, incr)
+      this.skipAndSet(line[high], color, ds, ds, incr)
+      this.skipAndSet(line[low], color, ds, dr, incr)
       this.hexMap.update() // for debug
     }
     return
@@ -265,16 +266,16 @@ export class GamePlay {
    * @param dn scan&skip direction
    * @returns 
    */
-  skipAndSet(nhex: Hex, ds: HexAxis, color: StoneColor, dn: InfDir, incr = false) {
+  skipAndSet(nhex: Hex, color: StoneColor, ds: HexAxis, dn: InfDir, incr = false) {
     let undo = this.undoInfluence
-    if (incr && nhex.getInf(dn, color)) {
-      nhex.delInf(dn, color, false, undo);
-      this.skipAndSet(nhex, ds, color, dn, incr)
+    if (incr && nhex.getInf(color, dn)) {
+      nhex.delInf(color, dn, false, undo);
+      this.skipAndSet(nhex, color, ds, dn, incr)
     }
     nhex = nhex.links[dn]
-    while (!!nhex && nhex.isInf(dn, color)) { nhex = nhex.links[dn]}
+    while (!!nhex && nhex.isInf(color, dn)) { nhex = nhex.links[dn]}
     if (!nhex) return
-    nhex.setInf(dn, color, ds, incr ? undo : undefined)  // no undo when remove
+    nhex.setInf(color, dn, ds, incr ? undo : undefined)  // no undo when remove
     if (nhex.isCapture(color) && nhex != this.curHex) {
       this.captureStone(nhex) // capture Stone of *other* color
     }

@@ -1,4 +1,4 @@
-import { Stage, EventDispatcher, Container, Shape, Text } from "createjs-module";
+import { Stage, EventDispatcher, Container, Shape, Text, DisplayObject } from "createjs-module";
 import { F, HexDir, RC, S, XY } from "./basic-intfs";
 import { Dragger, DragInfo } from "./dragger";
 import { GamePlay, Player } from "./game-play";
@@ -67,6 +67,18 @@ export class Table extends EventDispatcher  {
     undoC.addChild(this.redoText); this.redoText.y -= 10
     this.undoText.mouseEnabled = this.redoText.mouseEnabled = false
   }
+  enableHexInspector() {
+    let qShape = new Shape()
+    qShape.graphics.f("black").dp(0, 50, 20, 6, 0, 0)
+    this.undoCont.addChild(qShape)
+    Dragger.makeDragable(qShape, this, () => { },
+      (qShape: Shape, ctx: DragInfo) => {
+        let hex = this.hexUnderObj(qShape)
+        qShape.x = qShape.y = 0 // return to regular location
+        this.undoCont.addChild(qShape)
+        console.log(hex.Aname, { hex, inf: hex.inf })
+      })
+  }
 
   layoutTable() {
     let radius = Stone.radius
@@ -107,6 +119,7 @@ export class Table extends EventDispatcher  {
     this.makeAllPlayers()
     this.setNextPlayer(0)   // make a placeable Stone for Player[0]
     this.bStats = new BoardStats(this) // AFTER allPlayers are defined so can set pStats
+    this.enableHexInspector()
 
     this.on(S.add, this.gamePlay.addStoneEvent, this.gamePlay)[S.aname] = "addStone"
     this.on(S.remove, this.gamePlay.removeStoneEvent, this.gamePlay)[S.aname] = "removeStone"
@@ -168,6 +181,10 @@ export class Table extends EventDispatcher  {
     }
     return stone
   }
+  hexUnderObj(stone: DisplayObject): Hex {
+    let pt = stone.parent.localToLocal(stone.x, stone.y, this.hexMap.hexCont)
+    return this.hexMap.hexUnderPoint(pt.x, pt.y)
+  }
   _dropTarget: Hex;
   get dropTarget() { return this._dropTarget}
   set dropTarget(hex: Hex) { this._dropTarget = hex; this.hexMap.showMark(hex)}
@@ -181,10 +198,9 @@ export class Table extends EventDispatcher  {
       let opc = otherColor(this.curPlayer.color)
       this.isSuicide = []
       this.maybeSuicide = this.hexMap.filterEachHex(hex => hex.isAttack(opc))
-      console.log(stime(this, `.dragStart:${stone.color}`), this.maybeSuicide.map(h => h.Aname))
+      //console.log(stime(this, `.dragStart:${stone.color}`), this.maybeSuicide.map(h => h.Aname))
     } else {
-      let pt = stone.parent.localToLocal(stone.x, stone.y, this.hexMap.hexCont)
-      let hex = this.hexMap.hexUnderPoint(pt.x, pt.y)
+      let hex = this.hexUnderObj(stone)
       if (!hex) return
       if (hex === this.dropTarget) return
       // gamePlay.allowDrop(hex)

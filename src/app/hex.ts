@@ -119,16 +119,15 @@ export class Hex extends Container {
     this.col = col
   }
   /**
-   * for skipAndSet()
+   * Is this Hex [already] influenced by color/dn? [for skipAndSet()]
    * @param dn dir of Influence: ds | revDir[ds]
    * @param color StoneColor
    * @returns true if Hex is StoneColor or full InfMark(ds) or InfMark.temp(dn)
    */
-  isInf(dn: InfDir, color: StoneColor): boolean {
-    if (this.stoneColor == color) return true
-    return !!this.getInf(dn, color)
+  isInf(color: StoneColor, dn: InfDir): boolean {
+    return (this.stoneColor == color) || !!this.getInf(color, dn)
   }
-  getInf(dn: InfDir, color: StoneColor): InfMark {
+  getInf(color: StoneColor, dn: InfDir): InfMark {
     return this.inf[color][dn]
   }
   /**
@@ -137,17 +136,17 @@ export class Hex extends Container {
    * @param color 
    * @returns true if a *new* InfMark is set.
    */
-  setInf(dn: InfDir, color: StoneColor, ds: HexAxis = dnToAxis[dn], undo?: Undo): boolean {
+  setInf(color: StoneColor, dn: InfDir, ds: HexAxis = dnToAxis[dn], undo?: Undo): boolean {
     let infMark: InfMark
-    if (!this.getInf(dn, color)) {
-      infMark = new InfMark(ds, color)
-      this.inf[color][dn] = infMark
-      if (!this.getInf(S.dirRev[dn], color)) {
-        // place first (of dt|rev[dt]) InfMark on HexMap:
-        let pt = this.parent.localToLocal(this.x, this.y, this.map.infCont)
-        infMark.x = pt.x; infMark.y = pt.y
-        this.map.infCont.addChild(infMark)
-        undo && undo.addUndoRec(this, `delInf(${this},${dn},${color})`, () => { this.delInf(dn, color, false)})    }
+    if (!!this.getInf(color, dn)) return false
+    infMark = new InfMark(ds, color)
+    this.inf[color][dn] = infMark
+    undo && undo.addUndoRec(this, `delInf(${this},${color},${dn})`, () => { this.delInf(color, dn, false) })
+    let revMark = this.getInf(color, S.dirRev[dn])
+    if (!revMark || !revMark.parent) {
+      // place first (of dn|rev[dn]) InfMark on HexMap:
+      this.parent.localToLocal(this.x, this.y, this.map.infCont, infMark)
+      this.map.infCont.addChild(infMark)
     }
     return !!infMark
   }
@@ -157,15 +156,14 @@ export class Hex extends Container {
    * @param color 
    * @param rev if true also remove reverse dir
    */
-  delInf(dn: InfDir, color: StoneColor, rev = true, undo?: Undo) {
-    if (rev) this.delInf(S.dirRev[dn], color, false, undo)
-    let infMark = this.getInf(dn, color)
-    if (!!infMark) {
-      delete this.inf[color][dn]
-      undo && undo.addUndoRec(this, `setInf(${this},${dn},${color})`, () => { this.setInf(dn, color)})
-      if (!this.getInf(S.dirRev[dn], color))
-        infMark.parent && infMark.parent.removeChild(infMark)
-    }
+  delInf(color: StoneColor, dn: InfDir, rev = true, undo?: Undo) {
+    if (rev) this.delInf(color, S.dirRev[dn], false, undo)
+    let infMark = this.getInf(color, dn)
+    if (!infMark) return
+    delete this.inf[color][dn]
+    undo && undo.addUndoRec(this, `setInf(${this},${dn},${color})`, () => { this.setInf(color, dn) })
+    if (!this.getInf(color, S.dirRev[dn]) && !!infMark.parent)
+      infMark.parent.removeChild(infMark)
   }
   /** create empty inf for each color & InfDir */
   setNoInf(rmChild = true) {
