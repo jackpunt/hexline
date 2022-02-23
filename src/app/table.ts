@@ -56,15 +56,17 @@ export class Table extends EventDispatcher  {
     this.stage = stage
     this.nextHex.Aname = "nextHex"
     this.nextHex.scaleX = this.nextHex.scaleY = 2
-    this.undoShape.graphics.f("red").dp(-40, 0, 50, 3, 0, 180); this.undoText.x = -40;
-    this.redoShape.graphics.f("green").dp(+40, 0, 50, 3, 0, 0); this.redoText.x = 40;
-    this.skipShape.graphics.f("black").dp(0, 0, 30, 4, 0, 45)  
+    this.skipShape.graphics.f("white").dp(0, 0, 30, 4, 0, 45)  
+    this.undoShape.graphics.f("red").dp(-50, 0, 60, 3, 0, 180);
+    this.redoShape.graphics.f("green").dp(+50, 0, 60, 3, 0, 0); 
+    this.undoText.x = -52; this.undoText.textAlign = "center"
+    this.redoText.x = 52; this.redoText.textAlign = "center"
     let undoC = this.undoCont
     undoC.addChild(this.skipShape)
     undoC.addChild(this.undoShape)
     undoC.addChild(this.redoShape)
-    undoC.addChild(this.undoText); this.undoText.y -= 10
-    undoC.addChild(this.redoText); this.redoText.y -= 10
+    undoC.addChild(this.undoText); this.undoText.y = -14;
+    undoC.addChild(this.redoText); this.redoText.y = -14;
     this.undoText.mouseEnabled = this.redoText.mouseEnabled = false
   }
   enableHexInspector() {
@@ -150,7 +152,7 @@ export class Table extends EventDispatcher  {
     let info = { turn: tn, plyr: curPlayer.name, prev: lms, capd: capd, undo: this.gamePlay.undoRecs, board: !!this.hexMap.allStones[0] && this.gamePlay.history[0].board}
     console.log(stime(this, `.setNextPlayer ---------------`), info, '-----------------------------', !!this.stage.canvas);
     this.undoText.text = `${this.gamePlay.undoRecs.length}`
-    this.redoText.text = `${this.gamePlay.redos.length}`
+    this.redoText.text = `${this.gamePlay.redoMoves.length}`
     this.putButtonOnPlayer(curPlayer);
   }
   endCurPlayer(player: Player) {

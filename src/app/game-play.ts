@@ -16,7 +16,7 @@ export class GamePlay {
   table: Table
   hexMap: HexMap
   history: Move[] = []          // sequence of Move that bring board to its state
-  redos: Move[] = []
+  redoMoves: Move[] = []
   /** last-current Hex to be played [cf table.markHex] */
   curHex: Hex;
 
@@ -60,7 +60,7 @@ export class GamePlay {
   undoMove(undoTurn: boolean = true) {
     let move: Move = this.history.shift() // remove last Move
     if (!move) return
-    this.redos.unshift(move)
+    this.redoMoves.unshift(move)
     this.undoStones()             // remove last Stone, replace captures
     this.undoCapture(move.captured)
     if (undoTurn) {
@@ -70,7 +70,7 @@ export class GamePlay {
     this.hexMap.update()
   }
   redoMove() {
-    let move = this.redos.shift()
+    let move = this.redoMoves.shift()
     if (!move) return
     move.captured = []
     this.doPlayerMove(move.hex, move.stone)
@@ -291,9 +291,9 @@ export class GamePlay {
   /** dropFunc indicating new Move attempt */
   addStoneEvent(hev: HexEvent): void {
     let stone = hev.value as Stone
-    let redo = this.redos.shift()
+    let redo = this.redoMoves.shift()
     if (!!redo) {
-      if (redo.hex !== hev.hex) this.redos = []
+      if (redo.hex !== hev.hex) this.redoMoves = []
     }
     this.doPlayerMove(hev.hex, stone)
   }
