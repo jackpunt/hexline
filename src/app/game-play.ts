@@ -68,6 +68,7 @@ export class GamePlay {
     if (undoTurn) {
       this.table.setNextPlayer(undefined, this.table.turnNumber - 1)
     }
+    this.hexMap.showMark(move.hex)
     this.table.bStats.update()
     this.hexMap.update()
   }
@@ -76,6 +77,8 @@ export class GamePlay {
     if (!move) return
     move.captured = []
     this.doPlayerMove(move.hex, move.stone)
+    let move0 = this.redoMoves[0]
+    if (!!move0) this.hexMap.showMark(move0.hex)
   }
   /**
    * clear Stones & influence, add Stones, assertInfluence
