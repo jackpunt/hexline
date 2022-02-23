@@ -147,7 +147,7 @@ export class ScaleableContainer extends Container {
     }
     return initIndex;
   }
-  /** return scale factor for the current or given scaleIndex */
+  /** set scaleIndex & return associated scale factor */
   getScale(ndx: number = this.scaleNdx): number {
     ndx = Math.min(this.scaleMax, Math.max(this.scaleMin, ndx));
     return this.scaleAry[this.scaleNdx = ndx]; // Hmm... this.scaleX ???
@@ -178,7 +178,7 @@ export class ScaleableContainer extends Container {
    * unscaleObj all this._unscale objects.
    * @param os oldScale
    * @param ns newScale
-   * @param p  fixed point around which to scale; default: (0,0)
+   * @param p  fixed point around which to scale; default: (0,0) OR when os==0: reset to (x,y)
    */
   scaleInternal(os: number, ns: number, p?: XY): void {
     let sc = this;
@@ -193,8 +193,6 @@ export class ScaleableContainer extends Container {
       sc.x = (px + (sc.x - px) * ns / os);
       sc.y = (py + (sc.y - py) * ns / os);
     }
-    // sc.regX = -(px + (sc.regX - px) * ns / os)
-    // sc.regY = py * os / ns
     sc.scaleX = sc.scaleY = ns;
     // console.log(stime(this, ".scaleInternal:   os="), os.toFixed(4)+" ns="+ns.toFixed(4)+" scale="+scale.toFixed(4)
     //                           +"  p.x="+p.x+"  p.y="+p.y+"  x="+x+" y="+y);

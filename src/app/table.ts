@@ -94,16 +94,18 @@ export class Table extends EventDispatcher  {
   }
   miniMap: HexMap;
   makeMiniMap(parent: Container, x, y) {
-    let cont = new Container(); cont[S.aname] = 'victoryMap'
-    let victoryHexMap = new HexMap(Stone.radius, cont), rot = 23
+    let cont = new Container(); cont[S.aname] = 'miniMap'
+    let victoryHexMap = new HexMap(Stone.radius, cont)
+    let rot = 7, rotC = (30-rot), rotH = (rot - 60)
+    if (TP.nHexes == 1) rotC = rotH = 0
     victoryHexMap.makeAllDistricts(TP.mHexes, 1)
     let bgHex = new Shape()
     bgHex.graphics.f(TP.bgColor).dp(0, 0, 50*(2*TP.mHexes-1), 6, 0, 60)
     cont.addChildAt(bgHex, 0)
     cont.x = x; cont.y = y
-    cont.rotation = rot
+    cont.rotation = rotC
     victoryHexMap.forEachHex(h => {
-      h.distText.visible = h.rcText.visible = false; h.rotation = -53; h.scaleX = h.scaleY = .985
+      h.distText.visible = h.rcText.visible = false; h.rotation = rotH; h.scaleX = h.scaleY = .985
     })
     parent.addChild(cont)
     this.miniMap = victoryHexMap
@@ -148,7 +150,7 @@ export class Table extends EventDispatcher  {
     this.setNextPlayer(0)   // make a placeable Stone for Player[0]
     this.bStats = new BoardStats(this) // AFTER allPlayers are defined so can set pStats
     this.enableHexInspector()
-    this.makeMiniMap(this.scaleCont, -300, 800)
+    this.makeMiniMap(this.scaleCont, -(200+TP.mHexes*50), 500+100*TP.mHexes)
 
     this.on(S.add, this.gamePlay.addStoneEvent, this.gamePlay)[S.aname] = "addStone"
     this.on(S.remove, this.gamePlay.removeStoneEvent, this.gamePlay)[S.aname] = "removeStone"
@@ -292,8 +294,7 @@ export class Table extends EventDispatcher  {
       //this.scaleUp(Dragger.dragCont, 1.7); // Items being dragged appear larger!
     }
     if (bindKeys) {
-      let scale = this.scaleParams.initScale
-      this.bindKeysToScale(scaleC, 600, 0, scale)
+      this.bindKeysToScale(scaleC, 800, 10, this.scaleParams.initScale)
       KeyBinder.keyBinder.dispatchChar("a")
     }
     return scaleC
@@ -307,28 +308,35 @@ export class Table extends EventDispatcher  {
       //console.log(stime(this, ".makeScalableBack: background="), background);
     }
   }
+  /** 
+   * @param xos x-offset-to-center in Original Scale
+   * @param xos y-offset-to-center in Original Scale
+   * @param scale Original Scale
+   */
+  // bindKeysToScale(scaleC, 800, 0, scale=.324)
   bindKeysToScale(scaleC: ScaleableContainer, xos: number, yos: number, scale: number) {
-    let xoff= scaleC.x, yoff = scaleC.y
+    let xoff = scaleC.x, yoff = scaleC.y // generally == 0
+    let xosZ = xos, yosZ = yos, scaleZ = scale, nsZ = scaleC.findIndex(scale)
     // set Keybindings to reset Scale:
-    let resetScaleX = () => {
-      scaleC.scaleContainer(0, {x: xoff, y: yoff}); // resetXY
+    let setScaleZ = () => {
+      scaleZ = scaleC.getScale()
+      nsZ = scaleC.findIndex(scaleZ)
+      xosZ = scaleC.x/scaleZ; yosZ = scaleC.y/scaleZ;
+    };
+    let useScaleZ = () => {
+      scaleC.scaleContainer(0, { x: xoff + scale * xosZ, y: yoff + scale * yosZ }); // resetXY
+      scaleC.setScaleIndex(nsZ);
       scaleC.stage.update();
     };
-    let resetScale1 = () => {
-      let ns = .244
-      scaleC.scaleContainer(0, {x: xoff + xos*scale, y: yoff}); // resetXY
-      scaleC.setScaleIndex(scaleC.findIndex(ns))
-      scaleC.stage.update();
-    };
-    let resetScaleA = () => {
-      let ns = .5
-      scaleC.scaleContainer(0, {x: xoff + xos*scale, y: yoff - yos*scale}); // resetXY
-      scaleC.setScaleIndex(scaleC.findIndex(ns))
+    let useScaleA = () => {
+      let nsA = .5
+      scaleC.scaleContainer(0, { x: xoff + scale * xos, y: yoff + scale * yos }); // resetXY
+      scaleC.setScaleIndex(scaleC.findIndex(nsA))
       scaleC.stage.update();
     };
     // Scale-setting keystrokes:
-    KeyBinder.keyBinder.globalSetKeyFromChar("x", { thisArg: this, func: resetScaleX });
-    KeyBinder.keyBinder.globalSetKeyFromChar("z", { thisArg: this, func: resetScale1 });
-    KeyBinder.keyBinder.globalSetKeyFromChar("a", { thisArg: this, func: resetScaleA });
+    KeyBinder.keyBinder.globalSetKeyFromChar("x", { thisArg: this, func: setScaleZ });
+    KeyBinder.keyBinder.globalSetKeyFromChar("z", { thisArg: this, func: useScaleZ });
+    KeyBinder.keyBinder.globalSetKeyFromChar("a", { thisArg: this, func: useScaleA });
   }
 }
