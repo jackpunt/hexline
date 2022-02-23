@@ -34,17 +34,19 @@ export class GamePlay {
   }
 
   undoRecs: Undo = new Undo();
-  addUndoRec(obj: Object, name: string, value: any | Function = obj[name]) { this.undoRecs.addUndoRec(obj, name, value); }
+  addUndoRec(obj: Object, name: string, value: any | Function = obj[name]) { 
+    this.undoRecs.addUndoRec(obj, name, value); 
+  }
   /** undo last undo block */
   undoStones() {
     let undoNdx = this.undoRecs.length -1;
-    let popRec = this.undoRecs[undoNdx]    // must copy undoRecs[] so it is stable in log:
+    let popRec = (undoNdx >= 0) ? this.undoRecs[undoNdx].concat([]) : [] // copy undoRecs[] so it is stable in log
     console.groupCollapsed(`undoIt-${undoNdx}`)
-    console.log(stime(this, `.undoIt: undoRec[${undoNdx}] =`), (undoNdx >= 0) ? [].concat(popRec) : []);
+    console.log(stime(this, `.undoStones: undoRec[${undoNdx}] =`), popRec);
 
     this.undoRecs.pop(); // replace Stones, remove capMarks
     this.hexMap.update();
-    console.log(stime(this, `.undoIt: after[${undoNdx}] board =`), { board: [].concat(this.hexMap.allStones), undo: this.undoRecs });
+    console.log(stime(this, `.undoIt: after[${undoNdx}]`), { Stones: [].concat(this.hexMap.allStones), undo: this.undoRecs });
     console.groupEnd()   // "undoIt-ndx"
   }
   /** remove capMarks */
@@ -157,7 +159,7 @@ export class GamePlay {
    * called from dragFunc, before a Move.
    * assertInfluence on hex of color; without setting a Stone; 
    * see if hex is [still] attacked by other color
-   * then undo the influence 
+   * then undo the influence and undo/replace any captures
    * @return true if hex was [still] attacked by otherColor
    */
   isSuicide(hex: Hex, color: StoneColor): boolean {
@@ -170,8 +172,7 @@ export class GamePlay {
     let suicide = hex.isAttack(otherColor(color))
     //console.log({undo: this.undoInfluence.concat([]), capt: this.captured.concat([]) })
     this.undoInfluence.closeUndo().pop()
-    this.undoRecs.closeUndo()
-    this.undoRecs.pop()
+    this.undoRecs.closeUndo().pop()
     this.undoRecs = undo0
     this.undoCapture(this.captured);
     this.captured = []
@@ -315,7 +316,8 @@ export class Move {
     this.Aname = this.toString()
   }
   toString(): string {
-    return `${this.stone.color}${this.hex.Aname.substring(3)}`
+    let name = this.hex.Aname
+    return `${this.stone.color}${name === 'nextHex' ? '-Skip' :name.substring(3)}`
   }
   bString(): string {
     let pid = stoneColors.indexOf(this.stone.color)

@@ -138,19 +138,23 @@ export class Table extends EventDispatcher  {
     this.on(S.remove, this.gamePlay.removeStoneEvent, this.gamePlay)[S.aname] = "removeStone"
     this.stage.update()
   }
-  setNextPlayer(ndx: number = -1, turn?: number) {
+  setNextPlayer(ndx: number = -1, turn?: number, log: boolean = true) {
     if (ndx < 0) ndx = (this.curPlayer.index + 1) % this.allPlayers.length;
     if (ndx != this.curPlayerNdx) this.endCurPlayer(this.curPlayer)
     this.curPlayerNdx = ndx;
     this.turnNumber = turn ? turn : this.turnNumber + 1;
     this.roundNumber = Math.floor((this.turnNumber - 1) / this.allPlayers.length) + 1
+    let curPlayer = this.curPlayer = this.allPlayers[ndx], tn = this.turnNumber
 
-    let lm = this.gamePlay.history[0] 
-    let lms = !!lm? lm.toString(): ""
-    let capd = lm ? lm.captured : [] //this.gamePlay.lastCaptured 
-    let curPlayer = this.curPlayer = this.allPlayers[ndx], tn = this.turnNumber 
-    let info = { turn: tn, plyr: curPlayer.name, prev: lms, capd: capd, undo: this.gamePlay.undoRecs, board: !!this.hexMap.allStones[0] && this.gamePlay.history[0].board}
-    console.log(stime(this, `.setNextPlayer ---------------`), info, '-----------------------------', !!this.stage.canvas);
+    if (log) {
+      let lm = this.gamePlay.history[0]
+      let prev = !!lm ? lm.toString() : ""
+      let capd = lm ? lm.captured : [] //this.gamePlay.lastCaptured 
+      let history = this.gamePlay.history
+      let board = !!this.hexMap.allStones[0] && history[0].board
+      let info = { turn: tn, plyr: curPlayer.name, prev, capd, history, undo: this.gamePlay.undoRecs, board }
+      console.log(stime(this, `.setNextPlayer ---------------`), info, '-------------', !!this.stage.canvas);
+    }
     this.undoText.text = `${this.gamePlay.undoRecs.length}`
     this.redoText.text = `${this.gamePlay.redoMoves.length}`
     this.putButtonOnPlayer(curPlayer);
