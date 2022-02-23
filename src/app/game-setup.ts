@@ -45,10 +45,10 @@ export class GameSetup {
      */
     startup(gs: GameSetup = this, ext: string[] = []) {
       this.table.layoutTable()
-      this.table.statsPanel = this.makeStatsPanel(this.table.scaleCont)
+      this.table.statsPanel = this.makeStatsPanel(this.table.scaleCont, -300, 50)
       this.paramGui = this.makeParamGUI(this.table.scaleCont)
     }
-    makeStatsPanel(parent: Container): StatsPanel {
+    makeStatsPanel(parent: Container, x, y): StatsPanel {
       let panel = new StatsPanel(this.table.bStats)
       let specs: ParamSpec[] = [], sp = "                    "
       let spec = (fieldName: string) => { return specs.find(s => s.fieldName == fieldName) }
@@ -65,8 +65,8 @@ export class GameSetup {
       }
 
       parent.addChild(panel)
-      panel.x = -300 // (3*cw+1*ch+6*m) + max(line.width) - (max(choser.width) + 20)
-      panel.y = 50
+      panel.x = x
+      panel.y = y
       panel.makeLines(specs)
       panel.stage.update()
       return panel

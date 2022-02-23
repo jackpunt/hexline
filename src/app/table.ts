@@ -34,7 +34,7 @@ export class Table extends EventDispatcher  {
   roundNumber: number = 0;
   turnNumber: number = 0
   dropStone: Stone   // set when player drops Stone to indicate a Move
-  nextHex: Hex = new Hex("grey", Stone.radius, undefined, undefined, {x: Stone.radius * 3, y: Stone.radius})
+  nextHex: Hex = new Hex("grey", Stone.radius, undefined)
   undoCont: Container = new Container()
   undoShape: Shape = new Shape();
   skipShape: Shape = new Shape();
@@ -92,6 +92,22 @@ export class Table extends EventDispatcher  {
         console.log(hex.Aname, info)
       })
   }
+  miniMap: HexMap;
+  makeMiniMap(parent: Container, x, y) {
+    let cont = new Container(); cont[S.aname] = 'victoryMap'
+    let victoryHexMap = new HexMap(Stone.radius, cont), rot = 23
+    victoryHexMap.makeAllDistricts(TP.mHexes, 1)
+    let bgHex = new Shape()
+    bgHex.graphics.f(TP.bgColor).dp(0, 0, 50*(2*TP.mHexes-1), 6, 0, 60)
+    cont.addChildAt(bgHex, 0)
+    cont.x = x; cont.y = y
+    cont.rotation = rot
+    victoryHexMap.forEachHex(h => {
+      h.distText.visible = h.rcText.visible = false; h.rotation = -53; h.scaleX = h.scaleY = .985
+    })
+    parent.addChild(cont)
+    this.miniMap = victoryHexMap
+  }
 
   layoutTable() {
     let radius = Stone.radius
@@ -102,27 +118,26 @@ export class Table extends EventDispatcher  {
 
     this.hexMap = new HexMap(radius, mapCont)
     this.gamePlay.hexMap = this.hexMap          // ;this.markHex00()
-    this.hexMap.hexCont.addChild(this.nextHex)  // single Hex to hold a Stone to play
-    this.hexMap.markCont.addChild(this.undoCont)
-    this.makeAllDistricts(TP.mHexes, TP.nHexes) // typically: 3,3 or 2,4
+    this.hexMap.makeAllDistricts(TP.mHexes, TP.nHexes) // typically: 3,3 or 2,4
 
     let hexRect = this.hexMap.hexCont.getBounds()
-    // background sized for nHexes:
-    let hex00 = this.districtHexAry[0][0]
-    let mh = TP.mHexes, nh= TP.nHexes, high = hex00.height * 1.5, wide = hex00.width * 2.0 // h=rad*1.5; w=rad*r(3)
-    let miny = hexRect.y - high, maxy = hexRect.y+hexRect.height + high
-    let minx = hexRect.x - wide, maxx = hexRect.x+hexRect.width + wide
+    // background sized for hexMap:
+    let high = this.hexMap.height, wide = this.hexMap.width // h=rad*1.5; w=rad*r(3)
+    let miny = hexRect.y - high, maxy = hexRect.y + hexRect.height + high
+    let minx = hexRect.x - wide, maxx = hexRect.x + hexRect.width + wide
     let bgr: XYWH = { x: 0, y: 0, w: (maxx - minx), h: (maxy - miny) }
-    // align center of mapCont == hexMap with center of background
-    mapCont.x = bgr.x + (bgr.w) / 2 - hex00.x
-    mapCont.y = bgr.y + (bgr.h) / 2 - hex00.y
-    //console.log({mapx: mapCont.x, mapy: mapCont.y, hex00x: hex00.x, hex00y: hex00.y})
+    // align center of mapCont(0,0) == hexMap(center) with center of background
+    mapCont.x = bgr.x + (bgr.w) / 2
+    mapCont.y = bgr.y + (bgr.h) / 2
 
     this.nextHex.x = minx + 2 * wide; this.nextHex.y = miny + 2.0 * high;
     // tweak when hexMap is tiny:
-    if (nh == 1 || nh + mh <= 5) { bgr.w += 3*wide; mapCont.x += 3*wide; this.nextHex.x = minx - .5*wide }
+    let nh = TP.nHexes, mh = TP.mHexes
+    if (nh == 1 || nh + mh <= 5) { bgr.w += 3*wide; mapCont.x += 3*wide; this.nextHex.x = minx - .87*wide }
     this.undoCont.x = this.nextHex.x
     this.undoCont.y = this.nextHex.y + 100
+    this.hexMap.hexCont.addChild(this.nextHex)  // single Hex to hold a Stone to play
+    this.hexMap.markCont.addChild(this.undoCont)
 
     this.setBackground(this.scaleCont, bgr) // bounded by bgr
     let p00 = this.scaleCont.localToLocal(bgr.x, bgr.y, this.hexMap.hexCont) 
@@ -133,6 +148,7 @@ export class Table extends EventDispatcher  {
     this.setNextPlayer(0)   // make a placeable Stone for Player[0]
     this.bStats = new BoardStats(this) // AFTER allPlayers are defined so can set pStats
     this.enableHexInspector()
+    this.makeMiniMap(this.scaleCont, -300, 800)
 
     this.on(S.add, this.gamePlay.addStoneEvent, this.gamePlay)[S.aname] = "addStone"
     this.on(S.remove, this.gamePlay.removeStoneEvent, this.gamePlay)[S.aname] = "removeStone"
@@ -178,12 +194,12 @@ export class Table extends EventDispatcher  {
   }
   /** set hex.stone & addChild,  */
   setStone(stone: Stone, hex: Hex = this.nextHex) {
-    let cont: Container = this.hexMap.stoneCont
+    let cont: Container = (hex.map || this.hexMap).stoneCont
     hex.parent.localToLocal(hex.x, hex.y, cont, stone)
     cont.addChild(stone)
     hex.stone = stone
     if (hex !== this.nextHex) {
-      this.hexMap.allStones.push({ Aname: hex.Aname, hex: hex, color: stone.color, })
+      hex.map.allStones.push({ Aname: hex.Aname, hex: hex, color: stone.color, })
     } else {
       Dragger.makeDragable(stone, this, this.dragFunc, this.dropFunc)
     }
@@ -192,7 +208,8 @@ export class Table extends EventDispatcher  {
   clearStone(hex: Hex): Stone {
     let stone = hex.stone
     if (stone) {
-      this.hexMap.allStones = this.hexMap.allStones.filter(hsc => hsc.hex !== hex)
+      let map = !!hex && !!hex.map ? hex.map : this.hexMap
+      map.allStones = map.allStones.filter(hsc => hsc.hex !== hex)
       stone.parent.removeChild(stone)
       hex.stone = undefined
     }
@@ -211,7 +228,7 @@ export class Table extends EventDispatcher  {
     if (stone.color !== this.curPlayer.color) return
     if (ctx.first) {
       // ctx.lastCont == stone.parent == hexMap.stoneCont (putButtonOnPlayer & nextStone)
-      this.hexMap.showMark()
+      this.hexMap.showMark(this.nextHex)
       let opc = otherColor(this.curPlayer.color)
       this.isSuicide = []
       this.maybeSuicide = this.hexMap.filterEachHex(hex => hex.isAttack(opc))
@@ -253,106 +270,7 @@ export class Table extends EventDispatcher  {
     this.allPlayers.forEach((p, index, players) => f(p, index, players));
   }
   // meta-n: 1:1, 2:7, 3:19, 4:37
-  /**
-   * 
-   * @param mh order of meta-hexes (2 or 3 for this game)
-   * @param nh size of meta-hex (1..6)
-   * @param xy (graphical display offset)
-   */
-  makeAllDistricts(mh: number, nh: number, xy?: XY) {
-    let mrc: RC = { col: Math.ceil(mh / 2), row: 2 }, district = 0
-    let dirs: HexDir[] = ['NE', 'SE', 'S', 'SW', 'NW', 'N',] // N-S aligned!
-    this.makeDistrict(nh, district++, mrc.row, mrc.col, xy) // Central District [0]
-    for (let ring = 1; ring < mh; ring++) {
-      //mrc.row -= 1 // start to North
-      mrc = this.hexMap.nextRowCol(mrc, 'NW', this.hexMap.nsTopo(mrc)) // NW + NE => 'N' for next metaHex
-      dirs.forEach(dir => {
-        // newMetaHexesOnLine(ring, rc, dir, district, dcolor, hexAry, xy)
-        for (let i = 0; i < ring; i++) {
-          mrc = this.hexMap.nextRowCol(mrc, dir, this.hexMap.nsTopo(mrc))
-          let hexAry = this.makeDistrict(nh, district++, mrc.row, mrc.col, xy)
-          let dcolor = this.pickColor(hexAry[0])
-          hexAry.forEach(hex => hex.setHexColor(dcolor))
-        }
-      })
-    }
-    //console.log(this.districtHexAry)
-  }
-  pickColor(hex: Hex): string {
-    let adjColor: string[] = [hex.map.distColor[0]], dist0 = hex.district
-    S.dirs.forEach(hd => {
-      let nhex: Hex = hex
-      while (!!(nhex = nhex.links[hd])) {
-        if (nhex.district != dist0) { adjColor.push(nhex.color); return }
-      }
-    })
-    return hex.map.distColor.find(ci => !adjColor.includes(ci))
-  }
-  /** 
-   * @param nh number of hexes on a side
-   */
-  makeDistrict(nh: number, district: number, mr, mc, xy?: XY): Hex[] {
-    let mcp = Math.abs(mc % 2), mrp = Math.abs(mr % 2), dia = 2*nh-1 
-    let dcolor = (district == 0) ? 0 : (1 + ((district+nh+mr) % 6))
-    // irow-icol define topology of MetaHex composed of HexDistrict 
-    let irow = (mr, mc) => { 
-      let ir = mr * dia - nh * (mcp+1) + 1
-      ir -= Math.floor((mc)/2)              // - half a row for each metaCol
-      return ir
-    }
-    let icol = (mr, mc, row) => {
-      let np = Math.abs(nh % 2), rp = Math.abs(row % 2)
-      let ic = Math.floor(mc * ((nh*3 -1)/2)) 
-      ic += (nh - 1)                        // from left edge to center
-      ic -= Math.floor((mc + (2 - np)) / 4) // 4-metaCol means 2-rows, mean 1-col 
-      ic += Math.floor((mr - rp) / 2)       // 2-metaRow means +1 col
-      return ic
-    }
-    let row0 = irow(mr, mc), col0 = icol(mr, mc, row0), hex: Hex;
-    let hexAry = []; hexAry['Mr'] = mr; hexAry['Mc'] = mc; this.districtHexAry[district] = hexAry
-    hexAry.push(hex = this.hexMap.addHex(row0, col0, district, dcolor, xy)) // The *center* hex
-    let rc: RC = {row: row0, col: col0} // == {hex.row, hex.col}
-    //console.groupCollapsed(`makelDistrict [mr: ${mr}, mc: ${mc}] hex0= ${hex.Aname}:${district}-${dcolor}`)
-    //console.log(`.makeDistrict: [mr: ${mr}, mc: ${mc}] hex0= ${hex.Aname}`, hex)
-    for (let ring = 1; ring < nh; ring++) {
-      rc = this.hexMap.nextRowCol(rc, 'W') // step West to start a ring
-      // place 'ring' hexes along each axis-line:
-      ;(S.dirs as InfDir[]).forEach(dir => rc = this.newHexesOnLine(ring, rc, dir, district, dcolor, hexAry, xy))
-    }
-    //console.groupEnd()
-    return hexAry
-  }
-  /**
-   * 
-   * @param n number of Hex to create
-   * @param hex start with a Hex to the West of this Hex
-   * @param dir after first Hex move this Dir for each other hex
-   * @param district 
-   * @param hexAry push created Hex(s) on this array
-   * @param xy 
-   * @returns RC of next Hex to create (==? RC of original hex)
-   */
-  newHexesOnLine(n, rc: RC, dir: InfDir, district: number, dcolor: number, hexAry: Hex[], xy?: XY): RC {
-      //let dcolor = this.hexMap.distColor[district]
-      let hex: Hex
-      //hexAry.push(hex = this.hexMap.addHex(row, col-1, district, district, xy))
-      for (let i = 0; i< n; i++) { 
-        hexAry.push(hex = this.hexMap.addHex(rc.row, rc.col, district, dcolor, xy))
-        //console.log(`.newHexesOnLine: [${hex.Aname}] hex=`, hex)
-        rc = this.hexMap.nextRowCol(hex, dir)
-      }
-      return rc
-    }
-  /** Array of Hex for each District */
-  districtHexAry: Array<Array<Hex>> = []
-
-  moveDistrict(src: number, dst: number) {
-    let color = this.hexMap.distColor[dst]
-    let hexAry = this.districtHexAry[src]
-    hexAry.forEach(hex => hex.setHexColor(color, dst))
-    this.districtHexAry[dst] = hexAry
-    delete this.districtHexAry[src]
-  }
+  
   /** default scaling-up value */
   upscale: number = 1.5;
   /** change cont.scale to given scale value. */

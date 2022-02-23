@@ -5,7 +5,7 @@
 import { GamePlay, Player } from "./game-play";
 import { Hex, HexMap } from "./hex";
 import { ParamGUI, ParamItem, ParamLine, ParamType } from "./param-gui";
-import { Table } from "./table";
+import { Stone, Table } from "./table";
 import { otherColor, StoneColor, stoneColor0, stoneColor1, stoneColors, TP } from "./table-params";
 import { ValueCounter } from "./value-counter";
 
@@ -103,11 +103,23 @@ export class BoardStats {
       })
     }
     this.table.statsPanel.update()
+    this.showControl()
     if (!!win) {
       this.hexMap.update()
       let lose = otherColor(win), winS = this.score(win), loseS = this.score(lose)
       setTimeout(() => alert(`${win} WINS! ${winS} -- ${loseS}`), 200)
     }
+  }
+  showControl() {
+    let hexMap = this.table.miniMap
+    hexMap.forEachHex(hex => {
+      let d = hex.district, dc = hex.stoneColor, ic = this.inControl[d]
+      if (ic !== dc) {
+        if (!!dc) { this.table.clearStone(hex)}
+        else if (!!ic) { this.table.setStone(new Stone(ic), hex) }
+      }
+    })
+    hexMap.update()
   }
 }
 /**
