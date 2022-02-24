@@ -19,26 +19,19 @@ export namespace M {
     return Math.round(value*d)/d
   }
 }
-/** Hexagonal canonical directions */
-export enum Dir { C, NE, E, SE, SW, W, NW }
-export type HexDir = 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW' | 'N'
-export type HexAxis = 'NE' | 'E' | 'SE' // 
 
 /** String things */
 export namespace S {
   export const C: string = "C"         // Center of ChooseDir buttons
   export const N: string = "N"
   export const S: string = "S"
-  export const E: HexDir = "E"
-  export const W: HexDir = "W"
-  export const NE: HexDir = "NE"
-  export const SE: HexDir = "SE"
-  export const SW: HexDir = "SW"
-  export const NW: HexDir = "NW"
+  export const E: string = "E"
+  export const W: string = "W"
+  export const NE: string = "NE"
+  export const SE: string = "SE"
+  export const SW: string = "SW"
+  export const NW: string = "NW"
 
-  //export const Dir3: Dir[] = [Dir.NE, Dir.E, Dir.SE]; // minimal reference directions
-  export const axis: HexAxis[] = [NE, E, SE];          // minimal reference directions
-  export const dirs: HexDir[] = [NE, E, SE, SW, W, NW]; // standard direction signifiers () ClockWise
   export const dirRot: object = { N: 0, E: 90, S: 180, W: 270, NE: 30, SE: 150, SW: 210, NW: 330 }
   export const dirRev: object = { N: S, S: N, E: W, W: E, NE: SW, SE: NW, SW: NE, NW: SE }
   export const defaultFont: string = "sans-serif"

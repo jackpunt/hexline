@@ -1,4 +1,4 @@
-import { C } from "./basic-intfs";
+import { C } from "./lib";
 
 //export const stoneColors = ['black', 'white'] as const
 export const stoneColors = ['blue', 'red'] as const

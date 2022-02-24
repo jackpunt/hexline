@@ -1,12 +1,10 @@
-import { HexDir, HexAxis, S } from "./basic-intfs";
-import { Hex, HexMap, InfDir } from "./hex";
+import { HexDir, HexAxis, H, InfDir } from "./hex-intfs";
+import { Hex, HexMap } from "./hex";
 import { HexEvent } from "./hex-event";
-import { KeyBinder } from "./key-binder";
+import { KeyBinder, S, stime, Undo } from "./lib";
 import { PlayerStats } from "./stats";
 import { Stone, Table } from "./table";
 import { otherColor, StoneColor, stoneColors} from "./table-params"
-import { stime } from "./types";
-import { Undo } from "./undo";
 
 type HSC = { hex: Hex, color: StoneColor }
 type AxisDone = { [key in HexAxis]?: Set<Hex> }
@@ -195,7 +193,7 @@ export class GamePlay {
     while (!!(nhex = nhex.links[ds])) {
       if (!color || nhex.stoneColor === color) rv.push(nhex)
     }
-    let dr = S.dirRev[ds]; 
+    let dr = H.dirRev[ds]; 
     nhex = hex
     while (!!(nhex = nhex.links[dr])) {
       if (!color || nhex.stoneColor === color) rv.push(nhex)
@@ -215,7 +213,7 @@ export class GamePlay {
    */
   assertInfluence(hex: Hex, color: StoneColor, incr = true, axisDone?: AxisDone) {
     let capLen = this.captured.length
-    S.axis.forEach(ds => {
+    H.axis.forEach(ds => {
       if (!!axisDone) {
         let eHex = hex.lastHex(ds), dSet = axisDone[ds] || (axisDone[ds] = new Set<Hex>())
         if (dSet.has(eHex)) return
@@ -252,7 +250,7 @@ export class GamePlay {
     line: Hex[] = incr ? [hex] : this.hexlineToArray(hex, ds, color)) {
     // Hexes with Stones of color on line [E..W]
     //this.showLine(`.assertInfluence:${hex.Aname}:${color}`, line)
-    let dr = S.dirRev[ds]
+    let dr = H.dirRev[ds]
     // SINGLE pass: alternating from left/right end of line: insert 'final' influence
     for (let low = 0, high = line.length - 1; high >= 0; low++, high--) {
       this.skipAndSet(line[high], color, ds, ds, incr)
@@ -294,7 +292,7 @@ export class GamePlay {
   }
   /** dropFunc indicating new Move attempt */
   addStoneEvent(hev: HexEvent): void {
-    let stone = hev.value as Stone
+    let stone = hev.value as unknown as Stone
     let redo = this.redoMoves.shift()
     if (!!redo) {
       if (redo.hex !== hev.hex) this.redoMoves = []

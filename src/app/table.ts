@@ -1,14 +1,10 @@
 import { Stage, EventDispatcher, Container, Shape, Text, DisplayObject } from "createjs-module";
-import { F, HexDir, RC, S, XY } from "./basic-intfs";
-import { Dragger, DragInfo } from "./dragger";
 import { GamePlay, Player } from "./game-play";
-import { Hex, HexMap, InfDir } from "./hex";
+import { Hex, HexMap } from "./hex";
 import { HexEvent } from "./hex-event";
-import { KeyBinder } from "./key-binder";
-import { ScaleableContainer } from "./scaleable-container";
 import { BoardStats, StatsPanel } from "./stats";
 import { TP, StoneColor, stoneColors, otherColor, stoneColor0, stoneColor1 } from "./table-params";
-import { stime } from "./types";
+import { F, S, Dragger, DragInfo, KeyBinder, ScaleableContainer, stime } from "./lib"
 
 type XYWH = {x: number, y: number, w: number, h: number} // like a Rectangle
 export class Stone extends Shape {
@@ -113,6 +109,8 @@ export class Table extends EventDispatcher  {
 
   layoutTable() {
     let radius = Stone.radius
+    let stage = this.stage
+    let isStage = (this.stage instanceof Stage)
     this.scaleCont = this.makeScaleCont(!!this.stage) // scaleCont & background
     let mapCont = new Container();
     mapCont[S.aname] = "mapCont"
@@ -191,7 +189,7 @@ export class Table extends EventDispatcher  {
   putButtonOnPlayer(player: Player) {
     this.setStone(new Stone(player.color)) // new Stone for Player
 
-    this.hexMap.update()
+    this.stage.update(); //this.hexMap.update()
     this.curPlayer.makeMove()
   }
   /** set hex.stone & addChild,  */

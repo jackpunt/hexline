@@ -1,12 +1,9 @@
 import { Container, Stage } from "createjs-module";
-import { C, Obj } from "./basic-intfs";
-import { DropdownButton } from "./dropdown";
+import { C, Obj, DropdownButton, ParamGUI, ParamItem, ParamOpts, ParamSpec, stime, makeStage } from "./lib";
 import { GamePlay } from "./game-play";
-import { ParamGUI, ParamItem, ParamOpts, ParamSpec } from "./param-gui";
 import { StatsPanel } from "./stats";
 import { Table } from "./table";
 import { TP } from "./table-params";
-import { stime } from "./types";
 
 /** initialize & reset & startup the application. */
 export class GameSetup {
@@ -19,7 +16,9 @@ export class GameSetup {
     /** @param canvasId supply undefined for 'headless' Stage */
     constructor(canvasId: string) {
       stime.fmt = "MM-DD kk:mm:ss.SSS"
-      this.stage = new Stage(canvasId); this.stage.tickOnUpdate = false
+      //this.stage = new Stage(canvasId); 
+      this.stage = makeStage(canvasId)
+      this.stage.tickOnUpdate = false
       this.table = new Table(this.stage)      // makeScaleCont()
       this.gamePlay = new GamePlay(this.table)
       this.table.gamePlay = this.gamePlay
@@ -77,7 +76,7 @@ export class GameSetup {
       specs.push(this.makeParamSpec("Start", [" ", "yes", "no"], { fontSize: 40, fontColor: "red" }))
       specs.push(this.makeParamSpec("mHexes", [2, 3, 4]))
       specs.push(this.makeParamSpec("nHexes", [1, 2, 3, 4, 5, 6]))
-
+      specs.push(this.makeParamSpec("moveDwell", [300, 600]))
       spec("Start").onChange = (item: ParamItem) => { if (item.value == "yes") this.restart.call(this) }
       spec("nHexes").onChange = (item: ParamItem) => { 
         TP.fnHexes(item.value, TP.mHexes)
@@ -87,7 +86,8 @@ export class GameSetup {
         TP.fnHexes(TP.nHexes, item.value)
         !!this.paramGui && this.paramGui.selectValue("Start", "yes")
        }
-      let gui = new ParamGUI()
+      let gui = new ParamGUI(TP)
+
       parent.addChild(gui)
       gui.x = -300 // (3*cw+1*ch+6*m) + max(line.width) - (max(choser.width) + 20)
       gui.y = 350

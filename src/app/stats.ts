@@ -4,10 +4,9 @@
 
 import { GamePlay, Player } from "./game-play";
 import { Hex, HexMap } from "./hex";
-import { ParamGUI, ParamItem, ParamLine, ParamType } from "./param-gui";
 import { Stone, Table } from "./table";
 import { otherColor, StoneColor, stoneColor0, stoneColor1, stoneColors, TP } from "./table-params";
-import { ValueCounter } from "./value-counter";
+import { ParamGUI, ParamItem, ParamLine, ParamType, ValueCounter } from "./lib";
 
 export class PlayerStats {
   table: Table
@@ -138,7 +137,7 @@ export class StatsPanel extends ParamGUI {
   bFields = ['score', ] //
   pFields = ['nStones', 'nInf', 'nThreats', 'nAttacks', ] // 'dStones', 'dMinControl', 
   constructor(bStats: BoardStats) {
-    super()
+    super(bStats)    // but StatsPanel doesn't use the.setValue() 
     this.bStats = bStats
   }
   targetValue(target: object, fieldName: string, color: StoneColor) {

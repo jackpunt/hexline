@@ -1,8 +1,18 @@
 import { Container, Event, Shape, Text, Point, EventDispatcher } from 'createjs-module';
-import { TP } from './table-params';
 import { XY, S, C, F } from './basic-intfs';
-import { ValueEvent } from './hex-event';
 
+/** send a simple value of type to target. */
+export class ValueEvent extends Event {
+  value: number | string ;
+  constructor(type: string, value: number | string) {
+    super(type, true, true);
+    this.value = value;
+  }
+  /** dispatch ValueEvent via target */
+  static dispatchValueEvent(target: EventDispatcher, type: string, value: number | string): boolean {
+    return target.dispatchEvent(new ValueEvent(type, value));
+  }
+}
 /** Text in a colored circle, possibly with a lable */
 
 export class ValueCounter extends Container {

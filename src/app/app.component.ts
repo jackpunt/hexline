@@ -1,5 +1,5 @@
 import { Component, HostListener } from '@angular/core';
-import { KeyBinder } from './key-binder';
+import { KeyBinder } from './lib';
 
 @Component({
   selector: 'app-root',

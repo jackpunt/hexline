@@ -1,17 +1,17 @@
 import { Container, Graphics, Shape, Text } from "createjs-module";
-import { C, Dir, F, HexDir, RC, S, XY, HexAxis } from "./basic-intfs";
+import { C, F, RC, S } from "./lib";
+import { HexAxis, HexDir, H, InfDir } from "./hex-intfs";
 import { Stone } from "./table";
 import { StoneColor, stoneColor0, stoneColor1, stoneColors } from "./table-params";
 import { Undo } from "./undo";
 
 // Note: graphics.drawPolyStar(x,y,radius, sides, pointSize, angle) will do a regular polygon
 
-export type InfDir = Exclude<HexDir, 'N' | 'S'>        // 
-type LINKS = {[key in InfDir] : Hex}
-type INF   = {[key in HexAxis]? : {[key in InfDir] : Hex}} // index of INF == StoneColor
+type LINKS = { [key in InfDir]: Hex }
+type INF   = { [key in HexAxis]?: { [key in InfDir]: Hex } } // index of INF == StoneColor
 type ToAxis= {[key in InfDir] : HexAxis}
 const dnToAxis: ToAxis = { NW: 'SE', W: 'E', SW: 'NE', NE: 'NE', E: 'E', SE: 'SE' }
-type HSC = {hex: Hex, color: StoneColor, Aname?: string}
+type HSC = { hex: Hex, color: StoneColor, Aname?: string }
 
 class InfMark extends Shape {
   static gE0: Graphics
@@ -37,7 +37,7 @@ class InfMark extends Shape {
     let g: Graphics = (color === stoneColor0) ? InfMark.gE0 : InfMark.gE1
     super(g)
     this.mouseEnabled = false
-    this.rotation = S.dirRot[ds]
+    this.rotation = H.dirRot[ds]
     this[S.aname] = `Inf[${color},${ds},${dn}-${this.id}]`  // for debug, not production
   }
 }
@@ -152,7 +152,7 @@ export class Hex extends Container {
     infMark = new InfMark(color, ds, dn)
     this.inf[color][dn] = infMark
     undo && undo.addUndoRec(this, `delInf(${this},${color},${dn})`, () => { this.delInf(color, dn, false) })
-    let revMark = this.getInf(color, S.dirRev[dn])
+    let revMark = this.getInf(color, H.dirRev[dn])
     if (!revMark || !revMark.parent) {
       // place first (of dn|rev[dn]) InfMark on HexMap:
       //this.parent.localToLocal(this.x, this.y, this.map.infCont, infMark)
@@ -168,13 +168,13 @@ export class Hex extends Container {
    * @param rev if true also remove reverse dir
    */
   delInf(color: StoneColor, dn: InfDir, rev = true, undo?: Undo) {
-    if (rev) this.delInf(color, S.dirRev[dn], false, undo)
+    if (rev) this.delInf(color, H.dirRev[dn], false, undo)
     let infMark = this.getInf(color, dn)
     if (!infMark) return
     delete this.inf[color][dn]
     undo && undo.addUndoRec(this, `setInf(${this},${dn},${color})`, () => { this.setInf(color, dn) })
     if (!!infMark.parent) infMark.parent.removeChild(infMark)
-    let revMark = this.getInf(color, S.dirRev[dn])
+    let revMark = this.getInf(color, H.dirRev[dn])
     if (!!revMark) this.map.infCont.addChild(revMark)
   }
   /** create empty inf for each color & InfDir */
@@ -214,7 +214,7 @@ export class Hex extends Container {
     let ns = new Shape(), tilt = 30
     ns.graphics.s(Hex.borderColor).dp(0, 0, rad+1, 6, 0, tilt) // s = beginStroke(color) dp:drawPolyStar
     ns.graphics.f(color).dp(0, 0, rad, 6, 0, tilt)             // f = beginFill(color)
-    ns.rotation = S.dirRot[Dir.E]
+    ns.rotation = H.dirRot[H.N]
   return ns
   }
   /** return last Hex on axis in given direction */
@@ -338,12 +338,12 @@ export class HexMap extends Array<Array<Hex>> {
   }
   link(hex: Hex) {
     let nt = (hex.row % 2 == 0) ? this.ewEvenRow : this.ewOddRow
-    S.dirs.forEach(dir => {
+    H.dirs.forEach(dir => {
       let row = hex.row + nt[dir].dr, col = hex.col + nt[dir].dc //let {row, col} = this.nextRowCol(hex, dir, nt)
       let nHex = this[row] && this[row][col]
       if (!!nHex) {
         hex.links[dir] = nHex
-        nHex.links[S.dirRev[dir]] = hex
+        nHex.links[H.dirRev[dir]] = hex
       }
     });
   }
@@ -387,7 +387,7 @@ export class HexMap extends Array<Array<Hex>> {
   }
   pickColor(hex: Hex): string {
     let adjColor: string[] = [hex.map.distColor[0]], dist0 = hex.district
-    S.dirs.forEach(hd => {
+    H.dirs.forEach(hd => {
       let nhex: Hex = hex
       while (!!(nhex = nhex.links[hd])) {
         if (nhex.district != dist0) { adjColor.push(nhex.color); return }
@@ -424,7 +424,7 @@ export class HexMap extends Array<Array<Hex>> {
     for (let ring = 1; ring < nh; ring++) {
       rc = this.nextRowCol(rc, 'W') // step West to start a ring
         // place 'ring' hexes along each axis-line:
-        ; (S.dirs as InfDir[]).forEach(dir => rc = this.newHexesOnLine(ring, rc, dir, district, dcolor, hexAry))
+        ; (H.dirs as InfDir[]).forEach(dir => rc = this.newHexesOnLine(ring, rc, dir, district, dcolor, hexAry))
     }
     //console.groupEnd()
     return hexAry

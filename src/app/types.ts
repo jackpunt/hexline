@@ -1,6 +1,9 @@
 import * as moment from 'moment';
-import { EventDispatcher } from 'createjs-module';
+import { EventDispatcher, Stage } from 'createjs-module';
 
+export function makeStage(canvasId: string): Stage {
+  return new Stage(canvasId)
+}
 export function className (obj: { constructor: { name: any; }; }): string { 
   return (obj === undefined) ? 'undefined' : (!!obj && obj.constructor) ? obj.constructor.name : 'no_class'
 }
@@ -32,15 +35,9 @@ export function findFieldValue(obj: object, ... names: Array<string|Array<string
   }
   return !!next ? findFieldValue(next, ... names) : undefined
 }
-/** Interface into RoboPlayer */
-export interface Notifyable {
-  notify(source: EventDispatcher, eventName: string, dwell?: number): void
-  block(source?: EventDispatcher, eventName?: string, dwell?: number): void
-  bonusAry(card): number[]
-}
 
 /**
- * remove listener from target before invoking listener.
+ * Hack to createjs: remove listener from target before invoking listener.
  * @param target the EventDispatcher emitting Event(type)
  * @param type the Event to listener for
  * @param listener the function to run

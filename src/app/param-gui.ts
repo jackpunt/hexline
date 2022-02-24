@@ -1,6 +1,5 @@
 import { Container, Text } from "createjs-module";
 import { DropdownChoice, DropdownItem, DropdownStyle } from "./dropdown";
-import { TP } from "./table-params";
 import { F } from "./basic-intfs";
 import { stime } from './types';
 
@@ -39,6 +38,10 @@ export class ParamLine extends Container {
 }
 
 export class ParamGUI extends Container {
+  constructor(target: object) {
+    super()
+    this.target = target
+  }
   specs: ParamSpec[]
   lines: ParamLine[] = []
   linew: number = 0 // max line.text.width
@@ -90,7 +93,7 @@ export class ParamGUI extends Container {
     ddc.x = line.chooser_x // ddc.y = line.text.y = 0 relative to ParamLine, same as line.text
     line.chooser = ddc
     line.addChild(ddc)
-    ddc.onItemChanged(line.spec.onChange || this.setValue)
+    ddc.onItemChanged(!!line.spec.onChange ? line.spec.onChange : (item) => {this.setValue(item)})
     let fieldName = line.spec.fieldName, value = this.getValue(fieldName)
     this.selectValue(fieldName, value, line)
     ddc.enable()
@@ -106,17 +109,13 @@ export class ParamGUI extends Container {
     return choice
   }
   target: object = undefined
-  /** return target[fieldName] */
+  /** return target[fieldName]; suitable for override */
   getValue(fieldName: string) {
-    return this.target === undefined ? TP[fieldName] : this.target[fieldName]
+    return this.target[fieldName]
   }
-  /** update target[item.fieldname] = item.value */
-  setValue(item: ParamItem) {
-    if (this.target === undefined) {
-      TP[item.fieldName] = item.value
-    } else {
-      this.target[item.fieldName] = item.value
-    }
-    //console.log(stime(this, `.setTableParam: TP.${item.fieldName} =`), item.value, {item: item})
+  /** update target[item.fieldname] = item.value; suitable for override */
+  setValue(item: ParamItem): void {
+    this.target[item.fieldName] = item.value
+    //console.log(stime(this, `.setValue: TP.${item.fieldName} =`), TP[item.fieldName], item.value, {item: item})
   }
 }
