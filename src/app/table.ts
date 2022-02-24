@@ -1,10 +1,10 @@
 import { Stage, EventDispatcher, Container, Shape, Text, DisplayObject } from "createjs-module";
+import { F, S, Dragger, DragInfo, KeyBinder, ScaleableContainer, stime } from "./lib/lib"
 import { GamePlay, Player } from "./game-play";
 import { Hex, HexMap } from "./hex";
 import { HexEvent } from "./hex-event";
 import { BoardStats, StatsPanel } from "./stats";
 import { TP, StoneColor, stoneColors, otherColor, stoneColor0, stoneColor1 } from "./table-params";
-import { F, S, Dragger, DragInfo, KeyBinder, ScaleableContainer, stime } from "./lib"
 
 type XYWH = {x: number, y: number, w: number, h: number} // like a Rectangle
 export class Stone extends Shape {

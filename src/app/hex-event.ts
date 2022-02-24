@@ -1,4 +1,4 @@
-import { ValueEvent } from './lib';
+import { ValueEvent } from './lib/lib';
 import { Hex } from './hex';
 import { Stone } from './table';
 

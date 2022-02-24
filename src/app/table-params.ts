@@ -1,4 +1,4 @@
-import { C } from "./lib";
+import { C } from "./lib/lib";
 
 //export const stoneColors = ['black', 'white'] as const
 export const stoneColors = ['blue', 'red'] as const

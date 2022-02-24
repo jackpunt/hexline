@@ -1,7 +1,5 @@
 import { Container, Text } from "createjs-module";
-import { DropdownChoice, DropdownItem, DropdownStyle } from "./dropdown";
-import { F } from "./basic-intfs";
-import { stime } from './types';
+import { F, DropdownChoice, DropdownItem, DropdownStyle, stime } from "./lib";
 
 export type ParamType = any; // string | number | boolean
 /** Supplied by user */

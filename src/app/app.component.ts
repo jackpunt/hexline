@@ -1,5 +1,5 @@
-import { Component, HostListener } from '@angular/core';
-import { KeyBinder } from './lib';
+import { Component, HostListener, Inject } from '@angular/core';
+import { KeyBinder } from './lib/lib';
 
 @Component({
   selector: 'app-root',
@@ -9,7 +9,7 @@ import { KeyBinder } from './lib';
 export class AppComponent {
   title = 'hexline';
 
-  constructor(private keyBinder: KeyBinder) { }
+  constructor(@Inject(KeyBinder) private keyBinder: KeyBinder) { }
 
   // app.component has access to the 'Host', so we use @HostListener here
   // Listen to all Host events and forward them to our internal EventDispatcher

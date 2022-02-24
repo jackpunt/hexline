@@ -1,9 +1,8 @@
 import { Container, Graphics, Shape, Text } from "createjs-module";
-import { C, F, RC, S } from "./lib";
+import { C, F, RC, S, Undo } from "./lib/lib";
 import { HexAxis, HexDir, H, InfDir } from "./hex-intfs";
 import { Stone } from "./table";
 import { StoneColor, stoneColor0, stoneColor1, stoneColors } from "./table-params";
-import { Undo } from "./undo";
 
 // Note: graphics.drawPolyStar(x,y,radius, sides, pointSize, angle) will do a regular polygon
 

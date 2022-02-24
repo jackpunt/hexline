@@ -1,7 +1,7 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { GameSetup } from '../game-setup';
-import { stime } from '../types';
+import { stime } from '../lib/lib';
 
 @Component({
   selector: 'stage-comp',

@@ -1,6 +1,5 @@
 import { Container, DisplayObject, MouseEvent, Matrix2D } from 'createjs-module';
-import { XY, S, Obj } from './basic-intfs';
-import { stime } from './types';
+import { XY, S, Obj, stime } from './lib';
 
 export class Dragole {
   /** external injection point */
