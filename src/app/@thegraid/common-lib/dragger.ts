@@ -230,9 +230,9 @@ export class Dragger {
     dispObj["dragAsDispObj"] = asDispObj;
 
     dispObj[S.pressmove] = dispObj.on(S.pressmove, pressmove); 
-    dispObj[S.pressmove][S.aname] = "Dragger.pressmove"
+    dispObj[S.pressmove][S.Aname] = "Dragger.pressmove"
     dispObj[S.pressup] = dispObj.on(S.pressup, pressup);
-    dispObj[S.pressup][S.aname] = "Dragger.pressup"
+    dispObj[S.pressup][S.Aname] = "Dragger.pressup"
     //console.log(stime(this, ".makeDragable: name="), dispObj.name, "dispObj=", dispObj, "\n   cont=", cont)
   }
 

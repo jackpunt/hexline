@@ -200,8 +200,8 @@ export class KeyBinder extends EventDispatcher {
   private initListeners() {
     console.log(stime(this, ".initListeners: THIS (new KeyBinder) ="), this);
 
-    this.on("keydown", this.dispatchKey, this)[S.aname] = "KeyBinder.dispatchKey"
-    this.on("keyup", this.dispatchKey, this)[S.aname] = "KeyBinder.dispatchKey"
+    this.on("keydown", this.dispatchKey, this)[S.Aname] = "KeyBinder.dispatchKey"
+    this.on("keyup", this.dispatchKey, this)[S.Aname] = "KeyBinder.dispatchKey"
 
     // let mousein = (e) => {evtd.showevent("onFocus", e)};
     // this.addEventListener("mouseenter", mousein);

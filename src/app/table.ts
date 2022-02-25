@@ -81,7 +81,7 @@ export class Table extends EventDispatcher  {
         this.undoCont.addChild(qShape)
         if (!hex) return
         let InfDisp = this.hexMap.infCont.children.filter(obj => obj.x == hex.x && obj.y == hex.y)
-        let InfName = InfDisp.map(i => i[S.aname])
+        let InfName = InfDisp.map(i => i[S.Aname])
         let info = { hex, stone: hex.stoneColor, InfName }
         info[`Inf[${stoneColor0}]`] = hex.inf[stoneColor0]
         info[`Inf[${stoneColor1}]`] = hex.inf[stoneColor1]
@@ -90,7 +90,7 @@ export class Table extends EventDispatcher  {
   }
   miniMap: HexMap;
   makeMiniMap(parent: Container, x, y) {
-    let cont = new Container(); cont[S.aname] = 'miniMap'
+    let cont = new Container(); cont[S.Aname] = 'miniMap'
     let victoryHexMap = new HexMap(Stone.radius, cont)
     let rot = 7, rotC = (30-rot), rotH = (rot - 60)
     if (TP.nHexes == 1) rotC = rotH = 0
@@ -113,7 +113,7 @@ export class Table extends EventDispatcher  {
     let isStage = (this.stage instanceof Stage)
     this.scaleCont = this.makeScaleCont(!!this.stage) // scaleCont & background
     let mapCont = new Container();
-    mapCont[S.aname] = "mapCont"
+    mapCont[S.Aname] = "mapCont"
     this.scaleCont.addChild(mapCont)
 
     this.hexMap = new HexMap(radius, mapCont)
@@ -150,8 +150,8 @@ export class Table extends EventDispatcher  {
     this.enableHexInspector()
     this.makeMiniMap(this.scaleCont, -(200+TP.mHexes*50), 500+100*TP.mHexes)
 
-    this.on(S.add, this.gamePlay.addStoneEvent, this.gamePlay)[S.aname] = "addStone"
-    this.on(S.remove, this.gamePlay.removeStoneEvent, this.gamePlay)[S.aname] = "removeStone"
+    this.on(S.add, this.gamePlay.addStoneEvent, this.gamePlay)[S.Aname] = "addStone"
+    this.on(S.remove, this.gamePlay.removeStoneEvent, this.gamePlay)[S.Aname] = "removeStone"
     this.stage.update()
   }
   setNextPlayer(ndx: number = -1, turn?: number, log: boolean = true) {

@@ -5,7 +5,7 @@ export type RC = { row: number, col: number}
 
 /** Font things */
 export namespace F {
-  export function fontSpec(size: number = 32, font: string = S.defaultFont) { return ""+size+"px "+font}
+  export function fontSpec(size: number = 32, font: string = S.defaultFont) { return `${size}px ${font}` }
   export function timedPromise<T>(ms: number, v?: T): Promise<T> {
     return new Promise((res, rej) => setTimeout(()=>res(v), ms))
   }
@@ -39,7 +39,7 @@ export namespace S {
   export const rgbColor: string = "rgbColor"// card prop
 
   export const scaled: string = "scaled"    // Event name on ScaledContainer
-  export const aname:  string = "Aname"     // anonymous function field name, any object name
+  export const Aname:  string = "Aname"     // anonymous function field name, any object name
   export const add:    string = "add"       // HexEvent type add Stone to board
   export const remove: string = "remove"    // HexEvent type removeStone from board
   

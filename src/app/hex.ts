@@ -37,7 +37,7 @@ class InfMark extends Shape {
     super(g)
     this.mouseEnabled = false
     this.rotation = H.dirRot[ds]
-    this[S.aname] = `Inf[${color},${ds},${dn}-${this.id}]`  // for debug, not production
+    this[S.Aname] = `Inf[${color},${ds},${dn}-${this.id}]`  // for debug, not production
   }
 }
 class CapMark extends Shape {
@@ -249,10 +249,10 @@ export class HexMap extends Array<Array<Hex>> {
     this.width = radius * 1.5
     CapMark.capSize = this.width/2
     if (!!mapCont) {                 // hexCont, stoneCont, markCont all x,y aligned
-      mapCont.addChild(this.hexCont)  ; this.hexCont[S.aname]   = "hexCont"
-      mapCont.addChild(this.markCont) ; this.markCont[S.aname]  = "markCont"
-      mapCont.addChild(this.stoneCont); this.stoneCont[S.aname] = "stoneCont"
-      mapCont.addChild(this.infCont)  ; this.infCont[S.aname]   = "infCont"
+      mapCont.addChild(this.hexCont)  ; this.hexCont[S.Aname]   = "hexCont"
+      mapCont.addChild(this.markCont) ; this.markCont[S.Aname]  = "markCont"
+      mapCont.addChild(this.stoneCont); this.stoneCont[S.Aname] = "stoneCont"
+      mapCont.addChild(this.infCont)  ; this.infCont[S.Aname]   = "infCont"
     }
     this.mark = new Shape();
     this.mark.graphics.beginFill(C.markColor).drawPolyStar(0, 0, radius, 6, 0, 30)

@@ -19,7 +19,6 @@ export class ValueCounter extends Container {
 
   color: string;
   text: Text;
-  textColor: string = C.black; // or "undefined" ?
   shape: Shape;
   value: number | string;
   /** width of curently displayed ellipse */
@@ -117,13 +116,11 @@ export class ValueCounter extends Container {
     return this.value;
   }
   /** display new value, possilby new color, fontsize, fontName */
-  setValue(value: number | string, color?: string, fontSize?: number, fontName?: string) {
+  setValue(value: number | string, color?: string, fontSize?: number, fontName?: string, textColor = C.black) {
     this.value = value;
     if (color || fontSize || fontName)
       this.setFont(color, fontSize, fontName);
-    // use more legible text on the dark/solid Player colors:
-    this.textColor = C.black;
-    let { width, height, text } = ValueCounter.ovalSize(value, this.fontSpec, this.textColor);
+    let { width, height, text } = ValueCounter.ovalSize(value, this.fontSpec, textColor);
     if ((width > this.wide) || (width < this.wide * .9)) {
       this.newShape(width, height);
     }
@@ -153,7 +150,7 @@ export class ValueCounter extends Container {
     this.y = offset.y;
     if (!!target && !!type) {
       let valff = valf || ((ve: ValueEvent) => ve.value as string | number);
-      target.on(type, ((ve: Event) => this.updateValue(valff(ve))), this)[S.aname] = "counterValf";
+      target.on(type, ((ve: Event) => this.updateValue(valff(ve))), this)[S.Aname] = "counterValf";
     }
   }
 }
