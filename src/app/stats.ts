@@ -6,7 +6,7 @@ import { GamePlay, Player } from "./game-play";
 import { Hex, HexMap } from "./hex";
 import { Stone, Table } from "./table";
 import { otherColor, StoneColor, stoneColor0, stoneColor1, stoneColors, TP } from "./table-params";
-import { ParamGUI, ParamItem, ParamLine, ParamType, ValueCounter } from "./@thegraid/common-lib";
+import { ParamGUI, ParamItem, ParamLine, ParamType, ValueCounter } from "@thegraid/common-lib";
 
 export class PlayerStats {
   table: Table

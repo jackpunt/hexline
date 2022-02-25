@@ -1,4 +1,4 @@
-import { C } from "./@thegraid/common-lib";
+import { C } from "@thegraid/common-lib";
 
 //export const stoneColors = ['black', 'white'] as const
 export const stoneColors = ['blue', 'red'] as const

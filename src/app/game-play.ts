@@ -1,7 +1,7 @@
 import { HexDir, HexAxis, H, InfDir } from "./hex-intfs";
 import { Hex, HexMap } from "./hex";
 import { HexEvent } from "./hex-event";
-import { KeyBinder, S, stime, Undo } from "./@thegraid/common-lib";
+import { KeyBinder, S, stime, Undo } from "@thegraid/common-lib";
 import { PlayerStats } from "./stats";
 import { Stone, Table } from "./table";
 import { otherColor, StoneColor, stoneColors} from "./table-params"
