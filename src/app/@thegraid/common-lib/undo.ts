@@ -1,4 +1,4 @@
-import { stime } from './types';
+import { stime } from '.';
 
 /** Generic Undo record: closure OR {object:, field:, value:} */
 export class UndoRec {

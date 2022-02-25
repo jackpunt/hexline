@@ -1,5 +1,5 @@
 import { Container, Event, MouseEvent, Rectangle, Shape, Stage, Text } from "createjs-module";
-import { C, F, Obj, S, XY } from "./lib";
+import { C, F, Obj, S, XY } from '.';
 
 // https://jsfiddle.net/s1o1wswr/13/
 

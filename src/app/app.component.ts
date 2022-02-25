@@ -1,5 +1,5 @@
 import { Component, HostListener, Inject } from '@angular/core';
-import { KeyBinder } from './lib/lib';
+import { KeyBinder } from './@thegraid/common-lib';
 
 @Component({
   selector: 'app-root',

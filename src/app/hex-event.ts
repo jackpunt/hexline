@@ -1,4 +1,4 @@
-import { ValueEvent } from './lib/lib';
+import { ValueEvent } from './@thegraid/common-lib';
 import { Hex } from './hex';
 import { Stone } from './table';
 

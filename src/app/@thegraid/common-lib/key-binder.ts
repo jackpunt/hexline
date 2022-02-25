@@ -1,6 +1,5 @@
-import { Injectable } from '@angular/core';
 import { DisplayObject, EventDispatcher, Shape } from 'createjs-module';
-import { C, S, stime } from './lib';
+import { C, S, stime } from '.';
 
 // An injected singleton
 /**
@@ -39,7 +38,6 @@ type BindFunc = (arg?: any, e?: KeyboardEvent) => void
 export type Binding = { thisArg?: object, func: BindFunc, argVal?: any }
 
 /** EventDispatcher with keybinding (key->func(e)) */
-@Injectable()
 export class KeyBinder extends EventDispatcher {
   static keyBinder: KeyBinder;
   constructor() {
