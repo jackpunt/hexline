@@ -14,7 +14,6 @@ export {ValueCounter, ValueEvent} from './value-counter'
 // XY, S, F, Dragger, DragInfo, KeyBinder, ScaleableContainer,
 // DropdownChoice, DropdownItem, DropdownStyle,
 // ParamLine, ParamType, ValueCounter, Undo, ValueEvent, RC,
-// } from '@thegraid/common-lib'
+// } from '../../../../../ts/common-lib/src/index'// '@thegraid/common-lib'
 
-//import { Stage, Container, DisplayObject, Graphics, Point, Matrix2D, Event, EventDispatcher, MouseEvent, Rectangle, Shape, Text } from 'createjs-module'
-//export { Stage, Container, DisplayObject, Graphics, Point, Matrix2D, Event, EventDispatcher, MouseEvent, Rectangle, Shape, Text }
+//export { Stage, Container, DisplayObject, Graphics, Point, Matrix2D, Event, EventDispatcher, MouseEvent, Rectangle, Shape, Text } from '../../../../../ts/common-lib/src/index'

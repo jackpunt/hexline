@@ -1,8 +1,10 @@
 import * as moment from 'moment';
 import { EventDispatcher, Stage } from 'createjs-module';
 
-export function makeStage(canvasId: string): Stage {
-  return new Stage(canvasId)
+export function makeStage(canvasId: string, tick = true) {
+  let stage = new Stage(canvasId)
+  stage.tickOnUpdate = tick
+  return stage
 }
 export function className (obj: { constructor: { name: any; }; }): string { 
   return (obj === undefined) ? 'undefined' : (!!obj && obj.constructor) ? obj.constructor.name : 'no_class'
