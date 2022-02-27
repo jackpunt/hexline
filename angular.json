@@ -21,7 +21,7 @@
             "index": "src/index.html",
             "main": "src/main.ts",
 
-            "allowedCommonJsDependencies": ["createjs-module", "@thegraid/wspbclient"],
+            "allowedCommonJsDependencies": ["createjs-module", "@thegraid/common-lib"],
             
             "polyfills": "src/polyfills.ts",
             "tsConfig": "tsconfig.app.json",
