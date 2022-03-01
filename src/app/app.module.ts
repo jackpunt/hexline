@@ -3,7 +3,7 @@ import { BrowserModule } from '@angular/platform-browser';
 
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
-import { KeyBinder } from '@thegraid/common-lib';
+import { KeyBinder } from '@thegraid/createjs-lib';
 import { StageComponent } from './stage/stage.component';
 
 @NgModule({

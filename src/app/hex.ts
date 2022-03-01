@@ -1,5 +1,5 @@
 import { Container, Graphics, Shape, Text } from "createjs-module";
-import { C, F, RC, S, Undo } from "@thegraid/common-lib";
+import { C, F, RC, S, Undo } from "@thegraid/createjs-lib";
 import { HexAxis, HexDir, H, InfDir } from "./hex-intfs";
 import { Stone } from "./table";
 import { StoneColor, stoneColor0, stoneColor1, stoneColors } from "./table-params";

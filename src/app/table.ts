@@ -1,5 +1,5 @@
 import { Stage, EventDispatcher, Container, Shape, Text, DisplayObject } from "createjs-module";
-import { F, S, Dragger, DragInfo, KeyBinder, ScaleableContainer, stime } from "@thegraid/common-lib"
+import { F, S, stime, Dragger, DragInfo, KeyBinder, ScaleableContainer } from "@thegraid/createjs-lib"
 import { GamePlay, Player } from "./game-play";
 import { Hex, HexMap } from "./hex";
 import { HexEvent } from "./hex-event";

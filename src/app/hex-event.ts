@@ -1,4 +1,4 @@
-import { ValueEvent } from '@thegraid/common-lib';
+import { ValueEvent } from '@thegraid/createjs-lib';
 import { Hex } from './hex';
 import { Stone } from './table';
 
