@@ -16,7 +16,7 @@ class InfMark extends Shape {
   static gE0: Graphics
   static gE1: Graphics
   static gInf(g: Graphics, color: string, w: number, wo: number, r: number) {
-    if (C.dist(color, "black")) w -= 1
+    if (C.dist(color, "black") < 10) w -= 1
     g.ss(w).s(color).mt(wo, r).lt(wo, -r); return g
   }
   static initStatic(hexMap: HexMap) {
