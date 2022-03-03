@@ -22,10 +22,10 @@ export class GamePlay {
     this.table = table
     this.hexMap = table.hexMap
     this.undoRecs.enableUndo()
-    KeyBinder.keyBinder.globalSetKeyFromChar('M-z', {thisArg: this, func: this.undoMove})
-    KeyBinder.keyBinder.globalSetKeyFromChar('q', {thisArg: this, func: this.undoMove})
-    KeyBinder.keyBinder.globalSetKeyFromChar('r', {thisArg: this, func: this.redoMove})
-    KeyBinder.keyBinder.globalSetKeyFromChar('t', {thisArg: this, func: this.skipMove})
+    KeyBinder.keyBinder.setKey('M-z', {thisArg: this, func: this.undoMove})
+    KeyBinder.keyBinder.setKey('q', {thisArg: this, func: this.undoMove})
+    KeyBinder.keyBinder.setKey('r', {thisArg: this, func: this.redoMove})
+    KeyBinder.keyBinder.setKey('t', {thisArg: this, func: this.skipMove})
     table.undoShape.on(S.click, () => this.undoMove(), this)
     table.redoShape.on(S.click, () => this.redoMove(), this)
     table.skipShape.on(S.click, () => this.skipMove(), this)

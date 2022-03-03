@@ -1,5 +1,5 @@
 import { Stage, EventDispatcher, Container, Shape, Text, DisplayObject } from "createjs-module";
-import { F, S, stime, Dragger, DragInfo, KeyBinder, ScaleableContainer } from "@thegraid/createjs-lib"
+import { F, S, stime, Dragger, DragInfo, KeyBinder, ScaleableContainer, XY } from "@thegraid/createjs-lib"
 import { GamePlay, Player } from "./game-play";
 import { Hex, HexMap } from "./hex";
 import { HexEvent } from "./hex-event";
@@ -292,8 +292,7 @@ export class Table extends EventDispatcher  {
       //this.scaleUp(Dragger.dragCont, 1.7); // Items being dragged appear larger!
     }
     if (bindKeys) {
-      this.bindKeysToScale(scaleC, 800, 10, this.scaleParams.initScale)
-      KeyBinder.keyBinder.dispatchChar("a")
+      this.bindKeysToScale("a", scaleC, 800, 10)
     }
     return scaleC
   }
@@ -312,29 +311,28 @@ export class Table extends EventDispatcher  {
    * @param scale Original Scale
    */
   // bindKeysToScale(scaleC, 800, 0, scale=.324)
-  bindKeysToScale(scaleC: ScaleableContainer, xos: number, yos: number, scale: number) {
-    let xoff = scaleC.x, yoff = scaleC.y // generally == 0
-    let xosZ = xos, yosZ = yos, scaleZ = scale, nsZ = scaleC.findIndex(scale)
+  bindKeysToScale(char: string, scaleC: ScaleableContainer, xos: number, yos: number) {
+    let ns0 = scaleC.getScale(), sXY = { x: -scaleC.x, y: -scaleC.y } // generally == 0,0
+    let nsA = scaleC.findIndex(.5), apt = { x: -xos, y: -yos } 
+    let nsZ = scaleC.findIndex(ns0), zpt = { x: -xos, y: -yos } 
+    
     // set Keybindings to reset Scale:
+    /** xy in [unscaled] model coords; sxy in screen coords */
+    const setScaleXY = (si?: number, xy?: XY, sxy: XY = sXY) => {
+      let ns = scaleC.setScaleXY(si, xy, sxy)
+      //console.log({si, ns, xy, sxy, cw: this.canvas.width, iw: this.map_pixels.width})
+      this.stage.update()
+    } 
     let setScaleZ = () => {
-      scaleZ = scaleC.getScale()
-      nsZ = scaleC.findIndex(scaleZ)
-      xosZ = scaleC.x/scaleZ; yosZ = scaleC.y/scaleZ;
+      ns0 = scaleC.getScale()
+      nsZ = scaleC.findIndex(ns0)
+      zpt = { x: -scaleC.x/ns0, y: -scaleC.y/ns0 }
     };
-    let useScaleZ = () => {
-      scaleC.scaleContainer(0, { x: xoff + scale * xosZ, y: yoff + scale * yosZ }); // resetXY
-      scaleC.setScaleIndex(nsZ);
-      scaleC.stage.update();
-    };
-    let useScaleA = () => {
-      let nsA = .5
-      scaleC.scaleContainer(0, { x: xoff + scale * xos, y: yoff + scale * yos }); // resetXY
-      scaleC.setScaleIndex(scaleC.findIndex(nsA))
-      scaleC.stage.update();
-    };
+
     // Scale-setting keystrokes:
-    KeyBinder.keyBinder.globalSetKeyFromChar("x", { thisArg: this, func: setScaleZ });
-    KeyBinder.keyBinder.globalSetKeyFromChar("z", { thisArg: this, func: useScaleZ });
-    KeyBinder.keyBinder.globalSetKeyFromChar("a", { thisArg: this, func: useScaleA });
+    KeyBinder.keyBinder.setKey("x", { func: () => setScaleZ() });
+    KeyBinder.keyBinder.setKey("z", { func: () => setScaleXY(nsZ, zpt) });
+    KeyBinder.keyBinder.setKey("a", { func: () => setScaleXY(nsA, apt) });
+    KeyBinder.keyBinder.dispatchChar(char)
   }
 }
