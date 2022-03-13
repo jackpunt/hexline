@@ -17,6 +17,7 @@ export class GamePlay {
   redoMoves: Move[] = []
   /** last-current Hex to be played [cf table.markHex] */
   curHex: Hex;
+  allBoards = new BoardRegister()
 
   constructor(table: Table) {
     this.table = table
@@ -149,7 +150,8 @@ export class GamePlay {
     this.undoInfluence.flushUndo()   // TODO: modularize to gamePlay.allowDrop(hex)
     this.undoRecs.closeUndo()
 
-    move.board = new Board(this.hexMap) // TODO: put 'captured' in Board [because: that is board-state]
+    move.board = this.allBoards.addBoard(this.hexMap, move.captured, this.table.nextPlayerIndex)
+    // TODO: if move.board.repCount >= display repCount
     this.table.setNextPlayer()
     this.table.bStats.update()
     this.hexMap.update()
@@ -346,24 +348,44 @@ export class Player implements Mover {
   makeMove() {
     return 
   }
-
-  
 }
 
+class BoardRegister extends Map<string, Board> {
+  addBoard(hexMap: HexMap, captured: Hex[], nextPlayerIndex: number) {
+    let board = new Board(hexMap, captured, nextPlayerIndex)
+    let b0: Board = this.get(board.id)
+    if (!!b0) {
+      b0.repCount += 1
+      return b0
+    }
+    this.set(board.id, board)
+    return board
+  }
+}
 /** Identify state of HexMap by itemizing all the extant Stones */
 export class Board {
   static allBoards = new Map<string, Board>()
   id: string = ""   // to identify hexMap state
   hexStones: HSC[]  // to recreate hexMap state [not sure we need... maybe just do/undoMove]
-  constructor(hexMap: HexMap) {
+  captured: Hex[]   // captured by current Players's Move
+  nextPlayerIndex: number // cannot play into captured Hexes
+  repCount: number = 1;
+  constructor(hexMap: HexMap, captured: Hex[], nextPlayerIndex: number) {
     this.hexStones = [].concat(hexMap.allStones)
     let nCol = hexMap.nCol
+    this.id = this.cString(nextPlayerIndex, captured)
     this.hexStones.sort((a, b) => { return (a.hex.row - b.hex.row) * nCol + (a.hex.col - b.hex.col) });
     this.hexStones.forEach(hsc => this.id += this.bString(hsc)) // in canonical order
-    Board.allBoards.set(this.id, this)
+
   }
+  toString() { return this.id }
   bString(hsc: HSC) { 
     return `${stoneColors.indexOf(hsc.color)}${hsc.hex.Aname.substring(3)}`
+  }
+  cString(nextPlayerIndex: number, captured: Hex[]): string {
+    let rv = `Board(${nextPlayerIndex},`
+    captured.forEach(hex => rv += hex.Aname.substring(4))
+    return rv+')'
   }
 }
 // Given a board[list of Hex, each with B/W stone & next=B/W], 

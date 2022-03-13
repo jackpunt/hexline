@@ -154,8 +154,11 @@ export class Table extends EventDispatcher  {
     this.on(S.remove, this.gamePlay.removeStoneEvent, this.gamePlay)[S.Aname] = "removeStone"
     this.stage.update()
   }
+  get nextPlayerIndex() {
+    return (this.curPlayer.index + 1) % this.allPlayers.length;
+  }
   setNextPlayer(ndx: number = -1, turn?: number, log: boolean = true) {
-    if (ndx < 0) ndx = (this.curPlayer.index + 1) % this.allPlayers.length;
+    if (ndx < 0) ndx = this.nextPlayerIndex;
     if (ndx != this.curPlayerNdx) this.endCurPlayer(this.curPlayer)
     this.curPlayerNdx = ndx;
     this.turnNumber = turn ? turn : this.turnNumber + 1;
