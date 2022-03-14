@@ -7,6 +7,7 @@ import { BoardStats, StatsPanel } from "./stats";
 import { TP, StoneColor, stoneColors, otherColor, stoneColor0, stoneColor1 } from "./table-params";
 
 type XYWH = {x: number, y: number, w: number, h: number} // like a Rectangle
+const S_stagemousemove = 'stagemousemove'
 export class Stone extends Shape {
   static radius: number = 50
   static height: number = Stone.radius*Math.sqrt(3)/2
@@ -207,6 +208,7 @@ export class Table extends EventDispatcher  {
       hex.map.allStones.push({ Aname: hex.Aname, hex: hex, color: stone.color, })
     } else {
       this.dragger.makeDragable(stone, this, this.dragFunc, this.dropFunc)
+      this.dragger.clickToDrag(stone)
     }
   }
   /** clear hex.stone & removeChild */
@@ -233,7 +235,7 @@ export class Table extends EventDispatcher  {
     if (stone.color !== this.curPlayer.color) return
     if (ctx.first) {
       // ctx.lastCont == stone.parent == hexMap.stoneCont (putButtonOnPlayer & nextStone)
-      this.hexMap.showMark(this.nextHex)
+      this.dropTarget = this.nextHex
       let opc = otherColor(this.curPlayer.color)
       this.isSuicide = []
       this.maybeSuicide = this.hexMap.filterEachHex(hex => hex.isAttack(opc))
@@ -261,7 +263,7 @@ export class Table extends EventDispatcher  {
     let mark = this.hexMap.mark
     stone.x = mark.x
     stone.y = mark.y
-    if (this.dropTarget === this.nextHex) return
+    if (this.dropTarget === undefined || this.dropTarget === this.nextHex) return
     this.nextHex.stone = undefined
     this.dispatchEvent(new HexEvent(S.add, this.dropTarget, stone))
   }
