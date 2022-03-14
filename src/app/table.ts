@@ -45,11 +45,13 @@ export class Table extends EventDispatcher  {
   getPlayer(stone: Stone): Player {
     return this.allPlayers.find(p => p.color == stone.color)
   }
+  dragger: Dragger
 
   constructor(stage: Stage) {
     super();
     stage['table'] = this // backpointer so Containers can find their Table (& curMark)
     this.stage = stage
+    this.dragger = new Dragger(stage)
     this.nextHex.Aname = "nextHex"
     this.nextHex.scaleX = this.nextHex.scaleY = 2
     this.skipShape.graphics.f("white").dp(0, 0, 30, 4, 0, 45)  
@@ -70,7 +72,7 @@ export class Table extends EventDispatcher  {
     qShape.graphics.f("black").dp(0, 0, 20, 6, 0, 0)
     qShape.y = 50
     this.undoCont.addChild(qShape)
-    Dragger.makeDragable(qShape, this, 
+    this.dragger.makeDragable(qShape, this, 
       (qShape: Shape, ctx: DragInfo) => { 
         let hex = this.hexUnderObj(qShape)
         this.dropTarget = hex
@@ -180,7 +182,7 @@ export class Table extends EventDispatcher  {
   }
   endCurPlayer(player: Player) {
     if (!!this.dropStone) {
-      Dragger.stopDragable(this.dropStone) // whereever it landed
+      this.dragger.stopDragable(this.dropStone) // whereever it landed
       delete this.dropStone 
     }
     let stone: Stone = this.nextHex.stone
@@ -204,7 +206,7 @@ export class Table extends EventDispatcher  {
     if (hex !== this.nextHex) {
       hex.map.allStones.push({ Aname: hex.Aname, hex: hex, color: stone.color, })
     } else {
-      Dragger.makeDragable(stone, this, this.dragFunc, this.dropFunc)
+      this.dragger.makeDragable(stone, this, this.dragFunc, this.dropFunc)
     }
   }
   /** clear hex.stone & removeChild */
@@ -290,8 +292,8 @@ export class Table extends EventDispatcher  {
     /** scaleCont: a scalable background */
     let scaleC = new ScaleableContainer(this.stage, this.scaleParams);
     if (!!scaleC.stage.canvas) {
-      Dragger.makeDragable(scaleC); // THE case where not "dragAsDispObj"
-      scaleC.addChild(Dragger.dragCont); // so dragCont is in ScaleableContainer
+      this.dragger.makeDragable(scaleC); // THE case where not "dragAsDispObj"
+      scaleC.addChild(this.dragger.dragCont); // so dragCont is in ScaleableContainer
       //this.scaleUp(Dragger.dragCont, 1.7); // Items being dragged appear larger!
     }
     if (bindKeys) {
@@ -302,7 +304,7 @@ export class Table extends EventDispatcher  {
   setBackground(scaleC: Container, bounds: XYWH, bgColor: string = TP.bgColor) {
     if (!!bgColor) {
       // specify an Area that is Dragable (mouse won't hit "empty" space)
-      let bgRect = new Shape();
+      let bgRect = new Shape(); bgRect[S.Aname] = "BackgroundRect"
       bgRect.graphics.f(bgColor).r(bounds.x, bounds.y, bounds.w, bounds.h);
       scaleC.addChildAt(bgRect, 0);
       //console.log(stime(this, ".makeScalableBack: background="), background);
@@ -331,11 +333,15 @@ export class Table extends EventDispatcher  {
       nsZ = scaleC.findIndex(ns0)
       zpt = { x: -scaleC.x/ns0, y: -scaleC.y/ns0 }
     };
+    let goup = () => {
+      this.stage.getObjectsUnderPoint(500, 100, 1) 
+    }
 
     // Scale-setting keystrokes:
     KeyBinder.keyBinder.setKey("x", { func: () => setScaleZ() });
     KeyBinder.keyBinder.setKey("z", { func: () => setScaleXY(nsZ, zpt) });
     KeyBinder.keyBinder.setKey("a", { func: () => setScaleXY(nsA, apt) });
+    KeyBinder.keyBinder.setKey("p", { func: () => goup(), thisArg: this});
     KeyBinder.keyBinder.dispatchChar(char)
   }
 }

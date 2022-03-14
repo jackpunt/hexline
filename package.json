@@ -9,6 +9,8 @@
     "test": "ng test"
   },
   "private": true,
+  "for file:link dependency, disable cache": "ng config cli.cache.enabled false",
+  "but even so, ng/webpack will load createjs TWICE": "can't use links",
   "dependencies": {
     "@angular/animations": "~13.2.0",
     "@angular/common": "~13.2.0",
@@ -18,7 +20,7 @@
     "@angular/platform-browser": "~13.2.0",
     "@angular/platform-browser-dynamic": "~13.2.0",
     "@angular/router": "~13.2.0",
-    "@thegraid/createjs-lib": "^1.0.12",
+    "@thegraid/createjs-lib": "^1.0.13",
     "createjs-module": "^0.8.3",
     "moment": "^2.29.1",
     "rxjs": "~7.5.0",
