@@ -52,7 +52,6 @@ export class Table extends EventDispatcher  {
     super();
     stage['table'] = this // backpointer so Containers can find their Table (& curMark)
     this.stage = stage
-    this.dragger = new Dragger(stage)
     this.nextHex.Aname = "nextHex"
     this.nextHex.scaleX = this.nextHex.scaleY = 2
     this.skipShape.graphics.f("white").dp(0, 0, 30, 4, 0, 45)  
@@ -310,9 +309,10 @@ export class Table extends EventDispatcher  {
     this.scaleParams.initScale = 0.324; // .125 if full-size cards
     /** scaleCont: a scalable background */
     let scaleC = new ScaleableContainer(this.stage, this.scaleParams);
+    this.dragger = new Dragger(scaleC)
     if (!!scaleC.stage.canvas) {
-      this.dragger.makeDragable(scaleC); // THE case where not "dragAsDispObj"
-      scaleC.addChild(this.dragger.dragCont); // so dragCont is in ScaleableContainer
+      // Special case of makeDragable; drag the parent of Dragger!
+      this.dragger.makeDragable(scaleC, scaleC, undefined, undefined, true); // THE case where not "useDragCont"
       //this.scaleUp(Dragger.dragCont, 1.7); // Items being dragged appear larger!
     }
     if (bindKeys) {
