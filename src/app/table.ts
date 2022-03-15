@@ -91,13 +91,14 @@ export class Table extends EventDispatcher  {
         info[`Inf[${stoneColor1}]`] = hex.inf[stoneColor1]
         console.log(hex.Aname, info)
       })
-    let toggleText = (evt: MouseEvent) => { 
+    let toggleText = (evt: MouseEvent, vis?: boolean) => { 
       if (!toggle) return (toggle = true, undefined) // skip one 'click' when pressup/dropfunc
-      this.hexMap.forEachHex(hex => hex.showText()); this.hexMap.update() 
+      this.hexMap.forEachHex(hex => hex.showText(vis)); this.hexMap.update() 
       this.hexMap.hexCont.updateCache()
       this.hexMap.update()
     }
     qShape.on(S.click, toggleText, this) // toggle visible
+    toggleText(undefined, false)
   }
   miniMap: HexMap;
   makeMiniMap(parent: Container, x, y) {
