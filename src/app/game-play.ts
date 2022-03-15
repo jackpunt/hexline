@@ -136,6 +136,7 @@ export class GamePlay {
   doPlayerMove(hex: Hex, stone: Stone) {
     this.curHex = hex;
     this.unmarkOldCaptures()
+    this.table.unmarkViewCaptured()
 
     let move = new Move(hex, stone)
     this.history.unshift(move) // record Stone on Board
@@ -163,9 +164,10 @@ export class GamePlay {
    * assertInfluence on hex of color; without setting a Stone; 
    * see if hex is [still] attacked by other color
    * then undo the influence and undo/replace any captures
-   * @return true if hex was [still] attacked by otherColor
+   * @return true if hex was [still] attacked by otherColor; this.captured is set
    */
   isSuicide(hex: Hex, color: StoneColor): boolean {
+    this.captured = []
     this.undoInfluence.flushUndo().enableUndo()
     let undo0 = this.undoRecs
     this.undoRecs = new Undo().enableUndo()
@@ -178,7 +180,6 @@ export class GamePlay {
     this.undoRecs.closeUndo().pop()
     this.undoRecs = undo0
     this.undoCapture(this.captured);
-    this.captured = []
     return suicide
   }
   showLine(str: string, line: Hex[], fn = (h: Hex)=>`${h.Aname}-${h.stoneColor}`) {

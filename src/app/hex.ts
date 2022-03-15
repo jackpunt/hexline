@@ -127,6 +127,9 @@ export class Hex extends Container {
     this.distText.textAlign = 'center'; this.distText.y = 20
     this.addChild(this.distText)
   }
+  showText(vis = !this.rcText.visible) {
+    this.rcText.visible = this.distText.visible = vis
+  }
   /**
    * Is this Hex [already] influenced by color/dn? [for skipAndSet()]
    * @param dn dir of Influence: ds | revDir[ds]
@@ -198,13 +201,16 @@ export class Hex extends Container {
     return !!this.stoneColor && (this.stoneColor !== color) && this.isAttack(color)
   }
 
-  markCapture() {
+  /** @param top set true to show capture mark on infCont (above stones) */
+  markCapture(top = false) {
     if (this.capMark !== undefined) return // only 1 CapMark per Hex
-    this.map.markCont.addChild(this.capMark = new CapMark(this))
+    let cont = top ? this.map.infCont : this.map.markCont
+    cont.addChild(this.capMark = new CapMark(this))
   }
-  unmarkCapture() {
+  unmarkCapture(top = false) {
     if (this.capMark === undefined) return
-    this.map.markCont.removeChild(this.capMark)
+    let cont = top ? this.map.infCont : this.map.markCont
+    cont.removeChild(this.capMark)
     this.capMark = undefined
   }
 

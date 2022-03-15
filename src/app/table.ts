@@ -1,4 +1,4 @@
-import { Stage, EventDispatcher, Container, Shape, Text, DisplayObject } from "createjs-module";
+import { Stage, EventDispatcher, Container, Shape, Text, DisplayObject, MouseEvent } from "createjs-module";
 import { F, S, stime, Dragger, DragInfo, KeyBinder, ScaleableContainer, XY } from "@thegraid/createjs-lib"
 import { GamePlay, Player } from "./game-play";
 import { Hex, HexMap } from "./hex";
@@ -69,7 +69,7 @@ export class Table extends EventDispatcher  {
     this.undoText.mouseEnabled = this.redoText.mouseEnabled = false
   }
   enableHexInspector() {
-    let qShape = new Shape()
+    let qShape = new Shape(), toggle = true
     qShape.graphics.f("black").dp(0, 0, 20, 6, 0, 0)
     qShape.y = 50
     this.undoCont.addChild(qShape)
@@ -79,6 +79,7 @@ export class Table extends EventDispatcher  {
         this.dropTarget = hex
       },
       (qShape: Shape, ctx: DragInfo) => {
+        toggle = false
         let hex = this.hexUnderObj(qShape)
         qShape.x = 0; qShape.y = 50 // return to regular location
         this.undoCont.addChild(qShape)
@@ -90,6 +91,13 @@ export class Table extends EventDispatcher  {
         info[`Inf[${stoneColor1}]`] = hex.inf[stoneColor1]
         console.log(hex.Aname, info)
       })
+    let toggleText = (evt: MouseEvent) => { 
+      if (!toggle) return (toggle = true, undefined) // skip one 'click' when pressup/dropfunc
+      this.hexMap.forEachHex(hex => hex.showText()); this.hexMap.update() 
+      this.hexMap.hexCont.updateCache()
+      this.hexMap.update()
+    }
+    qShape.on(S.click, toggleText, this) // toggle visible
   }
   miniMap: HexMap;
   makeMiniMap(parent: Container, x, y) {
@@ -231,6 +239,12 @@ export class Table extends EventDispatcher  {
   set dropTarget(hex: Hex) { this._dropTarget = hex; this.hexMap.showMark(hex)}
   isSuicide: Hex[]
   maybeSuicide: Hex[];
+  viewCaptured: Hex[] = []
+  unmarkViewCaptured() { 
+    this.viewCaptured.forEach(hex => hex.unmarkCapture(true))
+    this.viewCaptured = []
+  }
+
   dragFunc(stone: Stone, ctx: DragInfo): Hex | void {
     if (stone.color !== this.curPlayer.color) return
     if (ctx.first) {
@@ -244,16 +258,18 @@ export class Table extends EventDispatcher  {
       let hex = this.hexUnderObj(stone)
       if (!hex) return
       if (hex === this.dropTarget) return
+      this.unmarkViewCaptured()
       // gamePlay.allowDrop(hex)
       if (!!hex.capMark) return this.dropTarget = this.nextHex
       if (!!hex.stone && hex.stone != stone) return // Ok to drop on itself
-      if (this.isSuicide.includes(hex)) {
-        return this.dropTarget = this.nextHex
-      }
-      if (this.maybeSuicide.includes(hex) && this.gamePlay.isSuicide(hex, stone.color)) {
+      if (this.isSuicide.includes(hex)) return this.dropTarget = this.nextHex
+      let isSui = this.gamePlay.isSuicide(hex, stone.color) // capture and undoCapture
+      if (this.maybeSuicide.includes(hex) && isSui) {
         this.isSuicide.push(hex)
         return this.dropTarget = this.nextHex
       } else this.maybeSuicide = this.maybeSuicide.filter(h => h !== hex)
+      this.viewCaptured = this.gamePlay.captured
+      this.viewCaptured.forEach(hex => hex.markCapture(true))
       this.dropTarget = hex // hex.parent == hexMap.hexCont
     }
   }
