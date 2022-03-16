@@ -43,8 +43,8 @@ export class Table extends EventDispatcher  {
   getNumPlayers(): number { return this.allPlayers.length; }
   curPlayerNdx: number = 0;
   curPlayer: Player;
-  getPlayer(stone: Stone): Player {
-    return this.allPlayers.find(p => p.color == stone.color)
+  getPlayer(color: StoneColor): Player {
+    return this.allPlayers.find(p => p.color == color)
   }
   dragger: Dragger
 
@@ -244,33 +244,37 @@ export class Table extends EventDispatcher  {
     this.viewCaptured.forEach(hex => hex.unmarkCapture(true))
     this.viewCaptured = []
   }
-
+  nonTarget: Hex // OR: Set<hex> OR: Map<hex,info>
   dragFunc(stone: Stone, ctx: DragInfo): Hex | void {
-    if (stone.color !== this.curPlayer.color) return
+    const nonTarget = (hex) => { this.dropTarget = this.nextHex; this.nonTarget = hex; }
+    if (stone.color !== this.curPlayer.color) return // can't happen in hexline...
     if (ctx.first) {
-      // ctx.lastCont == stone.parent == hexMap.stoneCont (putButtonOnPlayer & nextStone)
-      this.dropTarget = this.nextHex
-      let opc = otherColor(this.curPlayer.color)
+      // stone.parent == hexMap.stoneCont (putButtonOnPlayer & nextStone)
+      nonTarget(undefined)
+      const opc = otherColor(this.curPlayer.color)
       this.isSuicide = []
       this.maybeSuicide = this.hexMap.filterEachHex(hex => hex.isAttack(opc))
       //console.log(stime(this, `.dragStart:${stone.color}`), this.maybeSuicide.map(h => h.Aname))
     } else {
-      let hex = this.hexUnderObj(stone)
+      const hex = this.hexUnderObj(stone)
       if (!hex) return
-      if (hex === this.dropTarget) return
+      if (hex === this.dropTarget) return // already evaluated: OK target
+      if (hex === this.nonTarget) return // already evaluated: Non-target OR this.nonTarget.includes(hex)
       this.unmarkViewCaptured()
       // gamePlay.allowDrop(hex)
-      if (!!hex.capMark) return this.dropTarget = this.nextHex
-      if (!!hex.stone && hex.stone != stone) return // Ok to drop on itself
-      if (this.isSuicide.includes(hex)) return this.dropTarget = this.nextHex
+      if (!!hex.capMark) return nonTarget(hex)
+      if (!!hex.stone && hex != this.nextHex) return nonTarget(hex)
+      if (this.isSuicide.includes(hex)) return nonTarget(hex)
       let isSui = this.gamePlay.isSuicide(hex, stone.color) // capture and undoCapture
       if (this.maybeSuicide.includes(hex) && isSui) {
         this.isSuicide.push(hex)
-        return this.dropTarget = this.nextHex
+        return nonTarget(hex)
       } else this.maybeSuicide = this.maybeSuicide.filter(h => h !== hex)
       this.viewCaptured = this.gamePlay.captured
       this.viewCaptured.forEach(hex => hex.markCapture(true))
+      // isTarget(hex)
       this.dropTarget = hex // hex.parent == hexMap.hexCont
+      this.nonTarget = null
     }
   }
   dropFunc(stone: Stone, ctx: DragInfo) {

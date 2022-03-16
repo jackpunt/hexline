@@ -151,7 +151,7 @@ export class GamePlay {
     this.undoInfluence.flushUndo()   // TODO: modularize to gamePlay.allowDrop(hex)
     this.undoRecs.closeUndo()
 
-    move.board = this.allBoards.addBoard(this.hexMap, move.captured, this.table.nextPlayerIndex)
+    move.board = this.allBoards.addBoard(this.table.nextPlayerIndex, move.captured, this.hexMap)
     // TODO: if move.board.repCount >= display repCount
     this.table.setNextPlayer()
     this.table.bStats.update()
@@ -352,8 +352,8 @@ export class Player implements Mover {
 }
 
 class BoardRegister extends Map<string, Board> {
-  addBoard(hexMap: HexMap, captured: Hex[], nextPlayerIndex: number) {
-    let board = new Board(hexMap, captured, nextPlayerIndex)
+  addBoard(nextPlayerIndex: number, captured: Hex[], hexMap: HexMap) {
+    let board = new Board(nextPlayerIndex, captured, hexMap)
     let b0: Board = this.get(board.id)
     if (!!b0) {
       b0.repCount += 1
@@ -363,15 +363,25 @@ class BoardRegister extends Map<string, Board> {
     return board
   }
 }
-/** Identify state of HexMap by itemizing all the extant Stones */
+/** Identify state of HexMap by itemizing all the extant Stones 
+ * nextPlayerIndex
+ * captured: Hex[]
+ * hexStones: HSC[]
+ * repCount
+ */
 export class Board {
-  static allBoards = new Map<string, Board>()
   id: string = ""   // to identify hexMap state
   hexStones: HSC[]  // to recreate hexMap state [not sure we need... maybe just do/undoMove]
   captured: Hex[]   // captured by current Players's Move
   nextPlayerIndex: number // cannot play into captured Hexes
   repCount: number = 1;
-  constructor(hexMap: HexMap, captured: Hex[], nextPlayerIndex: number) {
+  /**
+   * Record the current state of the game.
+   * @param nextPlayerIndex identify Player to make next Move (player.color, table.getPlayer(color))
+   * @param captured Hex[] captured by previous Move: not available for play by next Player
+   * @param hexMap supplies board.hexStones[]: { Hex, StoneColor }
+   */
+  constructor(nextPlayerIndex: number, captured: Hex[], hexMap: HexMap) {
     this.hexStones = [].concat(hexMap.allStones)
     let nCol = hexMap.nCol
     this.id = this.cString(nextPlayerIndex, captured)
