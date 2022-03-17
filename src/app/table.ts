@@ -1,6 +1,6 @@
 import { Stage, EventDispatcher, Container, Shape, Text, DisplayObject, MouseEvent } from "createjs-module";
 import { F, S, stime, Dragger, DragInfo, KeyBinder, ScaleableContainer, XY } from "@thegraid/createjs-lib"
-import { GamePlay, Player } from "./game-play";
+import { GamePlay, Player, S_Resign } from "./game-play";
 import { Hex, HexMap } from "./hex";
 import { HexEvent } from "./hex-event";
 import { BoardStats, StatsPanel } from "./stats";
@@ -27,11 +27,13 @@ export class Table extends EventDispatcher  {
   gamePlay: GamePlay;
   stage: Stage;
   scaleCont: Container
-  hexMap: HexMap
+  hexMap: HexMap = new HexMap()
   roundNumber: number = 0;
   turnNumber: number = 0
   dropStone: Stone   // set when player drops Stone to indicate a Move
-  nextHex: Hex = new Hex("grey", Stone.radius, undefined)
+  resignMap: HexMap = new HexMap(50) // resignMap
+  resignHex: Hex = new Hex("grey", Stone.radius, this.resignMap).setName(S_Resign)
+  nextHex: Hex = new Hex("grey", Stone.radius, undefined).setName('nextHex')
   undoCont: Container = new Container()
   undoShape: Shape = new Shape();
   skipShape: Shape = new Shape();
@@ -52,8 +54,8 @@ export class Table extends EventDispatcher  {
     super();
     stage['table'] = this // backpointer so Containers can find their Table (& curMark)
     this.stage = stage
-    this.nextHex.Aname = "nextHex"
     this.nextHex.scaleX = this.nextHex.scaleY = 2
+    this.resignMap.stoneCont.visible = false
     this.skipShape.graphics.f("white").dp(0, 0, 30, 4, 0, 45)  
     this.undoShape.graphics.f("red").dp(-50, 0, 60, 3, 0, 180);
     this.redoShape.graphics.f("green").dp(+50, 0, 60, 3, 0, 0); 
@@ -102,20 +104,19 @@ export class Table extends EventDispatcher  {
   miniMap: HexMap;
   makeMiniMap(parent: Container, x, y) {
     let cont = new Container(); cont[S.Aname] = 'miniMap'
-    let victoryHexMap = new HexMap(Stone.radius, cont)
+    let miniMap = this.miniMap = new HexMap(Stone.radius, cont)
     let rot = 7, rotC = (30-rot), rotH = (rot - 60)
     if (TP.nHexes == 1) rotC = rotH = 0
-    victoryHexMap.makeAllDistricts(TP.mHexes, 1)
+    miniMap.makeAllDistricts(TP.mHexes, 1)
     let bgHex = new Shape()
     bgHex.graphics.f(TP.bgColor).dp(0, 0, 50*(2*TP.mHexes-1), 6, 0, 60)
     cont.addChildAt(bgHex, 0)
     cont.x = x; cont.y = y
     cont.rotation = rotC
-    victoryHexMap.forEachHex(h => {
+    miniMap.forEachHex(h => {
       h.distText.visible = h.rcText.visible = false; h.rotation = rotH; h.scaleX = h.scaleY = .985
     })
     parent.addChild(cont)
-    this.miniMap = victoryHexMap
   }
 
   layoutTable() {
@@ -127,7 +128,7 @@ export class Table extends EventDispatcher  {
     mapCont[S.Aname] = "mapCont"
     this.scaleCont.addChild(mapCont)
 
-    this.hexMap = new HexMap(radius, mapCont)
+    this.hexMap = new HexMap(radius, mapCont).initInfluence()
     this.gamePlay.hexMap = this.hexMap          // ;this.markHex00()
     this.hexMap.makeAllDistricts(TP.mHexes, TP.nHexes) // typically: 3,3 or 2,4
 
@@ -147,6 +148,8 @@ export class Table extends EventDispatcher  {
     if (nh == 1 || nh + mh <= 5) { bgr.w += 3*wide; mapCont.x += 3*wide; this.nextHex.x = minx - .87*wide }
     this.undoCont.x = this.nextHex.x
     this.undoCont.y = this.nextHex.y + 100
+    this.resignHex.x = this.nextHex.x; this.resignHex.y = this.nextHex.y
+    this.hexMap.hexCont.addChild(this.resignHex)  // single Hex to hold a Stone when resigned
     this.hexMap.hexCont.addChild(this.nextHex)  // single Hex to hold a Stone to play
     this.hexMap.markCont.addChild(this.undoCont)
 
@@ -170,26 +173,26 @@ export class Table extends EventDispatcher  {
   }
   setNextPlayer(ndx: number = -1, turn?: number, log: boolean = true) {
     if (ndx < 0) ndx = this.nextPlayerIndex;
-    if (ndx != this.curPlayerNdx) this.endCurPlayer(this.curPlayer)
+    if (ndx != this.curPlayerNdx) this.endCurPlayer()
     this.curPlayerNdx = ndx;
     this.turnNumber = turn ? turn : this.turnNumber + 1;
     this.roundNumber = Math.floor((this.turnNumber - 1) / this.allPlayers.length) + 1
     let curPlayer = this.curPlayer = this.allPlayers[ndx], tn = this.turnNumber
 
     if (log) {
-      let lm = this.gamePlay.history[0]
-      let prev = !!lm ? lm.toString() : ""
-      let capd = lm ? lm.captured : [] //this.gamePlay.lastCaptured 
-      let history = this.gamePlay.history
-      let board = !!this.hexMap.allStones[0] && history[0].board
-      let info = { turn: tn, plyr: curPlayer.name, prev, capd, history, undo: this.gamePlay.undoRecs, board }
+      const history = this.gamePlay.history
+      const lm = history[0]
+      const prev = !!lm ? lm.toString() : ""
+      const capd = lm ? lm.captured : [] //this.gamePlay.lastCaptured 
+      const board = !!this.hexMap.allStones[0] && lm.board
+      const info = { turn: tn, plyr: curPlayer.name, prev, capd, history, undo: this.gamePlay.undoRecs, board }
       console.log(stime(this, `.setNextPlayer ---------------`), info, '-------------', !!this.stage.canvas);
     }
     this.undoText.text = `${this.gamePlay.undoRecs.length}`
     this.redoText.text = `${this.gamePlay.redoMoves.length}`
     this.putButtonOnPlayer(curPlayer);
   }
-  endCurPlayer(player: Player) {
+  endCurPlayer() {
     if (!!this.dropStone) {
       this.dragger.stopDragable(this.dropStone) // whereever it landed
       delete this.dropStone 
@@ -201,10 +204,12 @@ export class Table extends EventDispatcher  {
     }
   }
   putButtonOnPlayer(player: Player) {
-    this.setStone(new Stone(player.color)) // new Stone for Player
-
-    this.stage.update(); //this.hexMap.update()
-    this.curPlayer.makeMove()
+    let stone = new Stone(player.color)
+    this.setStone(stone) // new Stone for Player
+    this.dragger.makeDragable(stone, this, this.dragFunc, this.dropFunc)
+    this.dragger.clickToDrag(stone)
+    this.hexMap.update()
+    this.curPlayer.makeMove() // provoke to robo-player
   }
   /** set hex.stone & addChild,  */
   setStone(stone: Stone, hex: Hex = this.nextHex) {
@@ -212,11 +217,8 @@ export class Table extends EventDispatcher  {
     hex.parent.localToLocal(hex.x, hex.y, cont, stone)
     cont.addChild(stone)
     hex.stone = stone
-    if (hex !== this.nextHex) {
+    if (hex.map == this.hexMap) {
       hex.map.allStones.push({ Aname: hex.Aname, hex: hex, color: stone.color, })
-    } else {
-      this.dragger.makeDragable(stone, this, this.dragFunc, this.dropFunc)
-      this.dragger.clickToDrag(stone)
     }
   }
   /** clear hex.stone & removeChild */

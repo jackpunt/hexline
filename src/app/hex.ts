@@ -84,6 +84,7 @@ export class Hex extends Container {
     W: undefined,
     NW: undefined
   }
+  setName(aname: string): this { this.Aname = aname; return this}
   /** set hexShape using color */
   setHexColor(color: string, district?: number) {
     if (district !== undefined) this.district = district // hex.setHexColor update district
@@ -262,7 +263,10 @@ export class HexMap extends Array<Array<Hex>> {
     }
     this.mark = new Shape();
     this.mark.graphics.beginFill(C.markColor).drawPolyStar(0, 0, radius, 6, 0, 30)
+  }
+  initInfluence(): this { 
     InfMark.initStatic(this)
+    return this 
   }
   centerOnContainer() {
     let hexRect = this.hexCont.getBounds()

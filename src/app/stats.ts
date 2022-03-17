@@ -1,12 +1,12 @@
-
 // Game win: a Player controls 4 of 7 Districts
 // Control: Stone on >= 7 Hexes && Player.nHexes(district) - otherPlayer.nHexes(district) >= 3
 
-import { GamePlay, Player } from "./game-play";
+import { Board, GamePlay, Player } from "./game-play";
 import { Hex, HexMap } from "./hex";
 import { Stone, Table } from "./table";
 import { otherColor, StoneColor, stoneColor0, stoneColor1, stoneColors, TP } from "./table-params";
-import { ParamGUI, ParamItem, ParamLine, ParamType, ValueCounter } from "@thegraid/createjs-lib";
+import { C, F, ParamGUI, ParamItem, ParamLine, ParamType, ValueCounter } from "@thegraid/createjs-lib";
+import { Text } from "createjs-module";
 
 export class PlayerStats {
   table: Table
@@ -19,8 +19,8 @@ export class PlayerStats {
   dMinControl: boolean[] = Array(7);  // per-district true if minControl of district
   nStones: number = 0;   // total on board
   nInf: number = 0;      // (= nStones*6 - edge effects - E/W-underlap)
-  nThreats: number = 0;  // (Hex w/ inf && [op].stone)
-  nAttacks: number = 0;  // (Hex w/ inf >= 2)
+  nThreats: number = 0;  // (Hex w/ inf && [op].stone) 'jeopardy'
+  nAttacks: number = 0;  // (Hex w/ inf >= 2) 'unplayable by opponent'
 
   get rStones(): number  { return this.op.stats.nStones};   // [op].nStones
   get rInf(): number     { return this.op.stats.rInf};      // [op].nInf
@@ -40,9 +40,9 @@ export class PlayerStats {
 }
 export class BoardStats {
   table: Table
-  gamePlay: GamePlay
   hexMap: HexMap
   pStats: PlayerStats[] = [] // indexed by StoneColor
+  boardRep: Text
   // turn?
   // -per District: 
   minControl: boolean[][] = [] // (nStones[color] >= TP.minControl ) -> [dist][color] = true
@@ -52,9 +52,20 @@ export class BoardStats {
   }
   constructor(table: Table) {
     this.table = table
-    this.gamePlay = table.gamePlay
     this.hexMap = table.gamePlay.hexMap
     this.zeroCounters()
+  }
+  showBoardRep(n: number) {
+    let repText = this.boardRep
+    if (!repText) {
+      repText = this.boardRep =  new Text('0', F.fontSpec(36), C.YELLOW)
+      repText.textAlign = 'center'
+      this.table.nextHex.localToLocal(0, -46, this.table.hexMap.stoneCont, repText)
+      this.table.hexMap.stoneCont.addChild(repText)
+    }
+    repText.text = `${n}`
+    repText.color = (n < 3) ? C.YELLOW : C.RED
+    repText.visible = (n >= 0)
   }
   pStat(color: StoneColor): PlayerStats { return this.pStats[color] }
   zeroCounters() {
@@ -84,11 +95,12 @@ export class BoardStats {
       }
     })
   }
-  update() {
+  /** uodate all the stats */
+  update(board: Board) {
     let nDist = TP.ftHexes(TP.mHexes)  // district for each MetaHex
     this.zeroCounters()
     this.hexMap.forEachHex((hex) => this.incCounters(hex))
-    let win: StoneColor | ""
+    let win: StoneColor
     // forEachDistrict(d => {})
     for (let d = 0; d < nDist; d++) {
       stoneColors.forEach(color => {
@@ -101,21 +113,28 @@ export class BoardStats {
         }
       })
     }
+    this.showBoardRep(board.repCount)
+    // TODO: detect stalemate: (a) board.repCount == 3 [cycle|multiple-skipMove]
+    // Stalemate Winner: most Disricts & fewest[!?] Stones.
+    // TODO: resign
     this.table.statsPanel.update()
     this.showControl()
-    if (!!win) {
-      this.hexMap.update()
-      let lose = otherColor(win), winS = this.score(win), loseS = this.score(lose)
-      setTimeout(() => alert(`${win} WINS! ${winS} -- ${loseS}`), 200)
-    }
+    if (!!win) return this.gameOver(board, "WINS", win)
+    if (board.resigned) return this.gameOver(board, "RESIGNS")
+    if (board.repCount == 3) return this.gameOver(board, "STALEMATE", win)
+  }
+
+  gameOver(board: Board, text: string, win = this.table.allPlayers[board.nextPlayerIndex].color) {
+    let lose = otherColor(win), winS = this.score(win), loseS = this.score(lose)
+    setTimeout(() => alert(`${lose} ${text}! ${winS} -- ${loseS}`), 200)
   }
   showControl() {
     let hexMap = this.table.miniMap
     hexMap.forEachHex(hex => {
       let d = hex.district, dc = hex.stoneColor, ic = this.inControl[d]
       if (ic !== dc) {
-        if (!!dc) { this.table.clearStone(hex)}
-        else if (!!ic) { this.table.setStone(new Stone(ic), hex) }
+        if (!!dc) { this.table.clearStone(hex)} // from mimi-map
+        else if (!!ic) { this.table.setStone(new Stone(ic), hex) } // on mini-map
       }
     })
     hexMap.update()
