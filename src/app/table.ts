@@ -209,7 +209,7 @@ export class Table extends EventDispatcher  {
     this.dragger.makeDragable(stone, this, this.dragFunc, this.dropFunc)
     this.dragger.clickToDrag(stone)
     this.hexMap.update()
-    this.curPlayer.makeMove() // provoke to robo-player
+    this.curPlayer.makeMove() // provoke to robo-player: respond with addStoneEvent;
   }
   /** set hex.stone & addChild,  */
   setStone(stone: Stone, hex: Hex = this.nextHex) {
