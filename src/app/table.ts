@@ -3,7 +3,7 @@ import { F, S, stime, Dragger, DragInfo, KeyBinder, ScaleableContainer, XY } fro
 import { GamePlay, Player, S_Resign } from "./game-play";
 import { Hex, HexMap } from "./hex";
 import { HexEvent } from "./hex-event";
-import { BoardStats, StatsPanel } from "./stats";
+import { TableStats, StatsPanel } from "./stats";
 import { TP, StoneColor, stoneColors, otherColor, stoneColor0, stoneColor1 } from "./table-params";
 
 type XYWH = {x: number, y: number, w: number, h: number} // like a Rectangle
@@ -22,7 +22,7 @@ export class Stone extends Shape {
 /** layout display components, setup callbacks to GamePlay */
 export class Table extends EventDispatcher  {
 
-  bStats: BoardStats
+  bStats: TableStats    // better named: TableStats?
   statsPanel: StatsPanel;
   gamePlay: GamePlay;
   stage: Stage;
@@ -160,7 +160,7 @@ export class Table extends EventDispatcher  {
 
     this.makeAllPlayers()
     this.setNextPlayer(0)   // make a placeable Stone for Player[0]
-    this.bStats = new BoardStats(this) // AFTER allPlayers are defined so can set pStats
+    this.bStats = new TableStats(this) // AFTER allPlayers are defined so can set pStats
     this.enableHexInspector()
     this.makeMiniMap(this.scaleCont, -(200+TP.mHexes*50), 500+100*TP.mHexes)
 
@@ -209,7 +209,7 @@ export class Table extends EventDispatcher  {
     this.dragger.makeDragable(stone, this, this.dragFunc, this.dropFunc)
     this.dragger.clickToDrag(stone)
     this.hexMap.update()
-    this.curPlayer.makeMove() // provoke to robo-player: respond with addStoneEvent;
+    this.curPlayer.makeMove(stone) // provoke to robo-player: respond with addStoneEvent;
   }
   /** set hex.stone & addChild,  */
   setStone(stone: Stone, hex: Hex = this.nextHex) {

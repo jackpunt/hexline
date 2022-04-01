@@ -1,6 +1,7 @@
-import { Move, Mover, Player } from "./game-play";
+import { randomInt } from "crypto";
+import { Board, Move, Mover, Player } from "./game-play";
 import { Hex } from "./hex";
-import { Table } from "./table";
+import { Stone, Table } from "./table";
 import { StoneColor } from "./table-params";
 
 
@@ -12,10 +13,18 @@ class RoboBase implements Mover {
     this.table = table
     this.player = player
   }
-  makeMove() {
+  
+  /** 
+   * place this Stone
+   */ 
+  makeMove(stone: Stone) {
     let move: Move
-
+    // on first move, we may be asked to place OtherPlayer's first stone.
+    if (stone.color != this.player.color) return this.firstMove(stone)
     return 
+  }
+  firstMove(stone: Stone) {
+
   }
   // First to moves are book-lookup: place First/Other stone (near edge); place Second stone (near center)
   // then First/Other player responds: place near Second stone, to block access to center
@@ -43,4 +52,11 @@ class RoboBase implements Mover {
   }
   stonesInJeopardy(color: StoneColor): Hex[] { return []} // stats.nThreats
   stonesThatKill(hex: Hex): Hex[] { return []}
+}
+
+class Planner {
+  scoreBoard(board: Board): number {
+    return randomInt(10000)
+  }
+
 }

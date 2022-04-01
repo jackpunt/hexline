@@ -11,7 +11,7 @@ import { Text } from "createjs-module";
 export class PlayerStats {
   table: Table
   gamePlay: GamePlay
-  bStats: BoardStats;
+  bStats: MapStats;
   plyr: Player; // 
   op: Player;   // op = this.table.otherPlayer(this.plyr)
 
@@ -26,10 +26,8 @@ export class PlayerStats {
   get rInf(): number     { return this.op.stats.rInf};      // [op].nInf
   get rThreats(): number { return this.op.stats.nThreats};  // [op].nStones
   get rAttacks(): number { return this.op.stats.nAttacks};  // [op].nStones
-  // -per District:
-  inControl(d: StoneColor)  { return this.bStats.inControl[this.plyr.color][d]; }
 
-  constructor(plyr: Player, bStats: BoardStats) {
+  constructor(plyr: Player, bStats: MapStats) {
     this.bStats = bStats
     plyr.stats = this
     this.plyr = plyr
@@ -38,41 +36,28 @@ export class PlayerStats {
     this.op = this.table.otherPlayer(plyr)
   }
 }
-export class BoardStats {
-  table: Table
+
+export class MapStats {
   hexMap: HexMap
   pStats: PlayerStats[] = [] // indexed by StoneColor
-  boardRep: Text
-  // turn?
-  // -per District: 
+  allPlayers: Player[]
   minControl: boolean[][] = [] // (nStones[color] >= TP.minControl ) -> [dist][color] = true
   inControl:  StoneColor[] = [] // (nStones[color] - nStones[oc] >= TP.diffControl) -> [district]=color
   score(color: StoneColor): number {
     return this.inControl.filter(ic => ic == color).length
   }
-  constructor(table: Table) {
-    this.table = table
-    this.hexMap = table.gamePlay.hexMap
-    this.zeroCounters()
-  }
-  showBoardRep(n: number) {
-    let repText = this.boardRep
-    if (!repText) {
-      repText = this.boardRep =  new Text('0', F.fontSpec(36), C.YELLOW)
-      repText.textAlign = 'center'
-      this.table.nextHex.localToLocal(0, -46, this.table.hexMap.stoneCont, repText)
-      this.table.hexMap.stoneCont.addChild(repText)
-    }
-    repText.text = `${n}`
-    repText.color = (n < 3) ? C.YELLOW : C.RED
-    repText.visible = (n >= 0)
+
+  /** extract the useful bits for maintaining stats. */
+  constructor(hexMap: HexMap, allPlayers: Player[]) {
+    this.hexMap = hexMap
+    this.allPlayers = allPlayers
   }
   pStat(color: StoneColor): PlayerStats { return this.pStats[color] }
   zeroCounters() {
     let nDist = TP.ftHexes(TP.mHexes)
     this.minControl = Array<Array<boolean>>(nDist) // [district][color]
     this.inControl = Array<StoneColor>(nDist)
-    this.table.allPlayers.forEach((p) => this.pStats[p.color] = new PlayerStats(p, this))
+    this.allPlayers.forEach((p) => this.pStats[p.color] = new PlayerStats(p, this))
   }
   incCounters(hex: Hex) {
     // count Stones of color (& in District)
@@ -95,8 +80,8 @@ export class BoardStats {
       }
     })
   }
-  /** uodate all the stats */
-  update(board: Board) {
+  /** compute pstats, return StonColor of winner (or undefined) */
+  update(board: Board): StoneColor {
     let nDist = TP.ftHexes(TP.mHexes)  // district for each MetaHex
     this.zeroCounters()
     this.hexMap.forEachHex((hex) => this.incCounters(hex))
@@ -113,6 +98,33 @@ export class BoardStats {
         }
       })
     }
+  return win
+  }  
+}
+export class TableStats extends MapStats {
+  table: Table
+  boardRep: Text
+  // turn?
+  constructor(table: Table) {
+    super(table.gamePlay.hexMap, table.allPlayers)
+    this.table = table    // table points to: allPlayers[] & gamePlay.hexMap
+    this.zeroCounters()
+  }
+  showBoardRep(n: number) {
+    let repText = this.boardRep
+    if (!repText) {
+      repText = this.boardRep =  new Text('0', F.fontSpec(36), C.YELLOW)
+      repText.textAlign = 'center'
+      this.table.nextHex.localToLocal(0, -46, this.table.hexMap.stoneCont, repText)
+      this.table.hexMap.stoneCont.addChild(repText)
+    }
+    repText.text = `${n}`
+    repText.color = (n < 3) ? C.YELLOW : C.RED
+    repText.visible = (n >= 0)
+  }
+  /** update all the stats */
+  override update(board: Board): StoneColor {
+    const win = super.update(board)
     this.showBoardRep(board.repCount)
     // TODO: detect stalemate: (a) board.repCount == 3 [cycle|multiple-skipMove]
     // Stalemate Winner: most Disricts & fewest[!?] Stones.
@@ -120,13 +132,15 @@ export class BoardStats {
     this.table.statsPanel.update()
     this.showControl()
     if (!!win) return this.gameOver(board, "WINS", win)
-    if (board.resigned) return this.gameOver(board, "RESIGNS")
+    if (board.resigned) return this.gameOver(board, "RESIGNS") // nextPlayer, otherPlayer wins
     if (board.repCount == 3) return this.gameOver(board, "STALEMATE", win)
+    return win
   }
 
-  gameOver(board: Board, text: string, win = this.table.allPlayers[board.nextPlayerIndex].color) {
+  gameOver(board: Board, text: string, win = this.table.allPlayers[board.nextPlayerIndex].color): StoneColor {
     let lose = otherColor(win), winS = this.score(win), loseS = this.score(lose)
     setTimeout(() => alert(`${lose} ${text}! ${winS} -- ${loseS}`), 200)
+    return win
   }
   showControl() {
     let hexMap = this.table.miniMap
@@ -152,10 +166,10 @@ export class BoardStats {
  */
 export class StatsPanel extends ParamGUI {
 
-  bStats: BoardStats
+  bStats: TableStats
   bFields = ['score', ] //
   pFields = ['nStones', 'nInf', 'nThreats', 'nAttacks', ] // 'dStones', 'dMinControl', 
-  constructor(bStats: BoardStats) {
+  constructor(bStats: TableStats) {
     super(bStats)    // but StatsPanel doesn't use the.setValue() 
     this.bStats = bStats
   }

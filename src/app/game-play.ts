@@ -341,7 +341,7 @@ export class Move {
   }
 }
 export interface Mover {
-  makeMove(): void
+  makeMove(stone: Stone): void
 }
 
 export class Player implements Mover {
@@ -358,7 +358,7 @@ export class Player implements Mover {
     this.color = color
     this.name = `Player${index}-${color}`
   }
-  makeMove() {
+  makeMove(stone: Stone) {
     return 
   }
 }
