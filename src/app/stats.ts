@@ -106,7 +106,7 @@ export class TableStats extends MapStats {
   boardRep: Text
   // turn?
   constructor(table: Table) {
-    super(table.gamePlay.hexMap, table.allPlayers)
+    super(table.hexMap, table.allPlayers)
     this.table = table    // table points to: allPlayers[] & gamePlay.hexMap
     this.zeroCounters()
   }

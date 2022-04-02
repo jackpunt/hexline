@@ -15,6 +15,7 @@ export class TP {
   static nVictory = 4  // number of Districts to control
   static nMinControl  = (TP.nHexes <= 1) ? 1 : TP.nHexes + 1 // [1, 1, 3, 4, 5, ...]
   static nDiffControl = (TP.nHexes <= 1) ? 0 : TP.nHexes - 1 // [0, 0, 1, 2, 3, ...]
+  static hexRad = 50
   /** set victory conditions for (nh, mh) */
   static fnHexes(nh: number, mh: number) {
     TP.mHexes = mh

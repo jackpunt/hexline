@@ -4,7 +4,7 @@ import { HexEvent } from "./hex-event";
 import { S, stime, Undo, KeyBinder } from "@thegraid/createjs-lib";
 import { PlayerStats } from "./stats";
 import { Stone, Table } from "./table";
-import { otherColor, StoneColor, stoneColor0, stoneColors} from "./table-params"
+import { otherColor, StoneColor, stoneColor0, stoneColors, TP} from "./table-params"
 
 type HSC = { hex: Hex, color: StoneColor }
 type AxisDone = { [key in HexAxis]?: Set<Hex> }
@@ -22,15 +22,16 @@ export class GamePlay {
 
   constructor(table: Table) {
     this.table = table
-    this.hexMap = table.hexMap
-    // initialize with the empty hexMap:
-    this.allBoards.addBoard(0, new Move(this.table.nextHex, new Stone(stoneColor0)), this.hexMap)
+    this.hexMap = table.hexMap      // local reference to table.hexMap
+    // initialize allBoards[0] with the empty hexMap:
+    //let hex0 = new Hex(stoneColor0, 50, undefined, 0, 0) // Hex not on a map...
+    //this.allBoards.addBoard(0, new Move(hex0, new Stone(stoneColor0)), this.hexMap)
     this.undoRecs.enableUndo()
     KeyBinder.keyBinder.setKey('M-z', {thisArg: this, func: this.undoMove})
     KeyBinder.keyBinder.setKey('q', {thisArg: this, func: this.undoMove})
     KeyBinder.keyBinder.setKey('r', {thisArg: this, func: this.redoMove})
     KeyBinder.keyBinder.setKey('t', {thisArg: this, func: this.skipMove})
-    KeyBinder.keyBinder.setKey('k', {thisArg: this, func: this.resignMove})
+    KeyBinder.keyBinder.setKey('M-K', {thisArg: this, func: this.resignMove})// M-S-k
     table.undoShape.on(S.click, () => this.undoMove(), this)
     table.redoShape.on(S.click, () => this.redoMove(), this)
     table.skipShape.on(S.click, () => this.skipMove(), this)
@@ -96,7 +97,7 @@ export class GamePlay {
     this.hexMap.forEachHex(hex => { hex.stone = undefined; hex.setNoInf() })
     // put all the Stones on map:
     board.forEach(hsc => {
-      this.table.setStone(new Stone(hsc.color), hsc.hex) // new Stone on hexMap
+      this.table.setStone(new Stone(hsc.color), hsc.hex) // new Stone on hexMap [hex.stone = stone]
     })
     // scan each Line once to assert influence
     board.forEach(hsc => {
@@ -106,7 +107,7 @@ export class GamePlay {
 
   /** addStone to hexMap(hex), assertInfluence, Captured, Undo & Stats? */
   addStone(hex: Hex, stone: Stone) {
-    this.table.setStone(stone, hex)  // move Stone onto Hex & HexMap
+    this.table.setStone(stone, hex)  // move Stone onto Hex & HexMap [hex.stone = stone]
 
     this.assertInfluence(hex, stone.color)
     if (!this.undoRecs.isUndoing) {
@@ -141,7 +142,7 @@ export class GamePlay {
   }
   resignMove() {
     this.table.endCurPlayer()
-    this.doPlayerMove(this.table.resignHex, this.table.nextHex.stone)
+    this.doPlayerMove(this.table.resignHex, this.table.nextHex.stone) // move Stone to table.resignHex
   }
 
   /** remove captured Stones, from placing Stone on Hex */
@@ -328,7 +329,7 @@ export class Move {
   constructor(hex: Hex, stone: Stone) {
     this.hex = hex
     this.stone = stone
-    this.Aname = !!hex ? this.toString() : S_Resign
+    this.Aname = this.toString() // for debugger..
     this.captured = []
   }
   toString(): string {
@@ -388,7 +389,7 @@ export class Board {
   captured: Hex[]   // captured by current Players's Move
   nextPlayerIndex: number // cannot play into captured Hexes
   repCount: number = 1;
-  resigned: StoneColor;
+  resigned: StoneColor;   // set to color of Player who resigns to signal end of game.
   /**
    * Record the current state of the game.
    * @param nextPlayerIndex identify Player to make next Move (player.color, table.getPlayer(color))
@@ -397,7 +398,7 @@ export class Board {
    */
   constructor(nextPlayerIndex: number, move: Move, hexMap: HexMap) {
     this.nextPlayerIndex = nextPlayerIndex
-    this.resigned = (move.hex.Aname == S_Resign) ? move.stone.color : undefined
+    this.resigned = (move.hex.Aname == S_Resign) ? move.stone.color : undefined // keyboard: 'k'
     this.id = this.cString(nextPlayerIndex, move.captured)
     this.hexStones = [].concat(hexMap.allStones)
     let nCol = hexMap.nCol

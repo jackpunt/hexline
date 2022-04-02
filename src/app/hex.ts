@@ -2,7 +2,7 @@ import { Container, Graphics, Shape, Text } from "createjs-module";
 import { C, F, RC, S, Undo } from "@thegraid/createjs-lib";
 import { HexAxis, HexDir, H, InfDir } from "./hex-intfs";
 import { Stone } from "./table";
-import { StoneColor, stoneColor0, stoneColor1, stoneColors } from "./table-params";
+import { StoneColor, stoneColor0, stoneColor1, stoneColors, TP } from "./table-params";
 
 // Note: graphics.drawPolyStar(x,y,radius, sides, pointSize, angle) will do a regular polygon
 
@@ -127,6 +127,7 @@ export class Hex extends Container {
     this.distText = new Text(``, F.fontSpec(20)); 
     this.distText.textAlign = 'center'; this.distText.y = 20
     this.addChild(this.distText)
+    this.showText(false)
   }
   showText(vis = !this.rcText.visible) {
     this.rcText.visible = this.distText.visible = vis
@@ -232,13 +233,13 @@ export class Hex extends Container {
 }
 /** HexMap[row][col] keep registry of all Hex items map to/from [row, col] */
 export class HexMap extends Array<Array<Hex>> {
-  radius: number = 50
+  radius: number = TP.hexRad
   height: number = this.radius * 1.5;
   width: number = this.radius * Math.sqrt(3);
-  hexCont: Container = new Container()     // hex shapes on bottom
-  markCont: Container = new Container()    // showMark under Stones
-  stoneCont: Container = new Container()   // Stone in middle
-  infCont: Container = new Container()     // infMark on the top
+  hexCont: Container     // hex shapes on bottom
+  markCont: Container    // showMark under Stones
+  stoneCont: Container   // Stone in middle
+  infCont: Container     // infMark on the top
   mark: Shape
   minRow: number = undefined               // Array.forEach does not look at negative indices!
   minCol: number = undefined
@@ -249,21 +250,29 @@ export class HexMap extends Array<Array<Hex>> {
   // A color for each District:
   distColor = ["lightgrey","limegreen","deepskyblue","rgb(255,165,0)","violet","rgb(250,80,80)","yellow"]
 
-  constructor(radius: number = 50, mapCont?: Container) {
+  constructor(radius: number = TP.hexRad, mapCont?: Container) {
     super()
     this.radius = radius
     this.height = radius * Math.sqrt(3)
     this.width = radius * 1.5
     CapMark.capSize = this.width/2
-    if (!!mapCont) {                 // hexCont, stoneCont, markCont all x,y aligned
-      mapCont.addChild(this.hexCont)  ; this.hexCont[S.Aname]   = "hexCont"
-      mapCont.addChild(this.markCont) ; this.markCont[S.Aname]  = "markCont"
-      mapCont.addChild(this.stoneCont); this.stoneCont[S.Aname] = "stoneCont"
-      mapCont.addChild(this.infCont)  ; this.infCont[S.Aname]   = "infCont"
-    }
     this.mark = new Shape();
     this.mark.graphics.beginFill(C.markColor).drawPolyStar(0, 0, radius, 6, 0, 30)
+    if (!!mapCont) this.addToCont(mapCont)
   }
+  addToCont(mapCont: Container): this {
+    this.hexCont = new Container()     // hex shapes on bottom
+    this.markCont = new Container()    // showMark under Stones
+    this.stoneCont = new Container()   // Stone in middle
+    this.infCont = new Container()     // infMark on the top
+    // hexCont, stoneCont, markCont all x,y aligned
+    mapCont.addChild(this.hexCont); this.hexCont[S.Aname] = "hexCont"
+    mapCont.addChild(this.markCont); this.markCont[S.Aname] = "markCont"
+    mapCont.addChild(this.stoneCont); this.stoneCont[S.Aname] = "stoneCont"
+    mapCont.addChild(this.infCont); this.infCont[S.Aname] = "infCont"
+    return this
+  }
+
   initInfluence(): this { 
     InfMark.initStatic(this)
     return this 
@@ -285,7 +294,7 @@ export class HexMap extends Array<Array<Hex>> {
     }
     if (this.minCol === undefined || col < this.minCol) this.minCol = col
     if (this.maxCol === undefined || col > this.maxCol) this.maxCol = col
-    this[row][col] = hex
+    this[row][col] = hex   // addHex to this Array<Array<Hex>>
     if (!!this.hexCont) this.hexCont.addChild(hex)
     this.link(hex)   // link to existing neighbors
     return hex

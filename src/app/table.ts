@@ -9,7 +9,7 @@ import { TP, StoneColor, stoneColors, otherColor, stoneColor0, stoneColor1 } fro
 type XYWH = {x: number, y: number, w: number, h: number} // like a Rectangle
 const S_stagemousemove = 'stagemousemove'
 export class Stone extends Shape {
-  static radius: number = 50
+  static radius: number = TP.hexRad
   static height: number = Stone.radius*Math.sqrt(3)/2
   color: StoneColor;
   /** put new Stone of color on cont at location of hex */
@@ -54,11 +54,14 @@ export class Table extends EventDispatcher  {
     super();
     stage['table'] = this // backpointer so Containers can find their Table (& curMark)
     this.stage = stage
+    this.scaleCont = this.makeScaleCont(!!this.stage) // scaleCont & background
     this.nextHex.scaleX = this.nextHex.scaleY = 2
-    this.resignMap.stoneCont.visible = false
-    this.skipShape.graphics.f("white").dp(0, 0, 30, 4, 0, 45)  
-    this.undoShape.graphics.f("red").dp(-50, 0, 60, 3, 0, 180);
-    this.redoShape.graphics.f("green").dp(+50, 0, 60, 3, 0, 0); 
+    this.setupUndoButtons(55, 45)
+  }
+  setupUndoButtons(bSize, sRad) {
+    this.skipShape.graphics.f("white").dp(0, 0, 40, 4, 0, sRad)  
+    this.undoShape.graphics.f("red").dp(-bSize, 0, 60, 3, 0, 180);
+    this.redoShape.graphics.f("green").dp(+bSize, 0, 60, 3, 0, 0); 
     this.undoText.x = -52; this.undoText.textAlign = "center"
     this.redoText.x = 52; this.redoText.textAlign = "center"
     let undoC = this.undoCont
@@ -68,21 +71,24 @@ export class Table extends EventDispatcher  {
     undoC.addChild(this.undoText); this.undoText.y = -14;
     undoC.addChild(this.redoText); this.redoText.y = -14;
     this.undoText.mouseEnabled = this.redoText.mouseEnabled = false
+    this.enableHexInspector(52)
   }
-  enableHexInspector() {
+  enableHexInspector(qY: number) {
     let qShape = new Shape(), toggle = true
     qShape.graphics.f("black").dp(0, 0, 20, 6, 0, 0)
-    qShape.y = 50
+    qShape.y = qY  // size of skip Triangles
     this.undoCont.addChild(qShape)
     this.dragger.makeDragable(qShape, this, 
+      // dragFunc:
       (qShape: Shape, ctx: DragInfo) => { 
         let hex = this.hexUnderObj(qShape)
         this.dropTarget = hex
       },
+      // dropFunc:
       (qShape: Shape, ctx: DragInfo) => {
         toggle = false
         let hex = this.hexUnderObj(qShape)
-        qShape.x = 0; qShape.y = 50 // return to regular location
+        qShape.x = 0; qShape.y = qY // return to regular location
         this.undoCont.addChild(qShape)
         if (!hex) return
         let InfDisp = this.hexMap.infCont.children.filter(obj => obj.x == hex.x && obj.y == hex.y)
@@ -99,7 +105,6 @@ export class Table extends EventDispatcher  {
       this.hexMap.update()
     }
     qShape.on(S.click, toggleText, this) // toggle visible
-    toggleText(undefined, false)
   }
   miniMap: HexMap;
   makeMiniMap(parent: Container, x, y) {
@@ -109,7 +114,7 @@ export class Table extends EventDispatcher  {
     if (TP.nHexes == 1) rotC = rotH = 0
     miniMap.makeAllDistricts(TP.mHexes, 1)
     let bgHex = new Shape()
-    bgHex.graphics.f(TP.bgColor).dp(0, 0, 50*(2*TP.mHexes-1), 6, 0, 60)
+    bgHex.graphics.f(TP.bgColor).dp(0, 0, TP.hexRad*(2*TP.mHexes-1), 6, 0, 60)
     cont.addChildAt(bgHex, 0)
     cont.x = x; cont.y = y
     cont.rotation = rotC
@@ -120,16 +125,11 @@ export class Table extends EventDispatcher  {
   }
 
   layoutTable() {
-    let radius = Stone.radius
-    let stage = this.stage
-    let isStage = (this.stage instanceof Stage)
-    this.scaleCont = this.makeScaleCont(!!this.stage) // scaleCont & background
     let mapCont = new Container();
     mapCont[S.Aname] = "mapCont"
     this.scaleCont.addChild(mapCont)
 
-    this.hexMap = new HexMap(radius, mapCont).initInfluence()
-    this.gamePlay.hexMap = this.hexMap          // ;this.markHex00()
+    this.hexMap.addToCont(mapCont).initInfluence()
     this.hexMap.makeAllDistricts(TP.mHexes, TP.nHexes) // typically: 3,3 or 2,4
 
     let hexRect = this.hexMap.hexCont.getBounds()
@@ -148,7 +148,7 @@ export class Table extends EventDispatcher  {
     if (nh == 1 || nh + mh <= 5) { bgr.w += 3*wide; mapCont.x += 3*wide; this.nextHex.x = minx - .87*wide }
     this.undoCont.x = this.nextHex.x
     this.undoCont.y = this.nextHex.y + 100
-    this.resignHex.x = this.nextHex.x; this.resignHex.y = this.nextHex.y
+    this.resignHex.x = this.nextHex.x; this.resignHex.y = this.nextHex.y // underlay nextHex
     this.hexMap.hexCont.addChild(this.resignHex)  // single Hex to hold a Stone when resigned
     this.hexMap.hexCont.addChild(this.nextHex)  // single Hex to hold a Stone to play
     this.hexMap.markCont.addChild(this.undoCont)
@@ -161,8 +161,7 @@ export class Table extends EventDispatcher  {
     this.makeAllPlayers()
     this.setNextPlayer(0)   // make a placeable Stone for Player[0]
     this.bStats = new TableStats(this) // AFTER allPlayers are defined so can set pStats
-    this.enableHexInspector()
-    this.makeMiniMap(this.scaleCont, -(200+TP.mHexes*50), 500+100*TP.mHexes)
+    this.makeMiniMap(this.scaleCont, -(200+TP.mHexes*TP.hexRad), 500+100*TP.mHexes)
 
     this.on(S.add, this.gamePlay.addStoneEvent, this.gamePlay)[S.Aname] = "addStone"
     this.on(S.remove, this.gamePlay.removeStoneEvent, this.gamePlay)[S.Aname] = "removeStone"
@@ -177,10 +176,11 @@ export class Table extends EventDispatcher  {
     this.curPlayerNdx = ndx;
     this.turnNumber = turn ? turn : this.turnNumber + 1;
     this.roundNumber = Math.floor((this.turnNumber - 1) / this.allPlayers.length) + 1
-    let curPlayer = this.curPlayer = this.allPlayers[ndx], tn = this.turnNumber
+    let curPlayer = this.curPlayer = this.allPlayers[ndx]
 
     if (log) {
       const history = this.gamePlay.history
+      const tn = this.turnNumber
       const lm = history[0]
       const prev = !!lm ? lm.toString() : ""
       const capd = lm ? lm.captured : [] //this.gamePlay.lastCaptured 
