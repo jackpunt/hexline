@@ -4,6 +4,9 @@ import { HexAxis, HexDir, H, InfDir } from "./hex-intfs";
 import { Stone } from "./table";
 import { StoneColor, stoneColor0, stoneColor1, stoneColors, TP } from "./table-params";
 
+export const S_Resign = 'Hex@Resign'
+export const S_Skip = 'Hex@skip'
+
 // Note: graphics.drawPolyStar(x,y,radius, sides, pointSize, angle) will do a regular polygon
 
 type LINKS = { [key in InfDir]: Hex }
@@ -88,15 +91,28 @@ export class Hex extends Container {
   /** set hexShape using color */
   setHexColor(color: string, district?: number) {
     if (district !== undefined) this.district = district // hex.setHexColor update district
+    this.color = color
     let hexShape = this.hex(this.height/1.5, color)
     if (!!this.hexShape) this.removeChild(this.hexShape)
     this.addChildAt(hexShape, 0)
     this.hitArea = hexShape
-    this.color = color
     this.hexShape = hexShape
   }
   override toString() {
     return `Hex[${this.row},${this.col}]`
+  }
+  setStone(stone: Stone) {
+    this.stone = stone
+    this.map && this.map.allStones.push({Aname: this.Aname, hex: this, color: stone.color})
+  }
+  clearStone(): Stone {
+    let stone = this.stone
+    if (!!stone) {
+      let map = this.map
+      map.allStones = map.allStones.filter(hsc => hsc.hex !== this)
+      this.stone = undefined
+    }
+    return stone
   }
 
   /** One Hex cell in the game, shown as a polyStar Shape of radius @ (XY=0,0) */
@@ -245,7 +261,10 @@ export class HexMap extends Array<Array<Hex>> {
   minCol: number = undefined
   maxCol: number = undefined
   get nCol() { return 1 + this.maxCol - this.minCol }
-  allStones: HSC[] = []                    // Each occupied Hex, with the occupying StoneColor
+  /** Each occupied Hex, with the occupying StoneColor  */
+  allStones: HSC[] = []                    // aka hexStones in Board
+  skipHex: Hex;
+  resignHex: Hex;
 
   // A color for each District:
   distColor = ["lightgrey","limegreen","deepskyblue","rgb(255,165,0)","violet","rgb(250,80,80)","yellow"]
@@ -257,6 +276,10 @@ export class HexMap extends Array<Array<Hex>> {
     this.width = radius * 1.5
     CapMark.capSize = this.width/2
     this.mark = new Shape();
+    this.skipHex = new Hex(C.BROWN, TP.hexRad, this)
+    this.skipHex.Aname = S_Skip
+    this.resignHex = new Hex(C.BROWN, TP.hexRad, this)
+    this.resignHex.Aname = S_Resign
     this.mark.graphics.beginFill(C.markColor).drawPolyStar(0, 0, radius, 6, 0, 30)
     if (!!mapCont) this.addToCont(mapCont)
   }
@@ -325,15 +348,15 @@ export class HexMap extends Array<Array<Hex>> {
     return rv
   }
   showMark(hex?: Hex) {
-    if (!hex) {
+    if (!hex || hex.Aname == S_Skip) {
       this.mark.visible = false
     } else {
       this.mark.x = hex.x
       this.mark.y = hex.y
       this.markCont.addChild(this.mark) // show mark *below* Stone & infMark
       this.mark.visible = true
-      this.update()
     }
+    this.update()
   }
   /** neighborhood topology, E-W & N-S orientation; even(n0) & odd(n1) rows: */
   ewEvenRow = {

@@ -1,7 +1,7 @@
 import { Stage, EventDispatcher, Container, Shape, Text, DisplayObject, MouseEvent } from "createjs-module";
 import { F, S, stime, Dragger, DragInfo, KeyBinder, ScaleableContainer, XY } from "@thegraid/createjs-lib"
-import { GamePlay, Player, S_Resign } from "./game-play";
-import { Hex, HexMap } from "./hex";
+import { GamePlay, Player } from "./game-play";
+import { Hex, HexMap, S_Resign } from "./hex";
 import { HexEvent } from "./hex-event";
 import { TableStats, StatsPanel } from "./stats";
 import { TP, StoneColor, stoneColors, otherColor, stoneColor0, stoneColor1 } from "./table-params";
@@ -22,17 +22,15 @@ export class Stone extends Shape {
 /** layout display components, setup callbacks to GamePlay */
 export class Table extends EventDispatcher  {
 
-  bStats: TableStats    // better named: TableStats?
   statsPanel: StatsPanel;
   gamePlay: GamePlay;
   stage: Stage;
   scaleCont: Container
   hexMap: HexMap = new HexMap()
   roundNumber: number = 0;
-  turnNumber: number = 0
   dropStone: Stone   // set when player drops Stone to indicate a Move
-  resignMap: HexMap = new HexMap(50) // resignMap
-  resignHex: Hex = new Hex("grey", Stone.radius, this.resignMap).setName(S_Resign)
+  //resignMap: HexMap = new HexMap(50) // resignMap
+  //resignHex: Hex = new Hex("grey", Stone.radius, this.resignMap).setName(S_Resign)
   nextHex: Hex = new Hex("grey", Stone.radius, undefined).setName('nextHex')
   undoCont: Container = new Container()
   undoShape: Shape = new Shape();
@@ -41,17 +39,13 @@ export class Table extends EventDispatcher  {
   undoText: Text = new Text('', F.fontSpec(30));  // length of undo stack
   redoText: Text = new Text('', F.fontSpec(30));  // length of history stack
 
-  allPlayers: Player[] = [];
-  getNumPlayers(): number { return this.allPlayers.length; }
-  curPlayerNdx: number = 0;
-  curPlayer: Player;
-  getPlayer(color: StoneColor): Player {
-    return this.allPlayers.find(p => p.color == color)
-  }
   dragger: Dragger
 
-  constructor(stage: Stage) {
+  constructor(gamePlay: GamePlay, stage: Stage) {
     super();
+    this.gamePlay = gamePlay
+    this.hexMap = gamePlay.hexMap
+
     stage['table'] = this // backpointer so Containers can find their Table (& curMark)
     this.stage = stage
     this.scaleCont = this.makeScaleCont(!!this.stage) // scaleCont & background
@@ -148,8 +142,8 @@ export class Table extends EventDispatcher  {
     if (nh == 1 || nh + mh <= 5) { bgr.w += 3*wide; mapCont.x += 3*wide; this.nextHex.x = minx - .87*wide }
     this.undoCont.x = this.nextHex.x
     this.undoCont.y = this.nextHex.y + 100
-    this.resignHex.x = this.nextHex.x; this.resignHex.y = this.nextHex.y // underlay nextHex
-    this.hexMap.hexCont.addChild(this.resignHex)  // single Hex to hold a Stone when resigned
+    //this.resignHex.x = this.nextHex.x; this.resignHex.y = this.nextHex.y // underlay nextHex
+    //this.hexMap.hexCont.addChild(this.resignHex)  // single Hex to hold a Stone when resigned
     this.hexMap.hexCont.addChild(this.nextHex)  // single Hex to hold a Stone to play
     this.hexMap.markCont.addChild(this.undoCont)
 
@@ -158,29 +152,19 @@ export class Table extends EventDispatcher  {
     let pbr = this.scaleCont.localToLocal(bgr.x+bgr.w, bgr.y+bgr.h, this.hexMap.hexCont)
     this.hexMap.hexCont.cache(p00.x, p00.y, pbr.x-p00.x, pbr.y-p00.y) // cache hexCont (bounded by bgr)
 
-    this.makeAllPlayers()
-    this.setNextPlayer(0)   // make a placeable Stone for Player[0]
-    this.bStats = new TableStats(this) // AFTER allPlayers are defined so can set pStats
+    this.gamePlay.setNextPlayer(0)   // make a placeable Stone for Player[0]
     this.makeMiniMap(this.scaleCont, -(200+TP.mHexes*TP.hexRad), 500+100*TP.mHexes)
 
     this.on(S.add, this.gamePlay.addStoneEvent, this.gamePlay)[S.Aname] = "addStone"
     this.on(S.remove, this.gamePlay.removeStoneEvent, this.gamePlay)[S.Aname] = "removeStone"
     this.stage.update()
   }
-  get nextPlayerIndex() {
-    return (this.curPlayer.index + 1) % this.allPlayers.length;
-  }
-  setNextPlayer(ndx: number = -1, turn?: number, log: boolean = true) {
-    if (ndx < 0) ndx = this.nextPlayerIndex;
-    if (ndx != this.curPlayerNdx) this.endCurPlayer()
-    this.curPlayerNdx = ndx;
-    this.turnNumber = turn ? turn : this.turnNumber + 1;
-    this.roundNumber = Math.floor((this.turnNumber - 1) / this.allPlayers.length) + 1
-    let curPlayer = this.curPlayer = this.allPlayers[ndx]
 
+  setNextPlayer(ndx?: number, log: boolean = true): Player {
+    let curPlayer = this.gamePlay.curPlayer // after gamePlay.setNextPlayer()
     if (log) {
       const history = this.gamePlay.history
-      const tn = this.turnNumber
+      const tn = this.gamePlay.turnNumber
       const lm = history[0]
       const prev = !!lm ? lm.toString() : ""
       const capd = lm ? lm.captured : [] //this.gamePlay.lastCaptured 
@@ -191,44 +175,35 @@ export class Table extends EventDispatcher  {
     this.undoText.text = `${this.gamePlay.undoRecs.length}`
     this.redoText.text = `${this.gamePlay.redoMoves.length}`
     this.putButtonOnPlayer(curPlayer);
+    return curPlayer
   }
   endCurPlayer() {
     if (!!this.dropStone) {
       this.dragger.stopDragable(this.dropStone) // whereever it landed
       delete this.dropStone 
     }
-    let stone: Stone = this.nextHex.stone
-    if (!!stone) {
-      stone.parent.removeChild(stone)
-      this.hexMap.update()
-    }
+    this.clearStone(this.nextHex)
+    this.hexMap.update()
   }
   putButtonOnPlayer(player: Player) {
     let stone = new Stone(player.color)
-    this.setStone(stone) // new Stone for Player
+    this.gamePlay.setStone(this.nextHex, stone) // new Stone for Player
     this.dragger.makeDragable(stone, this, this.dragFunc, this.dropFunc)
     this.dragger.clickToDrag(stone)
     this.hexMap.update()
-    this.curPlayer.makeMove(stone) // provoke to robo-player: respond with addStoneEvent;
+    player.makeMove(stone) // provoke to robo-player: respond with addStoneEvent;
   }
   /** set hex.stone & addChild,  */
   setStone(stone: Stone, hex: Hex = this.nextHex) {
     let cont: Container = (hex.map || this.hexMap).stoneCont
     hex.parent.localToLocal(hex.x, hex.y, cont, stone)
     cont.addChild(stone)
-    hex.stone = stone
-    if (hex.map == this.hexMap) {
-      hex.map.allStones.push({ Aname: hex.Aname, hex: hex, color: stone.color, })
-    }
   }
   /** clear hex.stone & removeChild */
   clearStone(hex: Hex): Stone {
-    let stone = hex.stone
-    if (stone) {
-      let map = !!hex && !!hex.map ? hex.map : this.hexMap
-      map.allStones = map.allStones.filter(hsc => hsc.hex !== hex)
-      stone.parent.removeChild(stone)
-      hex.stone = undefined
+    let stone = hex.stone   // invoke before hex.clearStone()
+    if (!!stone) {
+      stone.parent && stone.parent.removeChild(stone)
     }
     return stone
   }
@@ -249,11 +224,11 @@ export class Table extends EventDispatcher  {
   nonTarget: Hex // OR: Set<hex> OR: Map<hex,info>
   dragFunc(stone: Stone, ctx: DragInfo): Hex | void {
     const nonTarget = (hex) => { this.dropTarget = this.nextHex; this.nonTarget = hex; }
-    if (stone.color !== this.curPlayer.color) return // can't happen in hexline...
+    if (stone.color !== this.gamePlay.curPlayer.color) return // can't happen in hexline...
     if (ctx.first) {
       // stone.parent == hexMap.stoneCont (putButtonOnPlayer & nextStone)
       nonTarget(undefined)
-      const opc = otherColor(this.curPlayer.color)
+      const opc = otherColor(this.gamePlay.curPlayer.color)
       this.isSuicide = []
       this.maybeSuicide = this.hexMap.filterEachHex(hex => hex.isAttack(opc))
       //console.log(stime(this, `.dragStart:${stone.color}`), this.maybeSuicide.map(h => h.Aname))
@@ -288,15 +263,6 @@ export class Table extends EventDispatcher  {
     if (this.dropTarget === undefined || this.dropTarget === this.nextHex) return
     this.nextHex.stone = undefined
     this.dispatchEvent(new HexEvent(S.add, this.dropTarget, stone))
-  }
-  makeAllPlayers() {
-    this.allPlayers = []
-    this.allPlayers[0] = new Player(this, 0, stoneColors[0])
-    this.allPlayers[1] = new Player(this, 1, stoneColors[1])
-  }
-  otherPlayer(plyr: Player) { return plyr == this.allPlayers[0] ? this.allPlayers[0] : this.allPlayers[1]}
-  forEachPlayer(f: (p:Player, index?: number, players?: Player[]) => void) {
-    this.allPlayers.forEach((p, index, players) => f(p, index, players));
   }
   // meta-n: 1:1, 2:7, 3:19, 4:37
   
