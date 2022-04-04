@@ -53,7 +53,7 @@ export class MapStats {
   zeroCounters() {
     let nDist = TP.ftHexes(TP.mHexes)
     this.minControl = Array<Array<boolean>>(nDist) // [district][color]
-    this.inControl = Array<StoneColor>(nDist)
+    this.inControl = Array<StoneColor>(nDist)      // undefined
     this.allPlayers.forEach((p) => this.pStats[p.color] = new PlayerStats(p, this))
   }
   incCounters(hex: Hex) {
@@ -137,6 +137,7 @@ export class TableStats extends MapStats {
     if (!!this.table) {
       this.table.statsPanel.update()
       this.showControl(this.table)
+      this.hexMap.update()
     }
     if (this.gameOver(board, win)) {
       let plyr = this.gamePlay.curPlayer, pc = plyr.color, pStats = plyr.stats
@@ -158,13 +159,14 @@ export class TableStats extends MapStats {
   showControl(table: Table) {
     let hexMap = table.miniMap
     hexMap.forEachHex(hex => {
-      let d = hex.district, dc = hex.stoneColor, ic = this.inControl[d]
-      if (ic !== dc) {
-        if (!!dc) { table.clearStone(hex)} // from mimi-map
-        else if (!!ic) { table.setStone(new Stone(ic), hex) } // on mini-map
+      table.clearStone(hex)                // from mimi-map
+      let ic = this.inControl[hex.district]
+      if (ic !== undefined) {
+        let stone = new Stone(ic)
+        hex.setStone(stone)
+        table.setStone(stone, hex) // on mini-map
       }
     })
-    hexMap.update()
   }
 }
 /**
