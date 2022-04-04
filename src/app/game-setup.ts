@@ -48,6 +48,7 @@ export class GameSetup {
     specs.push(this.makeParamSpec("nInf", [sp]))
     specs.push(this.makeParamSpec("nAttacks", [sp]))
     specs.push(this.makeParamSpec("nThreats", [sp]))
+    specs.push(this.makeParamSpec("dMax", [sp]))
     specs.push(this.makeParamSpec("score", [sp]))
     //specs.push(this.makeParamSpec("dStones", []))
     //specs.push(this.makeParamSpec("dMinControl", []))

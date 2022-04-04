@@ -248,11 +248,12 @@ export class Table extends EventDispatcher  {
     this.dragShift = shift
     this.dragHex = hex
     this.unmarkViewCaptured() // a new Hex/target, remove prior capture marks
-    if (hex == this.nextHex) return nonTarget(hex) //???
     if (!!hex.stone && hex != this.nextHex) return nonTarget(hex) // occupied
     if (!!hex.capMark && !shift) return nonTarget(hex) // was captured last turn
-    // let move0 = this.gamePlay.history[0]
+    // let move0 = this.gamePlay.history[0] // ALTERNATIVE to hex.capMark
     // if (!shift && move0 && move0.captured.includes(hex)) return nonTarget(hex) // was captured last turn
+    let pstats = this.gamePlay.bStats.pStat(color)
+    if (hex.district == 0 && pstats.dMax <= pstats.dStones[0]) return nonTarget(hex)
 
     let { found, sui, caps } = this.getHexStatus(hex, color)
     if (!found) {

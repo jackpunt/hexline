@@ -13,8 +13,9 @@ export class PlayerStats {
   plyr: Player; // 
   op: Player;   // op = this.table.otherPlayer(this.plyr)
 
-  dStones: number[] = Array(7);       // per-district
-  dMinControl: boolean[] = Array(7);  // per-district true if minControl of district
+  dStones: number[] = [0];      // per-district (initialize district 0)
+  dMinControl: boolean[] = [];  // per-district true if minControl of district
+  dMax: number = 0;      // max dStones in non-Central District
   nStones: number = 0;   // total on board
   nInf: number = 0;      // (= nStones*6 - edge effects - E/W-underlap)
   nThreats: number = 0;  // (Hex w/ inf && [op].stone) 'jeopardy'
@@ -61,7 +62,8 @@ export class MapStats {
     if (!!stone) {
       let color = stone.color, district = hex.district, pstats = this.pStats[color] as PlayerStats
       pstats.nStones += 1
-      pstats.dStones[district] = (pstats.dStones[district] || 0) + 1
+      let dStones = pstats.dStones[district] = (pstats.dStones[district] || 0) + 1
+      if (district !== 0 && dStones > pstats.dMax) pstats.dMax = dStones
     }
     // count influence, threats, & attacks
     stoneColors.forEach(color => {
@@ -179,7 +181,7 @@ export class StatsPanel extends ParamGUI {
 
   bStats: TableStats
   bFields = ['score', ] //
-  pFields = ['nStones', 'nInf', 'nThreats', 'nAttacks', ] // 'dStones', 'dMinControl', 
+  pFields = ['nStones', 'nInf', 'nThreats', 'nAttacks', 'dMax'] // 'dStones', 'dMinControl', 
   constructor(bStats: TableStats) {
     super(bStats)    // but StatsPanel doesn't use the.setValue() 
     this.bStats = bStats
