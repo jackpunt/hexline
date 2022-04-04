@@ -347,7 +347,7 @@ export class HexMap extends Array<Array<Hex>> {
     return rv
   }
   showMark(hex?: Hex) {
-    if (!hex || hex.Aname == S_Skip) {
+    if (!hex || hex.Aname == S_Skip || hex.Aname == S_Resign) {
       this.mark.visible = false
     } else {
       this.mark.x = hex.x

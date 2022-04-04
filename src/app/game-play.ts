@@ -82,8 +82,8 @@ export class GamePlay0 {
     }
   }
   undoCapture(captured: Hex[ ]) { }
-  doPlayerSkip() {  }  // TODO: put something on history?
-  doPlayerResign() { } // TODO: ??
+  doPlayerSkip(hex: Hex, stone: Stone) {  }  // TODO: put something on history?
+  doPlayerResign(hex: Hex, stone: Stone) { } // TODO: ??
 
   setStone(hex: Hex, stone: Stone) {
     hex.setStone(stone)
@@ -92,9 +92,6 @@ export class GamePlay0 {
   addStone(hex: Hex, stone: Stone) {
     this.setStone(hex, stone)  // move Stone onto Hex & HexMap [hex.stone = stone]
     this.assertInfluence(hex, stone.color)
-    if (!this.undoRecs.isUndoing) {
-      this.addUndoRec(this, `removeStone(${hex.Aname}:${stone.color})`, () => this.removeStone(hex)) // remove for undo
-    }
   }
   /** 
    * remove Move that placed hex
@@ -117,14 +114,17 @@ export class GamePlay0 {
 
     let move = new Move(hex, stone)
     this.history.unshift(move) // record Move in History
+    this.captured = []
     if (hex == this.hexMap.skipHex) {
-      this.doPlayerSkip()
+      this.doPlayerSkip(hex, stone)
     } else if (hex == this.hexMap.resignHex) {
-      this.doPlayerResign() // addBoard will detect
+      this.doPlayerResign(hex, stone) // addBoard will detect
     } else {
-      this.captured = []
       this.addStone(hex, stone) // add Stone and Capture (& removeStone) w/addUndoRec
-      move.captured = this.captured;
+    }
+    move.captured = this.captured;
+    if (!this.undoRecs.isUndoing) {
+      this.addUndoRec(this, `removeStone(${hex.Aname}:${stone.color})`, () => this.removeStone(hex)) // remove for undo
     }
     this.undoInfluence.flushUndo()   // TODO: modularize to gamePlay.allowDrop(hex)
     this.undoRecs.closeUndo()
@@ -300,7 +300,7 @@ export class GamePlay extends GamePlay0 {
   showRedoMark() {
     let move0 = this.redoMoves[0]
     if (!!move0) {
-      this.hexMap.showMark(move0.hex)
+      this.hexMap.showMark(move0.hex) // unless Skip or Resign...
     }    
   }
   /**
