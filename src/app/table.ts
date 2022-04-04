@@ -1,10 +1,10 @@
 import { Stage, EventDispatcher, Container, Shape, Text, DisplayObject, MouseEvent } from "createjs-module";
 import { F, S, stime, Dragger, DragInfo, KeyBinder, ScaleableContainer, XY } from "@thegraid/createjs-lib"
 import { GamePlay, Player } from "./game-play";
-import { Hex, HexMap, S_Resign } from "./hex";
+import { Hex, HexMap, } from "./hex";
 import { HexEvent } from "./hex-event";
-import { TableStats, StatsPanel } from "./stats";
-import { TP, StoneColor, stoneColors, otherColor, stoneColor0, stoneColor1 } from "./table-params";
+import { StatsPanel } from "./stats";
+import { TP, StoneColor, otherColor, stoneColor0, stoneColor1 } from "./table-params";
 
 type XYWH = {x: number, y: number, w: number, h: number} // like a Rectangle
 type HEX_STATUS = { found: boolean, sui: boolean, caps: Hex[] }
@@ -252,7 +252,7 @@ export class Table extends EventDispatcher  {
     if (!!hex.capMark && !shift) return nonTarget(hex) // was captured last turn
     // let move0 = this.gamePlay.history[0] // ALTERNATIVE to hex.capMark
     // if (!shift && move0 && move0.captured.includes(hex)) return nonTarget(hex) // was captured last turn
-    let pstats = this.gamePlay.bStats.pStat(color)
+    let pstats = this.gamePlay.gStats.pStat(color)
     if (hex.district == 0 && pstats.dMax <= pstats.dStones[0]) return nonTarget(hex)
 
     let { found, sui, caps } = this.getHexStatus(hex, color)

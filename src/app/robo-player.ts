@@ -1,5 +1,5 @@
 import { randomInt } from "crypto";
-import { Board, Move, Mover, Player } from "./game-play";
+import { Board, GamePlay0, Move, Mover, Player } from "./game-play";
 import { Hex } from "./hex";
 import { Stone, Table } from "./table";
 import { StoneColor } from "./table-params";
@@ -55,7 +55,12 @@ class RoboBase implements Mover {
 }
 
 class Planner {
-  scoreBoard(board: Board): number {
+  // after doPlayerMove (or undoMove...)
+  scoreBoard(gamePlay: GamePlay0): number {
+    let hexMap = gamePlay.hexMap
+    let history = gamePlay.history
+    let move0 = history[0]
+    let board = move0.board
     return randomInt(10000)
   }
 

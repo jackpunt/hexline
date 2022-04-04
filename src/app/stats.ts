@@ -9,7 +9,7 @@ import { C, F, ParamGUI, ParamItem, ParamLine, ParamType, ValueCounter } from "@
 import { Text } from "createjs-module";
 
 export class PlayerStats {
-  bStats: MapStats;
+  gStats: GameStats;
   plyr: Player; // 
   op: Player;   // op = this.table.otherPlayer(this.plyr)
 
@@ -26,15 +26,15 @@ export class PlayerStats {
   get rThreats(): number { return this.op.stats.nThreats};  // [op].nStones
   get rAttacks(): number { return this.op.stats.nAttacks};  // [op].nStones
 
-  constructor(plyr: Player, bStats: MapStats) {
-    this.bStats = bStats
+  constructor(plyr: Player, gStats: GameStats) {
+    this.gStats = gStats
     plyr.stats = this
     this.plyr = plyr
     this.op = plyr.otherPlayer
   }
 }
 
-export class MapStats {
+export class GameStats {
   hexMap: HexMap
   pStats: PlayerStats[] = [] // indexed by StoneColor
   allPlayers: Player[]
@@ -99,15 +99,14 @@ export class MapStats {
   return win
   }  
 }
-export class TableStats extends MapStats {
-  table: Table
+export class TableStats extends GameStats {
+  table: Table         // presence indicates a GUI environment: showControl, showBoardRep
   gamePlay: GamePlay0  // provides hexMap & allPlayers[]
   boardRep: Text
   // turn?
-  constructor(gamePlay: GamePlay0, table?: Table) {
+  constructor(gamePlay: GamePlay0) {
     super(gamePlay.hexMap, gamePlay.allPlayers)
     this.gamePlay = gamePlay
-    this.setTable(table)
     this.zeroCounters()
   }
   setTable(table: Table) {
@@ -176,17 +175,17 @@ export class TableStats extends MapStats {
   nInf: number = 0;      // (= nStones*6 - edge effects - E/W-underlap)
   nThreats: number = 0;  // (Hex w/ inf && [op].stone)
   nAttacks: number = 0;  // (Hex w/ inf >= 2)
-  inControl(d: StoneColor)  { return this.bStats.inControl[this.plyr.color][d]; }
+  inControl(d: StoneColor)  { return this.gStats.inControl[this.plyr.color][d]; }
 
  */
 export class StatsPanel extends ParamGUI {
 
-  bStats: TableStats
+  gStats: TableStats
   bFields = ['score', ] //
   pFields = ['nStones', 'nInf', 'nThreats', 'nAttacks', 'dMax'] // 'dStones', 'dMinControl', 
-  constructor(bStats: TableStats) {
-    super(bStats)    // but StatsPanel doesn't use the.setValue() 
-    this.bStats = bStats
+  constructor(gStats: TableStats) {
+    super(gStats)    // but StatsPanel doesn't use the.setValue() 
+    this.gStats = gStats
   }
   targetValue(target: object, fieldName: string, color: StoneColor) {
     let value = target[fieldName] as (color: StoneColor)=>any | Array<number>
@@ -199,7 +198,7 @@ export class StatsPanel extends ParamGUI {
   setValueText(line: ParamLine) {
     let fieldName = line.spec.fieldName
     let lineValue = "?"
-    let target = this.pFields.includes(fieldName) ? this.bStats.pStats : this.bStats
+    let target = this.pFields.includes(fieldName) ? this.gStats.pStats : this.gStats
     let v0 = this.targetValue(target, fieldName, stoneColor0)
     let v1 = this.targetValue(target, fieldName, stoneColor1)
     let { width: w0, height: h0, text: t0 } = ValueCounter.ovalSize(v0)

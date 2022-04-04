@@ -20,7 +20,7 @@ export class GamePlay0 {
   
   history: Move[] = []          // sequence of Move that bring board to its state
   redoMoves: Move[] = []
-  bStats: TableStats
+  gStats: TableStats
   allPlayers: Player[] = [];
   turnNumber: number = 0
   get roundNumber() {return Math.floor((this.turnNumber - 1) / this.allPlayers.length) + 1 }
@@ -43,7 +43,7 @@ export class GamePlay0 {
     this.allPlayers = []
     this.allPlayers[0] = new Player(0, stoneColors[0])
     this.allPlayers[1] = new Player(1, stoneColors[1])
-    this.bStats = new TableStats(this) // AFTER allPlayers are defined so can set pStats
+    this.gStats = new TableStats(this) // AFTER allPlayers are defined so can set pStats
   }
   otherPlayer(plyr: Player) { return plyr == this.allPlayers[0] ? this.allPlayers[0] : this.allPlayers[1]}
   forEachPlayer(f: (p:Player, index?: number, players?: Player[]) => void) {
@@ -77,7 +77,7 @@ export class GamePlay0 {
       let move0 = this.history[0]  // the new, latest 'move'
       if (!!move0) {
         move0.board.setRepCount(this.history) // undo: decrement repCount; because: shift()
-        this.bStats.update(move0.board)
+        this.gStats.update(move0.board)
       }
     }
   }
@@ -131,7 +131,7 @@ export class GamePlay0 {
 
     move.board = this.allBoards.addBoard(this.nextPlayerIndex, move, this.hexMap)
     move.board.setRepCount(this.history) // >= 1 [should be NO-OP, from addBoard]
-    this.bStats.update(move.board) // showRepCount(), showWin()
+    this.gStats.update(move.board) // showRepCount(), showWin()
     this.setNextPlayer()
   }
   
@@ -251,7 +251,7 @@ export class GamePlay extends GamePlay0 {
   }
   setTable(table: Table) {
     this.table = table
-    this.bStats.setTable(table)
+    this.gStats.setTable(table)
     KeyBinder.keyBinder.setKey('M-z', {thisArg: this, func: this.undoMove})
     KeyBinder.keyBinder.setKey('q', {thisArg: this, func: this.undoMove})
     KeyBinder.keyBinder.setKey('r', {thisArg: this, func: this.redoMove})

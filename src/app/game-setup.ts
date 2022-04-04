@@ -32,16 +32,16 @@ export class GameSetup {
    * @param ext Extensions from URL
    */
   startup(gs: GameSetup = this, ext: string[] = []) {
-    let gamePlay = new GamePlay()
+    let gamePlay = new GamePlay() // hexMap, players, pStats, 
     let table = new Table(gamePlay, this.stage)
     gamePlay.setTable(table)
 
     table.layoutTable()
-    table.statsPanel = this.makeStatsPanel(gamePlay.bStats, table.scaleCont, -300, 50)
+    table.statsPanel = this.makeStatsPanel(gamePlay.gStats, table.scaleCont, -300, 50)
     this.makeParamGUI(table.scaleCont)
   }
-  makeStatsPanel(bStats: TableStats, parent: Container, x, y): StatsPanel {
-    let panel = new StatsPanel(bStats)
+  makeStatsPanel(gStats: TableStats, parent: Container, x, y): StatsPanel {
+    let panel = new StatsPanel(gStats)
     let specs: ParamSpec[] = [], sp = "                    "
     let spec = (fieldName: string) => { return specs.find(s => s.fieldName == fieldName) }
     specs.push(this.makeParamSpec("nStones", [sp]))
