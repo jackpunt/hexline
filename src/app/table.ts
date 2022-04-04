@@ -261,8 +261,8 @@ export class Table extends EventDispatcher  {
       caps = this.gamePlay.captured
       this.hexStatus[color].set(hex, { found: true, sui, caps })
     }
-    if (!!caps) this.markViewCaptured(caps)
     if (!!sui) return nonTarget(hex)
+    if (!!caps) this.markViewCaptured(caps)
     if (!!shift) {
       nonTarget(hex)
       this.hexMap.showMark(hex)  // just showMark(hex)
