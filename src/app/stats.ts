@@ -139,9 +139,9 @@ export class TableStats extends MapStats {
     if (this.gameOver(board, win)) {
       let plyr = this.gamePlay.curPlayer, pc = plyr.color, pStats = plyr.stats
       let op = this.gamePlay.nextPlayer, opc = op.color, opStats = op.stats
-      if (!!win) return this.showWin(board, win, "WINS")
+      if (!!win) return this.showWin(board, win, `WINS! ${opc} loses`)
       if (board.resigned) return this.showWin(board, pc, `WINS: ${opc} RESIGNS`)
-      if (board.repCount == 3) return this.showWin(board, pc, `makes STALEMATE: ns(${pStats.nStones}-${opStats.nStones})`)
+      if (board.repCount == 3) return this.showWin(board, pc, `-- ${opc} STALEMATE: ns(${pStats.nStones} -- ${opStats.nStones})`)
     }
     return win
   }

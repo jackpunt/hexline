@@ -7,16 +7,21 @@ import { TableStats, StatsPanel } from "./stats";
 import { TP, StoneColor, stoneColors, otherColor, stoneColor0, stoneColor1 } from "./table-params";
 
 type XYWH = {x: number, y: number, w: number, h: number} // like a Rectangle
+type HEX_STATUS = { found: boolean, sui: boolean, caps: Hex[] }
 const S_stagemousemove = 'stagemousemove'
 export class Stone extends Shape {
   static radius: number = TP.hexRad
   static height: number = Stone.radius*Math.sqrt(3)/2
+  get radius() { return Stone.height -1 }
   color: StoneColor;
   /** put new Stone of color on cont at location of hex */
-  constructor(color: StoneColor, radius: number = Stone.height) {
+  constructor(color: StoneColor) {
     super()
     this.color = color
-    this.graphics.beginFill(color).drawCircle(0, 0, radius-1)
+    this.graphics.beginFill(color).drawCircle(0, 0, this.radius)
+  }
+  paint(color = this.color) {
+    this.graphics.beginFill(color).drawCircle(0, 0, this.radius)
   }
 }
 /** layout display components, setup callbacks to GamePlay */
@@ -27,11 +32,7 @@ export class Table extends EventDispatcher  {
   stage: Stage;
   scaleCont: Container
   hexMap: HexMap = new HexMap()
-  roundNumber: number = 0;
-  dropStone: Stone   // set when player drops Stone to indicate a Move
-  //resignMap: HexMap = new HexMap(50) // resignMap
-  //resignHex: Hex = new Hex("grey", Stone.radius, this.resignMap).setName(S_Resign)
-  nextHex: Hex = new Hex("grey", Stone.radius, undefined).setName('nextHex')
+  nextHex: Hex = new Hex("grey", Stone.radius, undefined).setName('nextHex') // no hexMap.
   undoCont: Container = new Container()
   undoShape: Shape = new Shape();
   skipShape: Shape = new Shape();
@@ -177,14 +178,6 @@ export class Table extends EventDispatcher  {
     this.putButtonOnPlayer(curPlayer);
     return curPlayer
   }
-  endCurPlayer() {
-    if (!!this.dropStone) {
-      this.dragger.stopDragable(this.dropStone) // whereever it landed
-      delete this.dropStone 
-    }
-    this.clearStone(this.nextHex)
-    this.hexMap.update()
-  }
   putButtonOnPlayer(player: Player) {
     let stone = new Stone(player.color)
     this.gamePlay.setStone(this.nextHex, stone) // new Stone for Player
@@ -193,13 +186,13 @@ export class Table extends EventDispatcher  {
     this.hexMap.update()
     player.makeMove(stone) // provoke to robo-player: respond with addStoneEvent;
   }
-  /** set hex.stone & addChild,  */
-  setStone(stone: Stone, hex: Hex = this.nextHex) {
-    let cont: Container = (hex.map || this.hexMap).stoneCont
+  /** after hex.setStone(stone): addChild(stone)  */
+  setStone(stone: Stone, hex: Hex) {
+    let cont: Container = (hex.map || this.hexMap).stoneCont // nextHex has no map...
     hex.parent.localToLocal(hex.x, hex.y, cont, stone)
     cont.addChild(stone)
   }
-  /** clear hex.stone & removeChild */
+  /** before hex.clearStone(): removeChild(stone) */
   clearStone(hex: Hex): Stone {
     let stone = hex.stone   // invoke before hex.clearStone()
     if (!!stone) {
@@ -213,56 +206,84 @@ export class Table extends EventDispatcher  {
   }
   _dropTarget: Hex;
   get dropTarget() { return this._dropTarget}
-  set dropTarget(hex: Hex) { this._dropTarget = hex; this.hexMap.showMark(hex)}
-  isSuicide: Hex[]
-  maybeSuicide: Hex[];
+  set dropTarget(hex: Hex) { hex = (hex || this.nextHex); this._dropTarget = hex; this.hexMap.showMark(hex)}
+
   viewCaptured: Hex[] = []
+  /** display captured mark on previoulsy captured Hex(s) */
+  markViewCaptured(captured: Hex[]) {
+    this.viewCaptured = captured
+    this.viewCaptured.forEach(hex => hex.markCapture(true))
+  }
+  /** remove captured mark from previously captured Hex(s) */
   unmarkViewCaptured() { 
     this.viewCaptured.forEach(hex => hex.unmarkCapture(true))
     this.viewCaptured = []
   }
-  nonTarget: Hex // OR: Set<hex> OR: Map<hex,info>
-  dragFunc(stone: Stone, ctx: DragInfo): Hex | void {
-    const nonTarget = (hex) => { this.dropTarget = this.nextHex; this.nonTarget = hex; }
-    if (stone.color !== this.gamePlay.curPlayer.color) return // can't happen in hexline...
+  dragShift = false // last shift state in dragFunc
+  dragHex: Hex = undefined // last hex in dragFunc
+  isDragging() { return !!this.dragHex }
+
+  hexStatus: { stoneColor0?: Map<Hex, HEX_STATUS>, stoneColor1?: Map<Hex, HEX_STATUS> }
+  getHexStatus(hex: Hex, color: StoneColor) {
+    let status = this.hexStatus[color].get(hex)
+    return status ? { found: true, sui: status.sui, caps: status.caps } : { found: false }
+  }
+  
+  dragFunc(stone: Stone, ctx: DragInfo): void {
+    const hex = this.hexUnderObj(stone)
+    const shift = ctx.event.nativeEvent.shiftKey
+    const color = shift ? otherColor(stone.color) : stone.color
+    const nonTarget = (hex: Hex) => { this.dropTarget = this.nextHex }
     if (ctx.first) {
-      // stone.parent == hexMap.stoneCont (putButtonOnPlayer & nextStone)
-      nonTarget(undefined)
-      const opc = otherColor(this.gamePlay.curPlayer.color)
-      this.isSuicide = []
-      this.maybeSuicide = this.hexMap.filterEachHex(hex => hex.isAttack(opc))
-      //console.log(stime(this, `.dragStart:${stone.color}`), this.maybeSuicide.map(h => h.Aname))
+      this.dragShift = shift
+      this.dropTarget = this.nextHex
+      this.dragHex = this.nextHex   // indicate DRAG in progress
+      this.hexStatus = { }
+      this.hexStatus[stoneColor0] = new Map<Hex, HEX_STATUS>()
+      this.hexStatus[stoneColor1] = new Map<Hex, HEX_STATUS>()
+    }
+    if (!hex) return
+    if (shift == this.dragShift && hex == this.dragHex) return    // nothing new
+    if (shift != this.dragShift) stone.paint(shift ? color : undefined) // otherColor or orig color
+    this.dragShift = shift
+    this.dragHex = hex
+    this.unmarkViewCaptured() // a new Hex/target, remove prior capture marks
+    if (hex == this.nextHex) return nonTarget(hex) //???
+    if (!!hex.stone && hex != this.nextHex) return nonTarget(hex) // occupied
+    if (!!hex.capMark && !shift) return nonTarget(hex) // was captured last turn
+    // let move0 = this.gamePlay.history[0]
+    // if (!shift && move0 && move0.captured.includes(hex)) return nonTarget(hex) // was captured last turn
+
+    let { found, sui, caps } = this.getHexStatus(hex, color)
+    if (!found) {
+      sui = this.gamePlay.isSuicide(hex, color) // set captured and undoCapture
+      caps = this.gamePlay.captured
+      this.hexStatus[color].set(hex, { found: true, sui, caps })
+    }
+    if (!!caps) this.markViewCaptured(caps)
+    if (!!sui) return nonTarget(hex)
+    if (!!shift) {
+      nonTarget(hex)
+      this.hexMap.showMark(hex)  // just showMark(hex)
     } else {
-      const hex = this.hexUnderObj(stone)
-      if (!hex) return
-      if (hex === this.dropTarget) return // already evaluated: OK target
-      if (hex === this.nonTarget) return // already evaluated: Non-target OR this.nonTarget.includes(hex)
-      this.unmarkViewCaptured()
-      // gamePlay.allowDrop(hex)
-      if (!!hex.capMark) return nonTarget(hex)
-      if (!!hex.stone && hex != this.nextHex) return nonTarget(hex)
-      if (this.isSuicide.includes(hex)) return nonTarget(hex)
-      let isSui = this.gamePlay.isSuicide(hex, stone.color) // capture and undoCapture
-      if (this.maybeSuicide.includes(hex) && isSui) {
-        this.isSuicide.push(hex)
-        return nonTarget(hex)
-      } else this.maybeSuicide = this.maybeSuicide.filter(h => h !== hex)
-      this.viewCaptured = this.gamePlay.captured
-      this.viewCaptured.forEach(hex => hex.markCapture(true))
-      // isTarget(hex)
-      this.dropTarget = hex // hex.parent == hexMap.hexCont
-      this.nonTarget = null
+      this.dropTarget = hex  // dropTarget & showMark(hex)
     }
   }
+
   dropFunc(stone: Stone, ctx: DragInfo) {
     // stone.parent == hexMap.stoneCont
-    this.dropStone = stone
-    let mark = this.hexMap.mark
-    stone.x = mark.x
-    stone.y = mark.y
-    if (this.dropTarget === undefined || this.dropTarget === this.nextHex) return
-    this.nextHex.stone = undefined
-    this.dispatchEvent(new HexEvent(S.add, this.dropTarget, stone))
+    this.dragHex = undefined       // indicate NO DRAG in progress
+    this.unmarkViewCaptured()      // before doPlayerMove() sets them for real
+    stone.paint()
+    let target = this.dropTarget 
+    stone.x = target.x
+    stone.y = target.y
+    if (target === this.nextHex) return
+    this.dragger.stopDragable(stone)
+    this.clearStone(this.nextHex)
+    this.nextHex.stone = undefined // short version of: nextHex.setStone(undefined)
+
+    this.dispatchEvent(new HexEvent(S.add, target, stone)) // gamePlay.doPlayerMove()
   }
   // meta-n: 1:1, 2:7, 3:19, 4:37
   

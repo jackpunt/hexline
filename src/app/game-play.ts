@@ -49,12 +49,14 @@ export class GamePlay0 {
   forEachPlayer(f: (p:Player, index?: number, players?: Player[]) => void) {
     this.allPlayers.forEach((p, index, players) => f(p, index, players));
   }
-  setNextPlayer(ndx = this.nextPlayerIndex, endCurPlayer: () => void = () => {}): Player {
-    if (ndx != this.curPlayerNdx) endCurPlayer()
+  setNextPlayer(ndx = this.nextPlayerIndex): Player {
+    if (ndx != this.curPlayerNdx) this.endCurPlayer() // clean up nextHex on undo/skip/redo...
     this.turnNumber += 1
     this.curPlayerNdx = ndx;
     return this.curPlayer = this.allPlayers[ndx]
   }
+  endCurPlayer() {}
+
   undoRecs: Undo = new Undo();
   addUndoRec(obj: Object, name: string, value: any | Function = obj[name]) { 
     this.undoRecs.addUndoRec(obj, name, value); 
@@ -63,26 +65,25 @@ export class GamePlay0 {
     this.undoRecs.pop(); // replace Stones, remove capMarks
   }
   undoMove(undoTurn: boolean = true) {
-    let move0: Move = this.history.shift() // remove last Move
-    if (!!move0) {
-      this.redoMoves.unshift(move0) // redoMoves[0] == move0
+    let move: Move = this.history.shift() // remove last Move
+    if (!!move) {
+      this.redoMoves.unshift(move)  // redoMoves[0] == move0
       this.undoStones()             // remove last Stone, replace captures
-      this.undoCapture(move0.captured)
+      this.undoCapture(move.captured)
       if (undoTurn) {
-        this.turnNumber -= 2 // will immediately increment to tn-1
+        this.turnNumber -= 2        // will immediately increment to tn+1
         this.setNextPlayer()
       }
-      //this.hexMap.showMark(move0.hex)
-      let move = this.history[0]  // the new, latest 'move'
-      if (!!move) {
-        move.board.setRepCount(this.history) // undo: decrement repCount; because: shift()
-        this.bStats.update(move.board)
-        //this.hexMap.update()
+      let move0 = this.history[0]  // the new, latest 'move'
+      if (!!move0) {
+        move0.board.setRepCount(this.history) // undo: decrement repCount; because: shift()
+        this.bStats.update(move0.board)
       }
     }
   }
   undoCapture(captured: Hex[ ]) { }
   doPlayerSkip() {  }  // TODO: put something on history?
+  doPlayerResign() { } // TODO: ??
 
   setStone(hex: Hex, stone: Stone) {
     hex.setStone(stone)
@@ -109,7 +110,7 @@ export class GamePlay0 {
       this.addUndoRec(this, `undoRemove(${hex.Aname}:${stone.color})`, () => this.addStone(hex, stone)) // undoRemove
     }
   }
-    
+
   /** remove captured Stones, from placing Stone on Hex */
   doPlayerMove(hex: Hex, stone: Stone) {
     this.curHex = hex;
@@ -118,6 +119,8 @@ export class GamePlay0 {
     this.history.unshift(move) // record Move in History
     if (hex == this.hexMap.skipHex) {
       this.doPlayerSkip()
+    } else if (hex == this.hexMap.resignHex) {
+      this.doPlayerResign() // addBoard will detect
     } else {
       this.captured = []
       this.addStone(hex, stone) // add Stone and Capture (& removeStone) w/addUndoRec
@@ -233,7 +236,6 @@ export class GamePlay0 {
   }
   captureStone(nhex: Hex) {
     this.captured.push(nhex)
-    nhex.markCapture()
     this.removeStone(nhex)
   }
   get lastCaptured(): Hex[] {
@@ -283,10 +285,12 @@ export class GamePlay extends GamePlay0 {
   }
 
   override undoMove(undoTurn: boolean = true) {
+    if (!!this.table.isDragging()) return // drop the stone before using key
     super.undoMove(undoTurn)
     this.showRedoMark()
   }
   redoMove() {
+    if (!!this.table.isDragging()) return // drop the stone before using key
     let move = this.redoMoves.shift()
     if (!move) return
     move.captured = []
@@ -337,16 +341,20 @@ export class GamePlay extends GamePlay0 {
     super.removeStone(hex)
     this.hexMap.update()
   }
+  override captureStone(nhex: Hex): void {
+    super.captureStone(nhex)
+    nhex.markCapture()
+  }
   unmarkOldCaptures() {
     if (this.history[0]) this.history[0].captured.forEach(hex => hex.unmarkCapture())
   }
 
   skipMove() {
-    this.table.endCurPlayer() // or does doPlayerSkip() -> table.clearStone(hex) suffice?
+    if (!!this.table.isDragging()) return // drop the stone before using key
     this.doPlayerMove(this.hexMap.skipHex, this.table.nextHex.stone) // dummy move for history & redos
   }
   resignMove() {
-    this.table.endCurPlayer()
+    if (!!this.table.isDragging()) return // drop the stone before using key
     this.doPlayerMove(this.hexMap.resignHex, this.table.nextHex.stone) // move Stone to table.resignHex
   }
   override doPlayerSkip() {
@@ -355,18 +363,22 @@ export class GamePlay extends GamePlay0 {
   }
   /** remove captured Stones, from placing Stone on Hex */
   override doPlayerMove(hex: Hex, stone: Stone) {
-    this.unmarkOldCaptures()
-    this.table.unmarkViewCaptured()
-
-     super.doPlayerMove(hex, stone)
-    // this.setNextPlayer()
+    this.unmarkOldCaptures()       // this player no longer constrained?
+    super.doPlayerMove(hex, stone) // skipAndSet -> captureStone -> mark new Captures
     this.hexMap.update()
   }
   override setNextPlayer(ndx?: number): Player {
-    super.setNextPlayer(ndx, () => this.table.endCurPlayer())
+    super.setNextPlayer(ndx)
+    this.hexMap.update()
     return this.table.setNextPlayer(ndx)
   }
-
+  override endCurPlayer(): void {
+    let stone: Stone = this.table.nextHex.stone
+    if (!!stone) {
+      stone.parent.removeChild(stone)
+      this.hexMap.update()
+    }
+  }
 
   /**
    * called from dragFunc, before a Move.
@@ -414,13 +426,12 @@ export class Move {
   Aname: string
   hex: Hex // where to place stone
   stone: Stone
-  captured: Hex[];
+  captured: Hex[] = [];
   board: Board
   constructor(hex: Hex, stone: Stone) {
     this.hex = hex
     this.stone = stone
     this.Aname = this.toString() // for debugger..
-    this.captured = []
   }
   toString(): string {
     let name = this.hex.Aname // Hex@[r,c] OR Hex@Skip OR hex@Resign
@@ -487,7 +498,7 @@ export class Board {
    */
   constructor(nextPlayerIndex: number, move: Move, hexMap: HexMap) {
     this.nextPlayerIndex = nextPlayerIndex
-    this.resigned = (move.hex.Aname == S_Resign) ? move.stone.color : undefined // keyboard: 'k'
+    this.resigned = (move.hex.Aname == S_Resign) ? move.stone.color : undefined // keyboard: 'M-K'
     this.id = this.cString(nextPlayerIndex, move.captured)
     this.hexStones = [].concat(hexMap.allStones)
     let nCol = hexMap.nCol

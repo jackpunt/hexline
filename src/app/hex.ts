@@ -103,7 +103,7 @@ export class Hex extends Container {
   }
   setStone(stone: Stone) {
     this.stone = stone
-    this.map && this.map.allStones.push({Aname: this.Aname, hex: this, color: stone.color})
+    !!stone && this.map && this.map.allStones.push({Aname: this.Aname, hex: this, color: stone.color})
   }
   clearStone(): Stone {
     let stone = this.stone
@@ -125,7 +125,6 @@ export class Hex extends Container {
 
     this.setNoInf(false) // assert: no infMarks to del/removeChild
     this.setHexColor(color)
-    //if (!!xy) { this.x = xy.x; this.y = xy.y }
 
     if (row === undefined || col === undefined) return
     this.x += col * w + Math.abs(row % 2) * w/2
@@ -136,8 +135,8 @@ export class Hex extends Container {
 
     let rc = `${row},${col}`
     this.Aname = this.hexShape.name = `Hex@[${rc}]`
-    let rct = this.rcText = new Text(rc, F.fontSpec(26)); 
-    rct.textAlign = 'center'; rct.y = -15
+    let rct = this.rcText = new Text(rc, F.fontSpec(26)); // radius/2 ?
+    rct.textAlign = 'center'; rct.y = -15 // based on fontSize? & radius
     this.addChild(rct)
 
     this.distText = new Text(``, F.fontSpec(20)); 
@@ -276,11 +275,11 @@ export class HexMap extends Array<Array<Hex>> {
     this.width = radius * 1.5
     CapMark.capSize = this.width/2
     this.mark = new Shape();
+    this.mark.graphics.beginFill(C.markColor).drawPolyStar(0, 0, radius, 6, 0, 30)
     this.skipHex = new Hex(C.BROWN, TP.hexRad, this)
     this.skipHex.Aname = S_Skip
     this.resignHex = new Hex(C.BROWN, TP.hexRad, this)
     this.resignHex.Aname = S_Resign
-    this.mark.graphics.beginFill(C.markColor).drawPolyStar(0, 0, radius, 6, 0, 30)
     if (!!mapCont) this.addToCont(mapCont)
   }
   addToCont(mapCont: Container): this {
