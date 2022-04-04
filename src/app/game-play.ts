@@ -374,7 +374,7 @@ export class GamePlay extends GamePlay0 {
   }
   override endCurPlayer(): void {
     let stone: Stone = this.table.nextHex.stone
-    if (!!stone) {
+    if (!!stone && !!stone.parent) {
       stone.parent.removeChild(stone)
       this.hexMap.update()
     }
