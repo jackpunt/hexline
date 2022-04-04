@@ -42,10 +42,8 @@ export class Table extends EventDispatcher  {
 
   dragger: Dragger
 
-  constructor(gamePlay: GamePlay, stage: Stage) {
+  constructor(stage: Stage) {
     super();
-    this.gamePlay = gamePlay
-    this.hexMap = gamePlay.hexMap
 
     stage['table'] = this // backpointer so Containers can find their Table (& curMark)
     this.stage = stage
@@ -119,7 +117,10 @@ export class Table extends EventDispatcher  {
     parent.addChild(cont)
   }
 
-  layoutTable() {
+  layoutTable(gamePlay: GamePlay) {
+    this.gamePlay = gamePlay
+    this.hexMap = gamePlay.hexMap
+
     let mapCont = new Container();
     mapCont[S.Aname] = "mapCont"
     this.scaleCont.addChild(mapCont)

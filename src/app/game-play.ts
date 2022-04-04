@@ -2,7 +2,7 @@ import { HexDir, HexAxis, H, InfDir } from "./hex-intfs";
 import { Hex, HexMap, S_Resign, S_Skip } from "./hex";
 import { HexEvent } from "./hex-event";
 import { S, stime, Undo, KeyBinder } from "@thegraid/createjs-lib";
-import { PlayerStats, TableStats } from "./stats";
+import { GameStats, PlayerStats, TableStats } from "./stats";
 import { Stone, Table } from "./table";
 import { otherColor, StoneColor, stoneColor0, stoneColors, TP} from "./table-params"
 
@@ -20,10 +20,11 @@ export class GamePlay0 {
   
   history: Move[] = []          // sequence of Move that bring board to its state
   redoMoves: Move[] = []
-  gStats: TableStats
+  gStats: GameStats
   allPlayers: Player[] = [];
   turnNumber: number = 0
   get roundNumber() {return Math.floor((this.turnNumber - 1) / this.allPlayers.length) + 1 }
+
   constructor() {
     this.makeAllPlayers()
     this.undoRecs.enableUndo()
@@ -43,7 +44,7 @@ export class GamePlay0 {
     this.allPlayers = []
     this.allPlayers[0] = new Player(0, stoneColors[0])
     this.allPlayers[1] = new Player(1, stoneColors[1])
-    this.gStats = new TableStats(this) // AFTER allPlayers are defined so can set pStats
+    this.gStats = new GameStats(this.hexMap, this.allPlayers) // AFTER allPlayers are defined so can set pStats
   }
   otherPlayer(plyr: Player) { return plyr == this.allPlayers[0] ? this.allPlayers[0] : this.allPlayers[1]}
   forEachPlayer(f: (p:Player, index?: number, players?: Player[]) => void) {
@@ -245,13 +246,12 @@ export class GamePlay0 {
 /** implement the game logic */
 export class GamePlay extends GamePlay0 {
   table: Table
-
-  constructor() {
+  override gStats: TableStats
+  constructor(table: Table) {
     super()
-  }
-  setTable(table: Table) {
+    // setTable(table)
     this.table = table
-    this.gStats.setTable(table)
+    this.gStats = new TableStats(this, table) // AFTER allPlayers are defined so can set pStats
     KeyBinder.keyBinder.setKey('M-z', {thisArg: this, func: this.undoMove})
     KeyBinder.keyBinder.setKey('q', {thisArg: this, func: this.undoMove})
     KeyBinder.keyBinder.setKey('r', {thisArg: this, func: this.redoMove})

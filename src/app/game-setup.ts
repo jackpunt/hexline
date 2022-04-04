@@ -32,11 +32,10 @@ export class GameSetup {
    * @param ext Extensions from URL
    */
   startup(gs: GameSetup = this, ext: string[] = []) {
-    let gamePlay = new GamePlay() // hexMap, players, pStats, 
-    let table = new Table(gamePlay, this.stage)
-    gamePlay.setTable(table)
+    let table = new Table(this.stage) // EventDispatcher, ScaleCont
+    let gamePlay = new GamePlay(table) // hexMap, players, gStats, mouse/keyboard->GamePlay
 
-    table.layoutTable()
+    table.layoutTable(gamePlay)           // mutual injection, all the GUI components
     table.statsPanel = this.makeStatsPanel(gamePlay.gStats, table.scaleCont, -300, 50)
     this.makeParamGUI(table.scaleCont)
   }
