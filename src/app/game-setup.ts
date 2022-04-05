@@ -35,12 +35,12 @@ export class GameSetup {
     let table = new Table(this.stage) // EventDispatcher, ScaleCont
     let gamePlay = new GamePlay(table) // hexMap, players, gStats, mouse/keyboard->GamePlay
 
-    table.layoutTable(gamePlay)           // mutual injection, all the GUI components
+    table.layoutTable(gamePlay)           // mutual injection, all the GUI components, fill hexMap
     table.statsPanel = this.makeStatsPanel(gamePlay.gStats, table.scaleCont, -300, 50)
-    this.makeParamGUI(table.scaleCont)
+    this.makeParamGUI(table.scaleCont, -300, 370) // modify TP.params...
   }
   makeStatsPanel(gStats: TableStats, parent: Container, x, y): StatsPanel {
-    let panel = new StatsPanel(gStats)
+    let panel = new StatsPanel(gStats) // a ReadOnly ParamGUI reading gStats [& pstat(color)]
     let specs: ParamSpec[] = [], sp = "                    "
     let spec = (fieldName: string) => { return specs.find(s => s.fieldName == fieldName) }
     specs.push(this.makeParamSpec("nStones", [sp]))
@@ -49,6 +49,7 @@ export class GameSetup {
     specs.push(this.makeParamSpec("nThreats", [sp]))
     specs.push(this.makeParamSpec("dMax", [sp]))
     specs.push(this.makeParamSpec("score", [sp]))
+    specs.push(this.makeParamSpec("Sum", [sp]))
     //specs.push(this.makeParamSpec("dStones", []))
     //specs.push(this.makeParamSpec("dMinControl", []))
     spec("score").onChange = (item: ParamItem) => {
@@ -63,7 +64,7 @@ export class GameSetup {
     panel.stage.update()
     return panel
   }
-  makeParamGUI(parent: Container): ParamGUI {
+  makeParamGUI(parent: Container, x, y): ParamGUI {
     let gui = new ParamGUI(TP), enable = false
     let specs: ParamSpec[] = []
     let spec = (fieldName: string) => { return specs.find(s => s.fieldName == fieldName) }
@@ -82,8 +83,8 @@ export class GameSetup {
     }
     
     parent.addChild(gui)
-    gui.x = -300 // (3*cw+1*ch+6*m) + max(line.width) - (max(choser.width) + 20)
-    gui.y = 350
+    gui.x = x // (3*cw+1*ch+6*m) + max(line.width) - (max(choser.width) + 20)
+    gui.y = y
     gui.makeLines(specs)
     gui.stage.update()
     enable = true // *after makeLines has stablilized selectValue
@@ -91,7 +92,7 @@ export class GameSetup {
   }
   makeParamSpec(fieldName: string, ary: any[], opts: ParamOpts = { fontSize: 32, fontColor: C.black }): ParamSpec {
     let { fontSize, fontColor, onChange } = opts
-    let choices = this.makeChoiceItems(fieldName, ary)
+    let choices = this.makeChoiceItems(fieldName, ary) // [{text, fieldname, value}]
     let style = Obj.fromEntriesOf(DropdownButton.defaultStyle)
     style.rootColor = "rgba(160,160,160,.5)"
     style.arrowColor = "grey"

@@ -7,6 +7,7 @@ import { Stone, Table } from "./table";
 import { otherColor, StoneColor, stoneColor0, stoneColor1, stoneColors, TP } from "./table-params";
 import { C, F, ParamGUI, ParamItem, ParamLine, ParamType, ValueCounter } from "@thegraid/createjs-lib";
 import { Text } from "createjs-module";
+import { Planner } from "./robo-player";
 
 export class PlayerStats {
   gStats: GameStats;
@@ -28,6 +29,9 @@ export class PlayerStats {
 
   constructor(plyr: Player, gStats: GameStats) {
     this.gStats = gStats
+    let nDist = gStats.hexMap.nDistricts
+    this.dStones = Array(nDist).fill(0, 0, nDist)
+    this.dMinControl = Array(nDist).fill(false, 0, nDist)
     plyr.stats = this
     this.plyr = plyr
     this.op = plyr.otherPlayer
@@ -103,6 +107,12 @@ export class TableStats extends GameStats {
   table: Table         // presence indicates a GUI environment: showControl, showBoardRep
   gamePlay: GamePlay0  // provides hexMap & allPlayers[]
   boardRep: Text
+  planner: Planner
+
+  Sum(color: StoneColor): number {
+    let pNdx = this.allPlayers.findIndex(plyr => plyr.color === color)
+    return !!this.planner ? this.planner.getSummaryStat(this, pNdx) : -1
+  }
   // turn?
   constructor(gamePlay: GamePlay0, table: Table) {
     super(gamePlay.hexMap, gamePlay.allPlayers)
@@ -129,11 +139,9 @@ export class TableStats extends GameStats {
   }
   /** update all the stats */
   override update(board: Board): StoneColor {
+    if (!this.planner) this.planner = new Planner(this.gamePlay)
     const win = super.update(board)
     this.showBoardRep(board.repCount)
-    // TODO: detect stalemate: (a) board.repCount == 3 [cycle|multiple-skipMove]
-    // Stalemate Winner: most Disricts & fewest[!?] Stones.
-    // TODO: resign
     if (!!this.table) {
       this.table.statsPanel.update()
       this.showControl(this.table)
@@ -172,6 +180,7 @@ export class TableStats extends GameStats {
 /**
   dStones: number[] = Array(7);       // per-district
   dMinControl: boolean[] = Array(7);  // per-district true if minControl of district
+  dMax: number                        // max dStones in non-central district
   nStones: number = 0;   // total on board
   nInf: number = 0;      // (= nStones*6 - edge effects - E/W-underlap)
   nThreats: number = 0;  // (Hex w/ inf && [op].stone)
@@ -179,17 +188,19 @@ export class TableStats extends GameStats {
   inControl(d: StoneColor)  { return this.gStats.inControl[this.plyr.color][d]; }
 
  */
+
+/** A "read-only" version of ParamGUI, to display value of target[fieldName] */
 export class StatsPanel extends ParamGUI {
 
   gStats: TableStats
-  bFields = ['score', ] //
+  bFields = ['score', 'Sum'] //
   pFields = ['nStones', 'nInf', 'nThreats', 'nAttacks', 'dMax'] // 'dStones', 'dMinControl', 
   constructor(gStats: TableStats) {
-    super(gStats)    // but StatsPanel doesn't use the.setValue() 
+    super(gStats)    // but StatsPanel.setValue() does nothing
     this.gStats = gStats
   }
   targetValue(target: object, fieldName: string, color: StoneColor) {
-    let value = target[fieldName] as (color: StoneColor)=>any | Array<number>
+    let value = target[fieldName] as (color: StoneColor) => any | Array<StoneColor>
     if (typeof(value) === "function") {
       return value.call(target, color)
     } else {
@@ -200,24 +211,27 @@ export class StatsPanel extends ParamGUI {
     let fieldName = line.spec.fieldName
     let lineValue = "?"
     let target = this.pFields.includes(fieldName) ? this.gStats.pStats : this.gStats
-    let v0 = this.targetValue(target, fieldName, stoneColor0)
-    let v1 = this.targetValue(target, fieldName, stoneColor1)
-    let { width: w0, height: h0, text: t0 } = ValueCounter.ovalSize(v0)
-    let { width: w1, height: h1, text: t1 } = ValueCounter.ovalSize(v1)
-    lineValue = `${t0.text} --  ${t1.text}   `
+    let v0 = this.targetValue(target, fieldName, stoneColor0).toFixed(0)
+    let v1 = this.targetValue(target, fieldName, stoneColor1).toFixed(0)
+    lineValue = `${v0} --  ${v1}   `
 
     line.chooser._rootButton.text.text = lineValue
   }
-  /** suitable entry-point for eval_params: (fieldName, value) */
+  /** when a new value is selected, push it back into the target object */
   // Note: return value is never used!
   override selectValue(fieldName: string, value?: ParamType, line?: ParamLine): ParamItem | undefined {
     line = line || this.findLine(fieldName)
     if (!line) return null
-    let item = line.spec.choices.find(item => (item.fieldName === fieldName))
+    // instead of chooser.select(item), invoke setValueText(line)
     this.setValueText(line)
+    // invoke onChanged() for those which have supplied one.
+    let item = line.spec.choices.find(item => (item.fieldName === fieldName))
     line.chooser.changed(item)
-    return undefined
+    return item
   }
+  /** read-only... do nothing, unless spec.onChange(...) */
+  override setValue(item: ParamItem): void {  }
+
   update() {
     this.pFields.forEach(fieldName => this.selectValue(fieldName))
     this.bFields.forEach(fieldName => this.selectValue(fieldName))

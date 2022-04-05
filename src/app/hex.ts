@@ -264,6 +264,9 @@ export class HexMap extends Array<Array<Hex>> {
   allStones: HSC[] = []                    // aka hexStones in Board
   skipHex: Hex;
   resignHex: Hex;
+  distSize: number;      // nh: number of hex sides for each district (1--6)
+  metaSize: number;      // mh: MetaHex order (2 or 3)
+  nDistricts: number;    // number of districts = ftHexes(metaSize)
 
   // A color for each District:
   distColor = ["lightgrey","limegreen","deepskyblue","rgb(255,165,0)","violet","rgb(250,80,80)","yellow"]
@@ -406,6 +409,10 @@ export class HexMap extends Array<Array<Hex>> {
    * @param nh size of meta-hex (1..6)
    */
   makeAllDistricts(mh: number, nh: number) {
+    this.metaSize = mh
+    this.distSize = nh
+    this.nDistricts = TP.ftHexes(mh) // 7 or 19
+
     let hexMap = this
     let mrc: RC = { col: Math.ceil(mh / 2), row: 2 }, district = 0
     let dirs: HexDir[] = ['NE', 'SE', 'S', 'SW', 'NW', 'N',] // N-S aligned!

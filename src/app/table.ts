@@ -155,7 +155,7 @@ export class Table extends EventDispatcher  {
     this.hexMap.hexCont.cache(p00.x, p00.y, pbr.x-p00.x, pbr.y-p00.y) // cache hexCont (bounded by bgr)
 
     this.gamePlay.setNextPlayer(0)   // make a placeable Stone for Player[0]
-    this.makeMiniMap(this.scaleCont, -(200+TP.mHexes*TP.hexRad), 500+100*TP.mHexes)
+    this.makeMiniMap(this.scaleCont, -(200+TP.mHexes*TP.hexRad), 550+100*TP.mHexes)
 
     this.on(S.add, this.gamePlay.addStoneEvent, this.gamePlay)[S.Aname] = "addStone"
     this.on(S.remove, this.gamePlay.removeStoneEvent, this.gamePlay)[S.Aname] = "removeStone"
