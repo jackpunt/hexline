@@ -232,7 +232,7 @@ export class Table extends EventDispatcher  {
   
   dragFunc(stone: Stone, ctx: DragInfo): void {
     const hex = this.hexUnderObj(stone)
-    const shift = ctx.event.nativeEvent.shiftKey
+    const shift = ctx.event.nativeEvent ? ctx.event.nativeEvent.shiftKey : false
     const color = shift ? otherColor(stone.color) : stone.color
     const nonTarget = (hex: Hex) => { this.dropTarget = this.nextHex }
     if (ctx.first) {
@@ -312,9 +312,15 @@ export class Table extends EventDispatcher  {
     }
     if (bindKeys) {
       this.bindKeysToScale("a", scaleC, 800, 10)
+      KeyBinder.keyBinder.setKey(' ', {thisArg: this, func: this.dragStone})
     }
     return scaleC
   }
+  /** attach nextHex.stone to mouse-drag */
+  dragStone() {
+    this.dragger.dragTarget(this.nextHex.stone, {x: TP.hexRad/2, y: TP.hexRad/2})
+  }
+
   setBackground(scaleC: Container, bounds: XYWH, bgColor: string = TP.bgColor) {
     if (!!bgColor) {
       // specify an Area that is Dragable (mouse won't hit "empty" space)
