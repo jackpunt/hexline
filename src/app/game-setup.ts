@@ -49,7 +49,7 @@ export class GameSetup {
     specs.push(this.makeParamSpec("nThreats", [sp]))
     specs.push(this.makeParamSpec("dMax", [sp]))
     specs.push(this.makeParamSpec("score", [sp]))
-    specs.push(this.makeParamSpec("Sum", [sp]))
+    specs.push(this.makeParamSpec("sStat", [sp]))
     //specs.push(this.makeParamSpec("dStones", []))
     //specs.push(this.makeParamSpec("dMinControl", []))
     spec("score").onChange = (item: ParamItem) => {

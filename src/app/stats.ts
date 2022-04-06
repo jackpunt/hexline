@@ -108,8 +108,9 @@ export class TableStats extends GameStats {
   gamePlay: GamePlay0  // provides hexMap & allPlayers[]
   boardRep: Text
   planner: Planner
+  dStonesText: Text[] = []
 
-  Sum(color: StoneColor): number {
+  sStat(color: StoneColor): number {
     let pNdx = this.allPlayers.findIndex(plyr => plyr.color === color)
     return !!this.planner ? this.planner.getSummaryStat(this, pNdx) : -1
   }
@@ -117,7 +118,7 @@ export class TableStats extends GameStats {
   constructor(gamePlay: GamePlay0, table: Table) {
     super(gamePlay.hexMap, gamePlay.allPlayers)
     this.gamePlay = gamePlay
-    this.table = table
+    this.setTable(table)
     this.zeroCounters()
   }
   setTable(table: Table) {
@@ -174,7 +175,39 @@ export class TableStats extends GameStats {
         hex.setStone(stone)
         table.setStone(stone, hex) // on mini-map
       }
+      this.showDSText(hex)
     })
+  }
+  setupDSText(table: Table) {
+    // setup dStoneText:
+    let nd = table.gamePlay.hexMap.nDistricts
+    for (let district = 0; district< nd; district++){
+      let dsText = new Text(``, F.fontSpec(26)); // radius/2 ?
+      dsText.textAlign = 'center';
+      dsText.color = C.WHITE
+      dsText.rotation = -table.miniMap.hexCont.parent.rotation
+      this.dStonesText[district] = dsText
+    }
+  }
+  getDSText(hex: Hex) {
+    let district = hex.district, dsText = this.dStonesText[district]
+    if (!dsText) {
+      dsText = new Text(``, F.fontSpec(26)); // radius/2 ?
+      dsText.textAlign = 'center';
+      dsText.color = C.WHITE
+      dsText.rotation = - hex.map.hexCont.parent.rotation
+      this.dStonesText[district] = dsText
+    }
+    return dsText
+  }
+  showDSText(hex: Hex) {
+    let district = hex.district
+    let n0 = this.pStat(stoneColor0).dStones[district]
+    let n1 = this.pStat(stoneColor1).dStones[district]
+    let dsText = this.getDSText(hex)
+    hex.map.infCont.addChild(dsText)
+    hex.localToLocal(7, -10, hex.map.infCont, dsText) // rotation from (0,-15)
+    dsText.text = (n0 == 0 && n1 == 0) ? `` : `${n0}:${n1}`
   }
 }
 /**
@@ -193,7 +226,7 @@ export class TableStats extends GameStats {
 export class StatsPanel extends ParamGUI {
 
   gStats: TableStats
-  bFields = ['score', 'Sum'] //
+  bFields = ['score', 'sStat'] //
   pFields = ['nStones', 'nInf', 'nThreats', 'nAttacks', 'dMax'] // 'dStones', 'dMinControl', 
   constructor(gStats: TableStats) {
     super(gStats)    // but StatsPanel.setValue() does nothing
