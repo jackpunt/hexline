@@ -47,37 +47,32 @@ class CapMark extends Shape {
   static capSize = 4   // depends on HexMap.height
   constructor(hex: Hex) {
     super()
-    this.graphics.beginFill(C.capColor).drawPolyStar(0, 0, CapMark.capSize, 6, 0, 30)
-    hex.parent.localToLocal(hex.x, hex.y, hex.map.markCont, this)
+    this.graphics.f(C.capColor).dp(0, 0, CapMark.capSize, 6, 0, 30)
+    hex.cont.parent.localToLocal(hex.x, hex.y, hex.map.markCont, this)
   }
 
 }
-/** One Hex cell in the game, shown as a polyStar Shape */
-export class Hex extends Container {
-  static borderColor = 'saddlebrown'
 
+/** to recognize this class in hexUnderPoint */
+class HexCont extends Container {
+  constructor(public hex: Hex) {
+    super()
+  }
+}
+
+class Hex0 {
   Aname: string
-  hexShape: Shape // not currently used
   _district: number // district ID
   get district() {return this._district}
   set district(d: number) {
     this._district = d
-    this.distText.text = `${d}`
   }
-  distText: Text
-  rcText: Text
-  color: string  // district color of Hex
   row: number
   col: number
   map: HexMap;  // Note: this.parent == this.map.hexCont [cached]
   stone: Stone
-  capMark: CapMark; // set if recently captured (markCapture); prevents dragFunc using as dropTarget
-  /** color of the Stone or undefined */
-  get stoneColor(): StoneColor | undefined { return !!this.stone ? this.stone.color : undefined};
+  isCaptured: boolean // capMark
   inf: INF
-  width: number;
-  height: number;
-
   /** Link to neighbor in each S.dirs direction [NE, E, SE, SW, W, NW] */
   links: LINKS = {
     NE: undefined,
@@ -87,33 +82,94 @@ export class Hex extends Container {
     W: undefined,
     NW: undefined
   }
-  setName(aname: string): this { this.Aname = aname; return this}
-  /** set hexShape using color */
-  setHexColor(color: string, district?: number) {
-    if (district !== undefined) this.district = district // hex.setHexColor update district
-    this.color = color
-    let hexShape = this.hex(this.height/1.5, color)
-    if (!!this.hexShape) this.removeChild(this.hexShape)
-    this.addChildAt(hexShape, 0)
-    this.hitArea = hexShape
-    this.hexShape = hexShape
-  }
-  override toString() {
-    return `Hex[${this.row},${this.col}]`
-  }
   setStone(stone: Stone) {
     this.stone = stone
-    !!stone && this.map && this.map.allStones.push({Aname: this.Aname, hex: this, color: stone.color})
+    let hsc = {Aname: this.Aname, hex: this as any as Hex, color: stone.color}
+    !!stone && this.map && this.map.allStones.push(hsc)
   }
   clearStone(): Stone {
     let stone = this.stone
     if (!!stone) {
       let map = this.map
-      map.allStones = map.allStones.filter(hsc => hsc.hex !== this)
+      map.allStones = map.allStones.filter(hsc => hsc.hex !== this as any as Hex)
       this.stone = undefined
     }
     return stone
   }
+}
+/** One Hex cell in the game, shown as a polyStar Shape */
+export class Hex extends Hex0 {//Container {
+  static borderColor = 'saddlebrown'
+
+  cont: HexCont = new HexCont(this) // Hex IS-A Hex0, HAS-A Container
+  get x() { return this.cont.x}
+  set x(v: number) { this.cont.x = v}
+  get y() { return this.cont.y}
+  set y(v: number) { this.cont.y = v}
+  get scaleX() { return this.cont.scaleX}
+  get scaleY() { return this.cont.scaleY}
+
+  //Aname: string
+  hexShape: Shape   // colored hexagon is Child to this Container
+  //_district: number // district ID
+  // if override set, then must override get!
+  override get district() { return this._district }
+  override set district(d: number) {
+    this._district = d
+    this.distText.text = `${d}`
+  }
+  distText: Text
+  rcText: Text
+  color: string  // district color of Hex
+  // row: number
+  // col: number
+  // map: HexMap;  // Note: this.parent == this.map.hexCont [cached]
+  // stone: Stone
+  capMark: CapMark; // set if recently captured (markCapture); prevents dragFunc using as dropTarget
+  /** color of the Stone or undefined */
+  get stoneColor(): StoneColor | undefined { return !!this.stone ? this.stone.color : undefined};
+  //inf: INF
+  width: number;
+  height: number;
+
+  /** Link to neighbor in each S.dirs direction [NE, E, SE, SW, W, NW] */
+  // links: LINKS = {
+  //   NE: undefined,
+  //   E: undefined,
+  //   SE: undefined,
+  //   SW: undefined,
+  //   W: undefined,
+  //   NW: undefined
+  // }
+  setName(aname: string): this { this.Aname = aname; return this}
+  /** set hexShape using color */
+  setHexColor(color: string, district?: number) {
+    if (district !== undefined) this.district = district // hex.setHexColor update district
+    this.color = color
+    let hexShape = this.paintHexShape(color, this.hexShape)
+    if (hexShape !== this.hexShape) {
+      this.cont.removeChild(this.hexShape)
+      this.cont.addChildAt(hexShape, 0)
+      this.cont.hitArea = hexShape
+      this.hexShape = hexShape
+    }
+  }
+  override toString() {
+    return `Hex[${this.row},${this.col}]`
+  }
+  // setStone(stone: Stone) {
+  //   this.stone = stone
+  //   !!stone && this.map && this.map.allStones.push({Aname: this.Aname, hex: this, color: stone.color})
+  // }
+  // clearStone(): Stone {
+  //   let stone = this.stone
+  //   if (!!stone) {
+  //     let map = this.map
+  //     map.allStones = map.allStones.filter(hsc => hsc.hex !== this)
+  //     this.stone = undefined
+  //   }
+  //   return stone
+  // }
 
   /** One Hex cell in the game, shown as a polyStar Shape of radius @ (XY=0,0) */
   constructor(color: string, radius: number, map: HexMap, row?: number, col?: number) {
@@ -131,17 +187,17 @@ export class Hex extends Container {
     this.y += row * h
     this.row = row
     this.col = col
-    this.setBounds(-this.width/2, -this.height/2, this.width, this.height)
+    this.cont.setBounds(-this.width/2, -this.height/2, this.width, this.height)
 
     let rc = `${row},${col}`
     this.Aname = this.hexShape.name = `Hex@[${rc}]`
     let rct = this.rcText = new Text(rc, F.fontSpec(26)); // radius/2 ?
     rct.textAlign = 'center'; rct.y = -15 // based on fontSize? & radius
-    this.addChild(rct)
+    this.cont.addChild(rct)
 
     this.distText = new Text(``, F.fontSpec(20)); 
     this.distText.textAlign = 'center'; this.distText.y = 20
-    this.addChild(this.distText)
+    this.cont.addChild(this.distText)
     this.showText(false)
   }
   showText(vis = !this.rcText.visible) {
@@ -232,11 +288,11 @@ export class Hex extends Container {
   }
 
   /** makes a colored hex, outlined with bgColor */
-  hex(rad: number, color: string): Shape {
-    let ns = new Shape(), tilt = 30
+  paintHexShape(color: string, ns = new Shape(), rad = this.height/1.5): Shape {
+    let tilt = 30
     ns.graphics.s(Hex.borderColor).dp(0, 0, rad+1, 6, 0, tilt) // s = beginStroke(color) dp:drawPolyStar
     ns.graphics.f(color).dp(0, 0, rad, 6, 0, tilt)             // f = beginFill(color)
-    ns.rotation = H.dirRot[H.N]
+    //ns.rotation = H.dirRot[H.N]
   return ns
   }
   /** return last Hex on axis in given direction */
@@ -278,7 +334,7 @@ export class HexMap extends Array<Array<Hex>> {
     this.width = radius * 1.5
     CapMark.capSize = this.width/2
     this.mark = new Shape();
-    this.mark.graphics.beginFill(C.markColor).drawPolyStar(0, 0, radius, 6, 0, 30)
+    this.mark.graphics.f(C.markColor).dp(0, 0, radius, 6, 0, 30)
     this.skipHex = new Hex(C.BROWN, TP.hexRad, this)
     this.skipHex.Aname = S_Skip
     this.resignHex = new Hex(C.BROWN, TP.hexRad, this)
@@ -320,7 +376,7 @@ export class HexMap extends Array<Array<Hex>> {
     if (this.minCol === undefined || col < this.minCol) this.minCol = col
     if (this.maxCol === undefined || col > this.maxCol) this.maxCol = col
     this[row][col] = hex   // addHex to this Array<Array<Hex>>
-    if (!!this.hexCont) this.hexCont.addChild(hex)
+    if (!!this.hexCont) this.hexCont.addChild(hex.cont)
     this.link(hex)   // link to existing neighbors
     return hex
   }
@@ -400,8 +456,7 @@ export class HexMap extends Array<Array<Hex>> {
    */
   hexUnderPoint(x: number, y: number): Hex {
     let obj = this.hexCont.getObjectUnderPoint(x, y, 1) // 0=all, 1=mouse-enabled (Hex, not Stone)
-    if (obj instanceof Hex) return obj // Hex.hitArea = hexShape
-    return null
+    return (obj instanceof HexCont) && obj.hex
   }
   /**
    * 

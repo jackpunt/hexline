@@ -151,7 +151,7 @@ export class GamePlay0 {
     while (!!(nhex = nhex.links[dr])) {
       if (!color || nhex.stoneColor === color) rv.push(nhex)
     }
-    rv.sort((a, b) => b.x - a.x)
+    rv.sort((ahex, bhex) => bhex.x - ahex.x)
     return rv
   }
 
@@ -242,6 +242,34 @@ export class GamePlay0 {
   get lastCaptured(): Hex[] {
     return this.captured
   }
+
+  /**
+   * called from dragFunc, before a Move.
+   * assertInfluence on hex of color; without setting a Stone; 
+   * see if hex is [still] attacked by other color
+   * then undo the influence and undo/replace any captures
+   * @return captures (this.captures) or undefined is Move is suicide
+   */
+  getCaptures(hex: Hex, color: StoneColor): Hex[] | undefined {
+    this.captured = []
+    this.undoInfluence.flushUndo().enableUndo()
+    let undo0 = this.undoRecs
+    this.undoRecs = new Undo().enableUndo()
+    this.curHex = hex                // pretend we move here
+    this.assertInfluence(hex, color) // may invoke captureStone() -> undoRec(Stone & capMark)
+    // capture may *remove* some inf & InfMarks!
+    let suicide = hex.isAttack(otherColor(color))
+    //console.log({undo: this.undoInfluence.concat([]), capt: this.captured.concat([]) })
+    this.undoInfluence.closeUndo().pop()
+    this.undoRecs.closeUndo().pop()
+    this.undoRecs = undo0
+    this.undoCapture(this.captured);
+    return suicide ? undefined : this.captured
+  }
+  showLine(str: string, line: Hex[], fn = (h: Hex)=>`${h.Aname}-${h.stoneColor}`) {
+    let dss = (line['ds']+' ').substring(0,2)
+    console.log(stime(this, str), dss, line.map(fn))
+  }
 }
 /** implement the game logic */
 export class GamePlay extends GamePlay0 {
@@ -257,6 +285,7 @@ export class GamePlay extends GamePlay0 {
     KeyBinder.keyBinder.setKey('r', {thisArg: this, func: this.redoMove})
     KeyBinder.keyBinder.setKey('t', {thisArg: this, func: this.skipMove})
     KeyBinder.keyBinder.setKey('M-K', {thisArg: this, func: this.resignMove})// M-S-k
+    KeyBinder.keyBinder.setKey('Escape', {thisArg: table, func: table.stopDragging})// M-S-k
     table.undoShape.on(S.click, () => this.undoMove(), this)
     table.redoShape.on(S.click, () => this.redoMove(), this)
     table.skipShape.on(S.click, () => this.skipMove(), this)
@@ -285,12 +314,12 @@ export class GamePlay extends GamePlay0 {
   }
 
   override undoMove(undoTurn: boolean = true) {
-    if (!!this.table.isDragging()) return // drop the stone before using key
+    this.table.stopDragging(true) // drop on nextHex (no Move)
     super.undoMove(undoTurn)
     this.showRedoMark()
   }
   redoMove() {
-    if (!!this.table.isDragging()) return // drop the stone before using key
+    this.table.stopDragging(true) // drop on nextHex (no Move)
     let move = this.redoMoves.shift()
     if (!move) return
     move.captured = []
@@ -350,11 +379,11 @@ export class GamePlay extends GamePlay0 {
   }
 
   skipMove() {
-    if (!!this.table.isDragging()) return // drop the stone before using key
+    this.table.stopDragging(true) // drop on nextHex (no Move)
     this.doPlayerMove(this.hexMap.skipHex, this.table.nextHex.stone) // dummy move for history & redos
   }
   resignMove() {
-    if (!!this.table.isDragging()) return // drop the stone before using key
+    this.table.stopDragging(true) // drop on nextHex (no Move)
     this.doPlayerMove(this.hexMap.resignHex, this.table.nextHex.stone) // move Stone to table.resignHex
   }
   override doPlayerSkip() {
@@ -379,35 +408,6 @@ export class GamePlay extends GamePlay0 {
       this.hexMap.update()
     }
   }
-
-  /**
-   * called from dragFunc, before a Move.
-   * assertInfluence on hex of color; without setting a Stone; 
-   * see if hex is [still] attacked by other color
-   * then undo the influence and undo/replace any captures
-   * @return true if hex was [still] attacked by otherColor; this.captured is set
-   */
-  isSuicide(hex: Hex, color: StoneColor): boolean {
-    this.captured = []
-    this.undoInfluence.flushUndo().enableUndo()
-    let undo0 = this.undoRecs
-    this.undoRecs = new Undo().enableUndo()
-    this.curHex = hex                // pretend we move here
-    this.assertInfluence(hex, color) // may invoke captureStone() -> undoRec(Stone & capMark)
-    // capture may *remove* some inf & InfMarks!
-    let suicide = hex.isAttack(otherColor(color))
-    //console.log({undo: this.undoInfluence.concat([]), capt: this.captured.concat([]) })
-    this.undoInfluence.closeUndo().pop()
-    this.undoRecs.closeUndo().pop()
-    this.undoRecs = undo0
-    this.undoCapture(this.captured);
-    return suicide
-  }
-  showLine(str: string, line: Hex[], fn = (h: Hex)=>`${h.Aname}-${h.stoneColor}`) {
-    let dss = (line['ds']+' ').substring(0,2)
-    console.log(stime(this, str), dss, line.map(fn))
-  }
-
 
   /** dropFunc indicating new Move attempt */
   addStoneEvent(hev: HexEvent): void {

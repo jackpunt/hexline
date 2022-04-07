@@ -160,7 +160,7 @@ export class TableStats extends GameStats {
       repText = this.boardRep =  new Text('0', F.fontSpec(36), C.YELLOW)
       repText.textAlign = 'center'
       if (!!this.table) {
-        this.table.nextHex.localToLocal(0, -46, this.table.hexMap.stoneCont, repText)
+        this.table.nextHex.cont.localToLocal(0, -46, this.table.hexMap.stoneCont, repText)
         this.table.hexMap.stoneCont.addChild(repText)
       }
     }
@@ -235,7 +235,7 @@ export class TableStats extends GameStats {
     let n1 = this.pStat(stoneColor1).dStones[district]
     let dsText = this.getDSText(hex)
     hex.map.infCont.addChild(dsText)
-    hex.localToLocal(7, -10, hex.map.infCont, dsText) // rotation from (0,-15)
+    hex.cont.localToLocal(7, -10, hex.map.infCont, dsText) // rotation from (0,-15)
     dsText.text = (n0 == 0 && n1 == 0) ? `` : `${n0}:${n1}`
   }
 }

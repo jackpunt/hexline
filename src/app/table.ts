@@ -48,7 +48,7 @@ export class Table extends EventDispatcher  {
     stage['table'] = this // backpointer so Containers can find their Table (& curMark)
     this.stage = stage
     this.scaleCont = this.makeScaleCont(!!this.stage) // scaleCont & background
-    this.nextHex.scaleX = this.nextHex.scaleY = 2
+    this.nextHex.cont.scaleX = this.nextHex.cont.scaleY = 2
     this.setupUndoButtons(55, 45)
   }
   setupUndoButtons(bSize, sRad) {
@@ -112,7 +112,8 @@ export class Table extends EventDispatcher  {
     cont.x = x; cont.y = y
     cont.rotation = rotC
     miniMap.forEachHex(h => {
-      h.distText.visible = h.rcText.visible = false; h.rotation = rotH; h.scaleX = h.scaleY = .985
+      h.distText.visible = h.rcText.visible = false; 
+      h.cont.rotation = rotH; h.cont.scaleX = h.cont.scaleY = .985
     })
     parent.addChild(cont)
   }
@@ -146,7 +147,7 @@ export class Table extends EventDispatcher  {
     this.undoCont.y = this.nextHex.y + 100
     //this.resignHex.x = this.nextHex.x; this.resignHex.y = this.nextHex.y // underlay nextHex
     //this.hexMap.hexCont.addChild(this.resignHex)  // single Hex to hold a Stone when resigned
-    this.hexMap.hexCont.addChild(this.nextHex)  // single Hex to hold a Stone to play
+    this.hexMap.hexCont.addChild(this.nextHex.cont)  // single Hex to hold a Stone to play
     this.hexMap.markCont.addChild(this.undoCont)
 
     this.setBackground(this.scaleCont, bgr) // bounded by bgr
@@ -190,7 +191,7 @@ export class Table extends EventDispatcher  {
   /** after hex.setStone(stone): addChild(stone)  */
   setStone(stone: Stone, hex: Hex) {
     let cont: Container = (hex.map || this.hexMap).stoneCont // nextHex has no map...
-    hex.parent.localToLocal(hex.x, hex.y, cont, stone)
+    hex.cont.parent.localToLocal(hex.x, hex.y, cont, stone)
     cont.addChild(stone)
   }
   /** before hex.clearStone(): removeChild(stone) */
@@ -223,6 +224,16 @@ export class Table extends EventDispatcher  {
   dragShift = false // last shift state in dragFunc
   dragHex: Hex = undefined // last hex in dragFunc
   isDragging() { return !!this.dragHex }
+  stopDragging(noMove = true) {
+    //console.log(stime(this, `.stopDragging: target=`), this.dragger.dragCont.getChildAt(0), {noMove, isDragging: this.isDragging()})
+    if (!this.isDragging()) return
+    if (noMove) {
+      this.dropTarget = this.nextHex
+      // this.nextHex.stone.x = this.nextHex.x
+      // this.nextHex.stone.y = this.nextHex.y
+    }
+    this.dragger.stopDrag()
+  }
 
   hexStatus: { stoneColor0?: Map<Hex, HEX_STATUS>, stoneColor1?: Map<Hex, HEX_STATUS> }
   getHexStatus(hex: Hex, color: StoneColor) {
@@ -258,8 +269,8 @@ export class Table extends EventDispatcher  {
 
     let { found, sui, caps } = this.getHexStatus(hex, color)
     if (!found) {
-      sui = this.gamePlay.isSuicide(hex, color) // set captured and undoCapture
-      caps = this.gamePlay.captured
+      caps = this.gamePlay.getCaptures(hex, color) // set captured and undoCapture
+      sui = !caps
       this.hexStatus[color].set(hex, { found: true, sui, caps })
     }
     if (!!sui) return nonTarget(hex)
@@ -272,8 +283,8 @@ export class Table extends EventDispatcher  {
     }
   }
 
-  dropFunc(stone: Stone, ctx: DragInfo) {
-    // stone.parent == hexMap.stoneCont
+  dropFunc(stone: Stone = this.nextHex.stone, ctx?: DragInfo) {
+    // stone.parent == hexMap.stoneCont; nextHex.stone == stone
     this.dragHex = undefined       // indicate NO DRAG in progress
     this.unmarkViewCaptured()      // before doPlayerMove() sets them for real
     stone.paint()
@@ -318,7 +329,11 @@ export class Table extends EventDispatcher  {
   }
   /** attach nextHex.stone to mouse-drag */
   dragStone() {
-    this.dragger.dragTarget(this.nextHex.stone, {x: TP.hexRad/2, y: TP.hexRad/2})
+    if (this.isDragging()) {
+      this.stopDragging(false) // drop and make move
+    } else {
+      this.dragger.dragTarget(this.nextHex.stone, { x: TP.hexRad / 2, y: TP.hexRad / 2 })
+    }
   }
 
   setBackground(scaleC: Container, bounds: XYWH, bgColor: string = TP.bgColor) {
