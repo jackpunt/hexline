@@ -2,7 +2,7 @@ import { Board, GamePlay0, Move, Mover, Player } from "./game-play";
 import { Hex } from "./hex";
 import { GameStats } from "./stats";
 import { Stone, Table } from "./table";
-import { StoneColor } from "./table-params";
+import { StoneColor, TP } from "./table-params";
 
 
 class RoboBase implements Mover {
@@ -66,32 +66,15 @@ class RoboBase implements Mover {
  */
 export class Planner {
   gamePlay: GamePlay0
-  pcs: StoneColor[]   // Player colors by plyr.index
-  w0: number[] = []
+  // pcs: StoneColor[]   // Player colors by plyr.index
+  weightVec0: number[] = []
   constructor(gamePlay: GamePlay0) {
-    this.pcs = gamePlay.allPlayers.map(plyr => plyr.color)
-    let dStoneM = new Array<number>(gamePlay.hexMap.nDistricts).fill(1, 0, gamePlay.hexMap.nDistricts)
-    let s0M = 1.3, dMaxM = 1, nStoneM = 1.1, nInfM = .3, nThreatM = .2, nAttackM = .5
-    this.w0 = dStoneM.concat([s0M, dMaxM, nStoneM, nInfM, nThreatM, nAttackM])
-  }
-  statVector(pid: number, gStats: GameStats): number[] {
-    let color = this.pcs[pid]
-    let pstat = gStats.pStat(color)
-    let score = gStats.score(color)
-    let { dStones, dMax, nStones, nInf, nThreats, nAttacks } = pstat
-    return dStones.concat(score, dMax, nStones, nInf, nThreats, nAttacks)
-  }
-  mulVector(v0: number[], v1: number[]): number[] { // v0 = dotProd(v0, v1)
-    for (let i in v0 ) v0[i] *= v1[i]
-    return v0
-  }
-  sumVector(v0: number[]): number {
-    return v0.reduce((sum, cv) => sum+cv, 0)
-  }
-  getSummaryStat(gStats: GameStats, pNdx: number) {
-    let sv = this.statVector(pNdx, gStats)
-    this.mulVector(sv, this.w0)
-    return this.sumVector(sv)
+    this.gamePlay = gamePlay
+    // compatible with statVector in stats.ts
+    let nDist = TP.ftHexes(TP.mHexes)  // each MetaHex is a District
+    let dStoneM = new Array<number>(nDist).fill(1, 0, nDist)
+    let s0M = 1.3, dMaxM = 1, dist0M = 1, nStoneM = 1.1, nInfM = .3, nThreatM = .2, nAttackM = .5
+    this.weightVec0 = dStoneM.concat([s0M, dMaxM, dist0M, nStoneM, nInfM, nThreatM, nAttackM])
   }
   // after doPlayerMove (or undoMove...)
   getScore(update = false): number {
@@ -102,8 +85,8 @@ export class Planner {
     let board = move0.board
     let gStats = gamePlay.gStats
     update && gStats.update(board)
-    let s0 = this.getSummaryStat(gStats, 0)
-    let s1 = this.getSummaryStat(gStats, 1)
+    let s0 = gamePlay.gStats.getSummaryStat(gStats, 0, this.weightVec0)
+    let s1 = gamePlay.gStats.getSummaryStat(gStats, 1, this.weightVec0)
     return s0 - s1
   }
 

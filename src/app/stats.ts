@@ -7,7 +7,6 @@ import { Stone, Table } from "./table";
 import { otherColor, StoneColor, stoneColor0, stoneColor1, stoneColors, TP } from "./table-params";
 import { C, F, ParamGUI, ParamItem, ParamLine, ParamType, ValueCounter } from "@thegraid/createjs-lib";
 import { Text } from "createjs-module";
-import { Planner } from "./robo-player";
 
 export class PlayerStats {
   gStats: GameStats;
@@ -42,7 +41,6 @@ export class GameStats {
   hexMap: HexMap
   pStats: PlayerStats[] = [] // indexed by StoneColor
   allPlayers: Player[]
-  minControl: boolean[][] = [] // (nStones[color] >= TP.minControl ) -> [dist][color] = true
   inControl:  StoneColor[] = [] // (nStones[color] - nStones[oc] >= TP.diffControl) -> [district]=color
   score(color: StoneColor): number {
     return this.inControl.filter(ic => ic == color).length
@@ -52,11 +50,11 @@ export class GameStats {
   constructor(hexMap: HexMap, allPlayers: Player[]) {
     this.hexMap = hexMap
     this.allPlayers = allPlayers
+    this.setupStatVector()           // use default wVector
   }
   pStat(color: StoneColor): PlayerStats { return this.pStats[color] }
   zeroCounters() {
     let nDist = TP.ftHexes(TP.mHexes)
-    this.minControl = Array<Array<boolean>>(nDist) // [district][color]
     this.inControl = Array<StoneColor>(nDist)      // undefined
     this.allPlayers.forEach((p) => this.pStats[p.color] = new PlayerStats(p, this))
   }
@@ -84,7 +82,7 @@ export class GameStats {
   }
   /** compute pstats, return StonColor of winner (or undefined) */
   update(board: Board): StoneColor {
-    let nDist = TP.ftHexes(TP.mHexes)  // district for each MetaHex
+    let nDist = TP.ftHexes(TP.mHexes)  // each MetaHex is a District
     this.zeroCounters()
     this.hexMap.forEachHex((hex) => this.incCounters(hex))
     let win: StoneColor
@@ -102,17 +100,49 @@ export class GameStats {
     }
   return win
   }  
+
+  // Mixin to compute weighted summaryStat over pStats
+  wVector: number[] = []
+  plyrColors: StoneColor[]   // Player colors by plyr.index
+  setupStatVector () {
+    let nDist = TP.ftHexes(TP.mHexes)  // each MetaHex is a District
+    this.plyrColors = this.allPlayers.map(plyr => plyr.color)
+    let dStoneM = new Array<number>(nDist).fill(1, 0, nDist)
+    let s0M = 1.3, dMaxM = 1, dist0M = 1, nStoneM = 1.1, nInfM = .3, nThreatM = .2, nAttackM = .5
+    this.wVector = dStoneM.concat([s0M, dMaxM, dist0M, nStoneM, nInfM, nThreatM, nAttackM])
+  }
+  statVector(pid: number, gStats: GameStats): number[] {
+    let color = this.plyrColors[pid]
+    let pstat = gStats.pStat(color)
+    let score = gStats.score(color)
+    let nDist0 = pstat.dStones[0]
+    let { dStones, dMax, nStones, nInf, nThreats, nAttacks } = pstat
+    return dStones.concat(score, dMax, nDist0, nStones, nInf, nThreats, nAttacks)
+  }
+  mulVector(v0: number[], v1: number[]): number[] { // v0 = dotProd(v0, v1)
+    for (let i in v0 ) v0[i] *= v1[i]
+    return v0
+  }
+  sumVector(v0: number[]): number {
+    return v0.reduce((sum, cv) => sum+cv, 0)
+  }
+  getSummaryStat(gStats: GameStats, pNdx: number, wVec = this.wVector) {
+    let sv = this.statVector(pNdx, gStats)
+    this.mulVector(sv, wVec)
+    return this.sumVector(sv)
+  }
+
+
 }
 export class TableStats extends GameStats {
   table: Table         // presence indicates a GUI environment: showControl, showBoardRep
   gamePlay: GamePlay0  // provides hexMap & allPlayers[]
   boardRep: Text
-  planner: Planner
   dStonesText: Text[] = []
 
   sStat(color: StoneColor): number {
     let pNdx = this.allPlayers.findIndex(plyr => plyr.color === color)
-    return !!this.planner ? this.planner.getSummaryStat(this, pNdx) : -1
+    return this.getSummaryStat(this, pNdx)
   }
   // turn?
   constructor(gamePlay: GamePlay0, table: Table) {
@@ -140,7 +170,6 @@ export class TableStats extends GameStats {
   }
   /** update all the stats */
   override update(board: Board): StoneColor {
-    if (!this.planner) this.planner = new Planner(this.gamePlay)
     const win = super.update(board)
     this.showBoardRep(board.repCount)
     if (!!this.table) {
