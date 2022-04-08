@@ -235,8 +235,12 @@ export class TableStats extends GameStats {
     let n1 = this.pStat(stoneColor1).dStones[district]
     let dsText = this.getDSText(hex)
     hex.map.infCont.addChild(dsText)
-    hex.cont.localToLocal(7, -10, hex.map.infCont, dsText) // rotation from (0,-15)
+    if (hex.cont.rotation == 0)
+      hex.cont.localToLocal(0, -12, hex.map.infCont, dsText) // no rotation
+    else
+      hex.cont.localToLocal(7, -10, hex.map.infCont, dsText) // rotation from (0,-12)
     dsText.text = (n0 == 0 && n1 == 0) ? `` : `${n0}:${n1}`
+    dsText.color = (!hex.stone || C.dist(hex.stone.color, C.WHITE)<100) ? C.BLACK : C.WHITE
   }
 }
 /**

@@ -72,6 +72,7 @@ export class GameSetup {
     specs.push(this.makeParamSpec("mHexes", [2, 3, 4]))
     specs.push(this.makeParamSpec("nHexes", [1, 2, 3, 4, 5, 6]))
     specs.push(this.makeParamSpec("moveDwell", [300, 600]))
+    specs.push(this.makeParamSpec("colorScheme", ['Black_White   ', 'Blue_Red  ']))
     spec("Start").onChange = (item: ParamItem) => { if (item.value == "yes") this.restart.call(this) }
     spec("nHexes").onChange = (item: ParamItem) => {
       TP.fnHexes(item.value, TP.mHexes)
@@ -81,7 +82,13 @@ export class GameSetup {
       TP.fnHexes(TP.nHexes, item.value)
       enable && gui.selectValue("Start", "yes")
     }
-    
+    spec("colorScheme").onChange = (item: ParamItem) => {
+      //enable && gui.selectValue("colorScheme", TP[item.value])
+      TP[item.fieldName] = TP[item.value.trim()] // override setValue
+      let table = this.stage['table'] as Table
+      table.gamePlay.hexMap.initInfluence(true)
+      table.nextHex.stone.paint()
+    }
     parent.addChild(gui)
     gui.x = x // (3*cw+1*ch+6*m) + max(line.width) - (max(choser.width) + 20)
     gui.y = y

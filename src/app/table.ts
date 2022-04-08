@@ -1,5 +1,5 @@
 import { Stage, EventDispatcher, Container, Shape, Text, DisplayObject, MouseEvent } from "createjs-module";
-import { F, S, stime, Dragger, DragInfo, KeyBinder, ScaleableContainer, XY } from "@thegraid/createjs-lib"
+import { F, S, stime, Dragger, DragInfo, KeyBinder, ScaleableContainer, XY, C } from "@thegraid/createjs-lib"
 import { GamePlay, Player } from "./game-play";
 import { Hex, HexMap, } from "./hex";
 import { HexEvent } from "./hex-event";
@@ -18,10 +18,20 @@ export class Stone extends Shape {
   constructor(color: StoneColor) {
     super()
     this.color = color
-    this.graphics.beginFill(color).drawCircle(0, 0, this.radius)
+    this.paint(color)
   }
   paint(color = this.color) {
-    this.graphics.beginFill(color).drawCircle(0, 0, this.radius)
+    this.paint1(TP.colorScheme[color])
+  }
+  paint0(color: string) {
+    let rad = this.radius
+    this.graphics.c().f(color).dc(0, 0, this.radius)
+    this.cache(-rad, -rad, 2*rad, 2*rad)
+    this.graphics.c().f(C.BLACK).dc(0, 0, this.radius/2)
+    this.updateCache("destination-out")
+  }
+  paint1(color: string) {
+    this.graphics.c().f(color).dc(0, 0, this.radius)
   }
 }
 /** layout display components, setup callbacks to GamePlay */
@@ -156,7 +166,7 @@ export class Table extends EventDispatcher  {
     this.hexMap.hexCont.cache(p00.x, p00.y, pbr.x-p00.x, pbr.y-p00.y) // cache hexCont (bounded by bgr)
 
     this.gamePlay.setNextPlayer(0)   // make a placeable Stone for Player[0]
-    this.makeMiniMap(this.scaleCont, -(200+TP.mHexes*TP.hexRad), 550+100*TP.mHexes)
+    this.makeMiniMap(this.scaleCont, -(200+TP.mHexes*TP.hexRad), 600+100*TP.mHexes)
 
     this.on(S.add, this.gamePlay.addStoneEvent, this.gamePlay)[S.Aname] = "addStone"
     this.on(S.remove, this.gamePlay.removeStoneEvent, this.gamePlay)[S.Aname] = "removeStone"
@@ -214,11 +224,11 @@ export class Table extends EventDispatcher  {
   /** display captured mark on previoulsy captured Hex(s) */
   markViewCaptured(captured: Hex[]) {
     this.viewCaptured = captured
-    this.viewCaptured.forEach(hex => hex.markCapture(true))
+    this.viewCaptured.forEach(hex => hex.markCapture()) // show Mark *above* stoneCont
   }
   /** remove captured mark from previously captured Hex(s) */
   unmarkViewCaptured() { 
-    this.viewCaptured.forEach(hex => hex.unmarkCapture(true))
+    this.viewCaptured.forEach(hex => hex.unmarkCapture())
     this.viewCaptured = []
   }
   dragShift = false // last shift state in dragFunc

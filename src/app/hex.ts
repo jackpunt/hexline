@@ -1,4 +1,4 @@
-import { Container, Graphics, Shape, Text } from "createjs-module";
+import { Container, DisplayObject, Graphics, Shape, Text } from "createjs-module";
 import { C, F, RC, S, Undo } from "@thegraid/createjs-lib";
 import { HexAxis, HexDir, H, InfDir } from "./hex-intfs";
 import { Stone } from "./table";
@@ -22,17 +22,18 @@ class InfMark extends Shape {
     if (C.dist(color, "black") < 10) w -= 1
     g.ss(w).s(color).mt(wo, r).lt(wo, -r); return g
   }
-  static initStatic(hexMap: HexMap) {
-    if (!!InfMark.gE0) return
+  static initStatic(again: boolean) {
+    if (!again && !!InfMark.gE0) return
     InfMark.gE0 = new Graphics()
     InfMark.gE1 = new Graphics()
     let r = Stone.height - 1, w = 5, wo = w / 2
-    if (C.dist(stoneColor1, "white") < 10) {
+    let c0 = TP.colorScheme['black']
+    let c1 = TP.colorScheme['white']
+    if (C.dist(c1, "white") < 10) {
       InfMark.gInf(InfMark.gE1, 'lightgrey', w + 2, -wo, r)
-      hexMap.distColor[3] = C.dimYellow
     }
-    InfMark.gInf(InfMark.gE1, stoneColor1, w, -wo, r)
-    InfMark.gInf(InfMark.gE0, stoneColor0, w, wo, r)
+    InfMark.gInf(InfMark.gE1, c1, w, -wo, r)
+    InfMark.gInf(InfMark.gE0, c0, w, wo, r)
   }
   /** @param ds assert Influence in direction */
   constructor(color: StoneColor, ds: HexAxis, dn?: InfDir) {
@@ -96,12 +97,16 @@ class Hex0 {
     }
     return stone
   }
+  markCapture() { this.isCaptured = true }
+  unmarkCapture() { this.isCaptured = false }
 }
 /** One Hex cell in the game, shown as a polyStar Shape */
 export class Hex extends Hex0 {//Container {
   static borderColor = 'saddlebrown'
 
+  // cont holds hexShape(color), rcText, distText, capMark
   cont: HexCont = new HexCont(this) // Hex IS-A Hex0, HAS-A Container
+
   get x() { return this.cont.x}
   set x(v: number) { this.cont.x = v}
   get y() { return this.cont.y}
@@ -109,9 +114,7 @@ export class Hex extends Hex0 {//Container {
   get scaleX() { return this.cont.scaleX}
   get scaleY() { return this.cont.scaleY}
 
-  //Aname: string
   hexShape: Shape   // colored hexagon is Child to this Container
-  //_district: number // district ID
   // if override set, then must override get!
   override get district() { return this._district }
   override set district(d: number) {
@@ -121,26 +124,12 @@ export class Hex extends Hex0 {//Container {
   distText: Text
   rcText: Text
   color: string  // district color of Hex
-  // row: number
-  // col: number
-  // map: HexMap;  // Note: this.parent == this.map.hexCont [cached]
-  // stone: Stone
   capMark: CapMark; // set if recently captured (markCapture); prevents dragFunc using as dropTarget
   /** color of the Stone or undefined */
   get stoneColor(): StoneColor | undefined { return !!this.stone ? this.stone.color : undefined};
-  //inf: INF
   width: number;
   height: number;
 
-  /** Link to neighbor in each S.dirs direction [NE, E, SE, SW, W, NW] */
-  // links: LINKS = {
-  //   NE: undefined,
-  //   E: undefined,
-  //   SE: undefined,
-  //   SW: undefined,
-  //   W: undefined,
-  //   NW: undefined
-  // }
   setName(aname: string): this { this.Aname = aname; return this}
   /** set hexShape using color */
   setHexColor(color: string, district?: number) {
@@ -275,15 +264,16 @@ export class Hex extends Hex0 {//Container {
   }
 
   /** @param top set true to show capture mark on infCont (above stones) */
-  markCapture(top = false) {
+  override markCapture(top = false) {
+    super.markCapture()
     if (this.capMark !== undefined) return // only 1 CapMark per Hex
     let cont = top ? this.map.infCont : this.map.markCont
-    cont.addChild(this.capMark = new CapMark(this))
+    this.capMark = cont.addChild(new CapMark(this))
   }
-  unmarkCapture(top = false) {
+  override unmarkCapture() {
+    super.unmarkCapture()
     if (this.capMark === undefined) return
-    let cont = top ? this.map.infCont : this.map.markCont
-    cont.removeChild(this.capMark)
+    this.capMark.parent.removeChild(this.capMark)
     this.capMark = undefined
   }
 
@@ -311,7 +301,7 @@ export class HexMap extends Array<Array<Hex>> {
   markCont: Container    // showMark under Stones
   stoneCont: Container   // Stone in middle
   infCont: Container     // infMark on the top
-  mark: Shape
+  mark: DisplayObject
   minRow: number = undefined               // Array.forEach does not look at negative indices!
   minCol: number = undefined
   maxCol: number = undefined
@@ -327,14 +317,36 @@ export class HexMap extends Array<Array<Hex>> {
   // A color for each District:
   distColor = ["lightgrey","limegreen","deepskyblue","rgb(255,165,0)","violet","rgb(250,80,80)","yellow"]
 
+  makeRing0(radius1, radius0, color) {
+    let mark = new Shape(), rad = (radius1 - radius0)
+    mark.graphics.setStrokeStyle(rad).s(color)
+    mark.graphics.arc(0, 0, radius1-rad/2, 0, 2*Math.PI, false)
+    return mark
+  }
+  makeRing(radius, radius0, color) {
+    let mark = new Shape()
+    mark.graphics.f(color).dc(0,0, radius)
+    mark.cache(-radius, -radius, 2*radius, 2*radius)
+    mark.graphics.c().f(C.BLACK).dc(0, 0, radius0)
+    mark.updateCache("destination-out")
+    return mark
+  }
+  makeMark(radius: number, radius0: number = 0, color = C.markColor) {
+    let mark = new Shape(), cb = "rgba(0,0,0,.3)", cw="rgba(255,255,255,.3)"
+    mark.graphics.f(cb).dp(0, 0, radius, 6, 0, 30)
+    mark.graphics.f(cw).dp(0, 0, radius, 6, 0, 30)
+    mark.cache(-radius, -radius, 2*radius, 2*radius)
+    mark.graphics.c().f(C.BLACK).dc(0, 0, radius0)
+    mark.updateCache("destination-out")
+    return mark
+  }
   constructor(radius: number = TP.hexRad, mapCont?: Container) {
     super()
     this.radius = radius
     this.height = radius * Math.sqrt(3)
     this.width = radius * 1.5
     CapMark.capSize = this.width/2
-    this.mark = new Shape();
-    this.mark.graphics.f(C.markColor).dp(0, 0, radius, 6, 0, 30)
+    this.mark = this.makeMark(radius, radius/2.5)
     this.skipHex = new Hex(C.BROWN, TP.hexRad, this)
     this.skipHex.Aname = S_Skip
     this.resignHex = new Hex(C.BROWN, TP.hexRad, this)
@@ -348,14 +360,14 @@ export class HexMap extends Array<Array<Hex>> {
     this.infCont = new Container()     // infMark on the top
     // hexCont, stoneCont, markCont all x,y aligned
     mapCont.addChild(this.hexCont); this.hexCont[S.Aname] = "hexCont"
-    mapCont.addChild(this.markCont); this.markCont[S.Aname] = "markCont"
     mapCont.addChild(this.stoneCont); this.stoneCont[S.Aname] = "stoneCont"
+    mapCont.addChild(this.markCont); this.markCont[S.Aname] = "markCont"
     mapCont.addChild(this.infCont); this.infCont[S.Aname] = "infCont"
     return this
   }
 
-  initInfluence(): this { 
-    InfMark.initStatic(this)
+  initInfluence(again = false): this { 
+    InfMark.initStatic(again)
     return this 
   }
   centerOnContainer() {
