@@ -5,7 +5,8 @@ import { Board, GamePlay, GamePlay0, Player } from "./game-play";
 import { Hex, HexMap } from "./hex";
 import { Stone, Table } from "./table";
 import { otherColor, StoneColor, stoneColor0, stoneColor1, stoneColors, TP } from "./table-params";
-import { C, F, ParamGUI, ParamItem, ParamLine, ParamType, ValueCounter } from "@thegraid/createjs-lib";
+import { C, F } from "@thegraid/createjs-lib";
+import { ParamGUI, ParamItem, ParamLine, ParamType, } from '@thegraid/createjs-lib'
 import { Text } from "createjs-module";
 
 export class PlayerStats {

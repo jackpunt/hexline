@@ -1,5 +1,6 @@
 import { Container, Stage } from "createjs-module";
-import { C, Obj, DropdownButton, ParamGUI, ParamItem, ParamOpts, ParamSpec, stime, makeStage } from "@thegraid/createjs-lib";
+import { C, Obj, stime, makeStage } from "@thegraid/createjs-lib";
+import { DropdownButton, ParamGUI, ParamItem, ParamOpts, ParamSpec,} from '@thegraid/createjs-lib'
 import { GamePlay } from "./game-play";
 import { StatsPanel, TableStats } from "./stats";
 import { Table } from "./table";
@@ -37,21 +38,20 @@ export class GameSetup {
 
     table.layoutTable(gamePlay)           // mutual injection, all the GUI components, fill hexMap
     table.statsPanel = this.makeStatsPanel(gamePlay.gStats, table.scaleCont, -300, 50)
-    this.makeParamGUI(table.scaleCont, -300, 370) // modify TP.params...
+    this.makeParamGUI(table, table.scaleCont, -300, 370) // modify TP.params...
   }
   makeStatsPanel(gStats: TableStats, parent: Container, x, y): StatsPanel {
     let panel = new StatsPanel(gStats) // a ReadOnly ParamGUI reading gStats [& pstat(color)]
-    let specs: ParamSpec[] = [], sp = "                    "
+    let specs: ParamSpec[] = [], sp = "                   " 
+    let style = { arrowColor: 'rgba(0,0,0,0)' }, opts = { style }
     let spec = (fieldName: string) => { return specs.find(s => s.fieldName == fieldName) }
-    specs.push(this.makeParamSpec("nStones", [sp]))
-    specs.push(this.makeParamSpec("nInf", [sp]))
-    specs.push(this.makeParamSpec("nAttacks", [sp]))
-    specs.push(this.makeParamSpec("nThreats", [sp]))
-    specs.push(this.makeParamSpec("dMax", [sp]))
-    specs.push(this.makeParamSpec("score", [sp]))
-    specs.push(this.makeParamSpec("sStat", [sp]))
-    //specs.push(this.makeParamSpec("dStones", []))
-    //specs.push(this.makeParamSpec("dMinControl", []))
+    specs.push(this.makeParamSpec("nStones", [sp], opts))
+    specs.push(this.makeParamSpec("nInf", [sp], opts))
+    specs.push(this.makeParamSpec("nAttacks", [sp], opts))
+    specs.push(this.makeParamSpec("nThreats", [sp], opts))
+    specs.push(this.makeParamSpec("dMax", [sp], opts))
+    specs.push(this.makeParamSpec("score", [sp], opts))
+    specs.push(this.makeParamSpec("sStat", [sp], opts))
     spec("score").onChange = (item: ParamItem) => {
       panel.setNameText(item.fieldName, `score: ${TP.nVictory}`)
       panel.stage.update()
@@ -64,28 +64,20 @@ export class GameSetup {
     panel.stage.update()
     return panel
   }
-  makeParamGUI(parent: Container, x, y): ParamGUI {
-    let gui = new ParamGUI(TP), enable = false
-    let specs: ParamSpec[] = []
+  makeParamGUI(table: Table, parent: Container, x, y): ParamGUI {
+    let gui = new ParamGUI(TP), specs: ParamSpec[] = []
+    let enable = false, nHex = (nH, mH) => { TP.fnHexes(nH, mH); enable && gui.selectValue("Start", "yes") }
     let spec = (fieldName: string) => { return specs.find(s => s.fieldName == fieldName) }
     specs.push(this.makeParamSpec("Start", [" ", "yes", "no"], { fontSize: 40, fontColor: "red" }))
     specs.push(this.makeParamSpec("mHexes", [2, 3, 4]))
     specs.push(this.makeParamSpec("nHexes", [1, 2, 3, 4, 5, 6]))
-    specs.push(this.makeParamSpec("moveDwell", [300, 600]))
-    specs.push(this.makeParamSpec("colorScheme", ['Black_White   ', 'Blue_Red  ']))
+    //specs.push(this.makeParamSpec("moveDwell", [300, 600]))
+    specs.push(this.makeParamSpec("colorScheme", ['Black_White   ', '  Blue_Red  ']))
     spec("Start").onChange = (item: ParamItem) => { if (item.value == "yes") this.restart.call(this) }
-    spec("nHexes").onChange = (item: ParamItem) => {
-      TP.fnHexes(item.value, TP.mHexes)
-      enable && gui.selectValue("Start", "yes")
-    }
-    spec("mHexes").onChange = (item: ParamItem) => {
-      TP.fnHexes(TP.nHexes, item.value)
-      enable && gui.selectValue("Start", "yes")
-    }
+    spec("mHexes").onChange = (item: ParamItem) => { nHex(TP.nHexes, item.value) }
+    spec("nHexes").onChange = (item: ParamItem) => { nHex(item.value, TP.mHexes) }
     spec("colorScheme").onChange = (item: ParamItem) => {
-      //enable && gui.selectValue("colorScheme", TP[item.value])
-      TP[item.fieldName] = TP[item.value.trim()] // override setValue
-      let table = this.stage['table'] as Table
+      TP[item.fieldName] = TP[item.value.trim()] // overwrite setValue
       table.gamePlay.hexMap.initInfluence(true)
       table.nextHex.stone.paint()
     }
@@ -94,16 +86,14 @@ export class GameSetup {
     gui.y = y
     gui.makeLines(specs)
     gui.stage.update()
-    enable = true // *after makeLines has stablilized selectValue
+    enable = true // *after* makeLines has stablilized selectValue
     return gui
   }
   makeParamSpec(fieldName: string, ary: any[], opts: ParamOpts = { fontSize: 32, fontColor: C.black }): ParamSpec {
     let { fontSize, fontColor, onChange } = opts
     let choices = this.makeChoiceItems(fieldName, ary) // [{text, fieldname, value}]
-    let style = Obj.fromEntriesOf(DropdownButton.defaultStyle)
-    style.rootColor = "rgba(160,160,160,.5)"
-    style.arrowColor = "grey"
-    Object.entries(opts).forEach(([key, val]) => style[key] = val)
+    let defStyle = DropdownButton.mergeStyle({rootColor: "rgba(160,160,160,.5)", arrowColor: "grey"})
+    let style = DropdownButton.mergeStyle(opts.style || {}, defStyle)
     return { fieldName, choices, fontSize, fontColor, style, onChange }
   }
   makeChoiceItems(fieldName: string, ary: any[]): ParamItem[] {
