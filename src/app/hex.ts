@@ -72,6 +72,9 @@ class Hex0 {
   col: number
   map: HexMap;  // Note: this.parent == this.map.hexCont [cached]
   stone: Stone
+  /** color of the Stone or undefined */
+  get stoneColor(): StoneColor | undefined { return !!this.stone ? this.stone.color : undefined};
+  /** true if hex is unplayable (& empty) because it was captured by previous Move. */
   isCaptured: boolean // capMark
   inf: INF
   /** Link to neighbor in each S.dirs direction [NE, E, SE, SW, W, NW] */
@@ -83,6 +86,8 @@ class Hex0 {
     W: undefined,
     NW: undefined
   }
+  setName(aname: string): this { this.Aname = aname; return this}
+
   setStone(stone: Stone) {
     this.stone = stone
     let hsc = {Aname: this.Aname, hex: this as any as Hex, color: stone.color}
@@ -99,99 +104,6 @@ class Hex0 {
   }
   markCapture() { this.isCaptured = true }
   unmarkCapture() { this.isCaptured = false }
-}
-/** One Hex cell in the game, shown as a polyStar Shape */
-export class Hex extends Hex0 {//Container {
-  static borderColor = 'saddlebrown'
-
-  // cont holds hexShape(color), rcText, distText, capMark
-  cont: HexCont = new HexCont(this) // Hex IS-A Hex0, HAS-A Container
-
-  get x() { return this.cont.x}
-  set x(v: number) { this.cont.x = v}
-  get y() { return this.cont.y}
-  set y(v: number) { this.cont.y = v}
-  get scaleX() { return this.cont.scaleX}
-  get scaleY() { return this.cont.scaleY}
-
-  hexShape: Shape   // colored hexagon is Child to this Container
-  // if override set, then must override get!
-  override get district() { return this._district }
-  override set district(d: number) {
-    this._district = d
-    this.distText.text = `${d}`
-  }
-  distText: Text
-  rcText: Text
-  color: string  // district color of Hex
-  capMark: CapMark; // set if recently captured (markCapture); prevents dragFunc using as dropTarget
-  /** color of the Stone or undefined */
-  get stoneColor(): StoneColor | undefined { return !!this.stone ? this.stone.color : undefined};
-  width: number;
-  height: number;
-
-  setName(aname: string): this { this.Aname = aname; return this}
-  /** set hexShape using color */
-  setHexColor(color: string, district?: number) {
-    if (district !== undefined) this.district = district // hex.setHexColor update district
-    this.color = color
-    let hexShape = this.paintHexShape(color, this.hexShape)
-    if (hexShape !== this.hexShape) {
-      this.cont.removeChild(this.hexShape)
-      this.cont.addChildAt(hexShape, 0)
-      this.cont.hitArea = hexShape
-      this.hexShape = hexShape
-    }
-  }
-  override toString() {
-    return `Hex[${this.row},${this.col}]`
-  }
-  // setStone(stone: Stone) {
-  //   this.stone = stone
-  //   !!stone && this.map && this.map.allStones.push({Aname: this.Aname, hex: this, color: stone.color})
-  // }
-  // clearStone(): Stone {
-  //   let stone = this.stone
-  //   if (!!stone) {
-  //     let map = this.map
-  //     map.allStones = map.allStones.filter(hsc => hsc.hex !== this)
-  //     this.stone = undefined
-  //   }
-  //   return stone
-  // }
-
-  /** One Hex cell in the game, shown as a polyStar Shape of radius @ (XY=0,0) */
-  constructor(color: string, radius: number, map: HexMap, row?: number, col?: number) {
-    super();
-    this.map = map
-    let w = radius * Math.sqrt(3), h = radius * 1.5
-    this.width = w
-    this.height = h
-
-    this.setNoInf(false) // assert: no infMarks to del/removeChild
-    this.setHexColor(color)
-
-    if (row === undefined || col === undefined) return
-    this.x += col * w + Math.abs(row % 2) * w/2
-    this.y += row * h
-    this.row = row
-    this.col = col
-    this.cont.setBounds(-this.width/2, -this.height/2, this.width, this.height)
-
-    let rc = `${row},${col}`
-    this.Aname = this.hexShape.name = `Hex@[${rc}]`
-    let rct = this.rcText = new Text(rc, F.fontSpec(26)); // radius/2 ?
-    rct.textAlign = 'center'; rct.y = -15 // based on fontSize? & radius
-    this.cont.addChild(rct)
-
-    this.distText = new Text(``, F.fontSpec(20)); 
-    this.distText.textAlign = 'center'; this.distText.y = 20
-    this.cont.addChild(this.distText)
-    this.showText(false)
-  }
-  showText(vis = !this.rcText.visible) {
-    this.rcText.visible = this.distText.visible = vis
-  }
   /**
    * Is this Hex [already] influenced by color/dn? [for skipAndSet()]
    * @param dn dir of Influence: ds | revDir[ds]
@@ -208,39 +120,31 @@ export class Hex extends Hex0 {//Container {
    * set temp = dn OR set temp = undefined if (temp != dn)
    * @param ds one of S.Dir3 (major axis)
    * @param color 
-   * @returns true if a *new* InfMark is set.
+   * @returns InfMark (if a *new* InfMark is set, else undefined)
    */
-  setInf(color: StoneColor, dn: InfDir, ds: HexAxis = dnToAxis[dn], undo?: Undo): boolean {
+  setInf(color: StoneColor, dn: InfDir, ds: HexAxis = dnToAxis[dn], undo?: Undo): InfMark {
     let infMark: InfMark
-    if (!!this.getInf(color, dn)) return false
+    if (!!this.getInf(color, dn)) return undefined
     infMark = new InfMark(color, ds, dn)
     this.inf[color][dn] = infMark
     undo && undo.addUndoRec(this, `delInf(${this},${color},${dn})`, () => { this.delInf(color, dn, false) })
-    let revMark = this.getInf(color, H.dirRev[dn])
-    if (!revMark || !revMark.parent) {
-      // place first (of dn|rev[dn]) InfMark on HexMap:
-      //this.parent.localToLocal(this.x, this.y, this.map.infCont, infMark)
-      infMark.x = this.x; infMark.y = this.y // ASSERT: hexCont aligned with infCont; on mapCont
-      this.map.infCont.addChild(infMark)
-    }
-    return !!infMark
+    return infMark
   }
-
   /**
    * @param dn generally the primary axis
    * @param color 
    * @param rev if true also remove reverse dir
    */
-  delInf(color: StoneColor, dn: InfDir, rev = true, undo?: Undo) {
+  delInf(color: StoneColor, dn: InfDir, rev = true, undo?: Undo): InfMark {
     if (rev) this.delInf(color, H.dirRev[dn], false, undo)
     let infMark = this.getInf(color, dn)
-    if (!infMark) return
-    delete this.inf[color][dn]
-    undo && undo.addUndoRec(this, `setInf(${this},${dn},${color})`, () => { this.setInf(color, dn) })
-    if (!!infMark.parent) infMark.parent.removeChild(infMark)
-    let revMark = this.getInf(color, H.dirRev[dn])
-    if (!!revMark) this.map.infCont.addChild(revMark)
+    if (!!infMark) {
+      delete this.inf[color][dn]
+      undo && undo.addUndoRec(this, `setInf(${this},${dn},${color})`, () => { this.setInf(color, dn) })
+    }
+    return infMark
   }
+
   /** create empty inf for each color & InfDir */
   setNoInf(rmChild = true) {
     if (rmChild) stoneColors.forEach(color => {
@@ -248,7 +152,7 @@ export class Hex extends Hex0 {//Container {
     })
     this.inf = {}; this.inf[stoneColor0] = {}; this.inf[stoneColor1] = {};
   }
-  
+
   /** @return true if Hex is doubly influenced by color */
   isAttack(color: StoneColor): boolean {
     let attacks = new Set<HexAxis>(), infs = this.inf[color] as InfMark[]
@@ -261,6 +165,98 @@ export class Hex extends Hex0 {//Container {
   /** @return true if Hex has a Stone (of other color), and is attacked */
   isCapture(color: StoneColor): boolean {
     return !!this.stoneColor && (this.stoneColor !== color) && this.isAttack(color)
+  }
+  /** return last Hex on axis in given direction */
+  lastHex(ds: InfDir): Hex0 {
+    let hex: Hex0 = this, nhex: Hex0
+    while (!!(nhex = hex.links[ds])) { hex = nhex }
+    return hex    
+  }  
+}
+/** One Hex cell in the game, shown as a polyStar Shape */
+export class Hex extends Hex0 {//Container {
+  static borderColor = 'saddlebrown'
+
+  // cont holds hexShape(color), rcText, distText, capMark
+  cont: HexCont = new HexCont(this) // Hex IS-A Hex0, HAS-A Container
+
+  get x() { return this.cont.x}
+  set x(v: number) { this.cont.x = v}
+  get y() { return this.cont.y}
+  set y(v: number) { this.cont.y = v}
+  get scaleX() { return this.cont.scaleX}
+  get scaleY() { return this.cont.scaleY}
+
+  // if override set, then must override get!
+  override get district() { return this._district }
+  override set district(d: number) {
+    this._district = d
+    this.distText.text = `${d}`
+  }
+  radius: number;   // determines width & height
+  hexShape: Shape   // colored hexagon is Child to this.cont
+  color: string     // district color of Hex
+  capMark: CapMark; // set if recently captured (markCapture); prevents dragFunc using as dropTarget
+  distText: Text
+  rcText: Text
+
+  override toString() {
+    return `Hex[${this.row},${this.col}]`
+  }
+
+  /** One Hex cell in the game, shown as a polyStar Shape of radius @ (XY=0,0) */
+  constructor(color: string, radius: number, map: HexMap, row?: number, col?: number) {
+    super();
+    this.map = map
+    this.radius = radius
+  
+    this.setNoInf(false) // assert: no infMarks to del/removeChild
+    this.setHexColor(color)
+
+    if (row === undefined || col === undefined) return
+    let w = radius * Math.sqrt(3), h = radius * 1.5
+    this.x += col * w + Math.abs(row % 2) * w/2
+    this.y += row * h
+    this.row = row
+    this.col = col
+    this.cont.setBounds(-w/2, -h/2, w, h)
+
+    let rc = `${row},${col}`
+    this.Aname = this.hexShape.name = `Hex@[${rc}]`
+    let rct = this.rcText = new Text(rc, F.fontSpec(26)); // radius/2 ?
+    rct.textAlign = 'center'; rct.y = -15 // based on fontSize? & radius
+    this.cont.addChild(rct)
+
+    this.distText = new Text(``, F.fontSpec(20)); 
+    this.distText.textAlign = 'center'; this.distText.y = 20
+    this.cont.addChild(this.distText)
+    this.showText(false)
+  }
+  /** set visibility of rcText & distText */
+  showText(vis = !this.rcText.visible) {
+    this.rcText.visible = this.distText.visible = vis
+  }
+  override setInf(color: StoneColor, dn: InfDir, ds: HexAxis = dnToAxis[dn], undo?: Undo): InfMark {
+    let infMark = super.setInf(color, dn, ds, undo)
+    // show infMark on map.infCont (unless revMark already showing)
+    let revMark = this.getInf(color, H.dirRev[dn])
+    if (!revMark || !revMark.parent) {
+      // place first (of dn|rev[dn]) InfMark on HexMap:
+      //this.parent.localToLocal(this.x, this.y, this.map.infCont, infMark)
+      infMark.x = this.x; infMark.y = this.y // ASSERT: hexCont aligned with infCont; on mapCont
+      this.map.infCont.addChild(infMark)
+    }
+    return infMark
+  }
+
+  override delInf(color: StoneColor, dn: InfDir, rev = true, undo?: Undo): InfMark {
+    let infMark = super.delInf(color, dn, rev, undo)
+    if (!!infMark) {
+      if (!!infMark.parent) infMark.parent.removeChild(infMark)
+      let revMark = this.getInf(color, H.dirRev[dn])
+      if (!!revMark) this.map.infCont.addChild(revMark)
+    }
+    return infMark
   }
 
   /** @param top set true to show capture mark on infCont (above stones) */
@@ -277,21 +273,31 @@ export class Hex extends Hex0 {//Container {
     this.capMark = undefined
   }
 
+  /** set hexShape using color */
+  setHexColor(color: string, district?: number) {
+    if (district !== undefined) this.district = district // hex.setHexColor update district
+    this.color = color
+    let hexShape = this.paintHexShape(color, this.hexShape)
+    if (hexShape !== this.hexShape) {
+      this.cont.removeChild(this.hexShape)
+      this.cont.addChildAt(hexShape, 0)
+      this.cont.hitArea = hexShape
+      this.hexShape = hexShape
+    }
+  }
   /** makes a colored hex, outlined with bgColor */
-  paintHexShape(color: string, ns = new Shape(), rad = this.height/1.5): Shape {
+  paintHexShape(color: string, ns = new Shape(), rad = this.radius): Shape {
     let tilt = 30
     ns.graphics.s(Hex.borderColor).dp(0, 0, rad+1, 6, 0, tilt) // s = beginStroke(color) dp:drawPolyStar
     ns.graphics.f(color).dp(0, 0, rad, 6, 0, tilt)             // f = beginFill(color)
     //ns.rotation = H.dirRot[H.N]
   return ns
   }
-  /** return last Hex on axis in given direction */
-  lastHex(ds: InfDir) {
-    let hex: Hex = this, nhex: Hex
-    while (!!(nhex = hex.links[ds])) { hex = nhex }
-    return hex    
+  override lastHex(ds: InfDir): Hex {
+    return super.lastHex(ds) as Hex
   }
 }
+
 /** HexMap[row][col] keep registry of all Hex items map to/from [row, col] */
 export class HexMap extends Array<Array<Hex>> {
   radius: number = TP.hexRad
