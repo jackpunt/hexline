@@ -1,7 +1,7 @@
 import { Stage, EventDispatcher, Container, Shape, Text, DisplayObject, MouseEvent } from "createjs-module";
 import { F, S, stime, Dragger, DragInfo, KeyBinder, ScaleableContainer, XY, C } from "@thegraid/createjs-lib"
 import { GamePlay, Player } from "./game-play";
-import { Hex, HexMap, } from "./hex";
+import { Hex, Hex2, HexMap, } from "./hex";
 import { HexEvent } from "./hex-event";
 import { StatsPanel } from "./stats";
 import { TP, StoneColor, otherColor, stoneColor0, stoneColor1 } from "./table-params";
@@ -42,7 +42,7 @@ export class Table extends EventDispatcher  {
   stage: Stage;
   scaleCont: Container
   hexMap: HexMap = new HexMap()
-  nextHex: Hex = new Hex("grey", Stone.radius, undefined).setName('nextHex') // no hexMap.
+  nextHex: Hex2 = new Hex2("grey", Stone.radius, undefined).setName('nextHex') // no hexMap.
   undoCont: Container = new Container()
   undoShape: Shape = new Shape();
   skipShape: Shape = new Shape();
@@ -103,7 +103,7 @@ export class Table extends EventDispatcher  {
       })
     let toggleText = (evt: MouseEvent, vis?: boolean) => { 
       if (!toggle) return (toggle = true, undefined) // skip one 'click' when pressup/dropfunc
-      this.hexMap.forEachHex(hex => hex.showText(vis)); this.hexMap.update() 
+      this.hexMap.forEachHex<Hex2>(hex => hex.showText(vis)); this.hexMap.update() 
       this.hexMap.hexCont.updateCache()
       this.hexMap.update()
     }
@@ -121,7 +121,7 @@ export class Table extends EventDispatcher  {
     cont.addChildAt(bgHex, 0)
     cont.x = x; cont.y = y
     cont.rotation = rotC
-    miniMap.forEachHex(h => {
+    miniMap.forEachHex<Hex2>(h => {
       h.distText.visible = h.rcText.visible = false; 
       h.cont.rotation = rotH; h.cont.scaleX = h.cont.scaleY = .985
     })
@@ -199,7 +199,7 @@ export class Table extends EventDispatcher  {
     player.makeMove(stone) // provoke to robo-player: respond with addStoneEvent;
   }
   /** after hex.setStone(stone): addChild(stone)  */
-  setStone(stone: Stone, hex: Hex) {
+  setStone(stone: Stone, hex: Hex2) {
     let cont: Container = (hex.map || this.hexMap).stoneCont // nextHex has no map...
     hex.cont.parent.localToLocal(hex.x, hex.y, cont, stone)
     cont.addChild(stone)
@@ -212,13 +212,13 @@ export class Table extends EventDispatcher  {
     }
     return stone
   }
-  hexUnderObj(dragObj: DisplayObject): Hex {
+  hexUnderObj(dragObj: DisplayObject) {
     let pt = dragObj.parent.localToLocal(dragObj.x, dragObj.y, this.hexMap.hexCont)
     return this.hexMap.hexUnderPoint(pt.x, pt.y)
   }
-  _dropTarget: Hex;
+  _dropTarget: Hex2;
   get dropTarget() { return this._dropTarget}
-  set dropTarget(hex: Hex) { hex = (hex || this.nextHex); this._dropTarget = hex; this.hexMap.showMark(hex)}
+  set dropTarget(hex: Hex2) { hex = (hex || this.nextHex); this._dropTarget = hex; this.hexMap.showMark(hex)}
 
   viewCaptured: Hex[] = []
   /** display captured mark on previoulsy captured Hex(s) */

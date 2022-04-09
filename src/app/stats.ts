@@ -2,7 +2,7 @@
 // Control: Stone on >= 7 Hexes && Player.nHexes(district) - otherPlayer.nHexes(district) >= 3
 
 import { Board, GamePlay, GamePlay0, Player } from "./game-play";
-import { Hex, HexMap } from "./hex";
+import { Hex, Hex2, HexMap } from "./hex";
 import { Stone, Table } from "./table";
 import { otherColor, StoneColor, stoneColor0, stoneColor1, stoneColors, TP } from "./table-params";
 import { C, F } from "@thegraid/createjs-lib";
@@ -179,11 +179,11 @@ export class TableStats extends GameStats {
       this.hexMap.update()
     }
     if (this.gameOver(board, win)) {
-      let plyr = this.gamePlay.curPlayer, pc = plyr.color, pStats = plyr.stats
-      let op = this.gamePlay.nextPlayer, opc = op.color, opStats = op.stats
-      if (!!win) return this.showWin(board, win, `WINS! ${opc} loses`)
-      if (board.resigned) return this.showWin(board, opc, `WINS: ${pc} RESIGNS`)
-      if (board.repCount == 3) return this.showWin(board, pc, `-- ${opc} STALEMATE: ns(${pStats.nStones} -- ${opStats.nStones})`)
+      let plyr = this.gamePlay.curPlayer, pc = plyr.color, pcr=TP.colorScheme[pc], pStats = plyr.stats
+      let op = this.gamePlay.nextPlayer, opc = op.color, opcr=TP.colorScheme[opc], opStats = op.stats
+      if (!!win) return this.showWin(board, win, `WINS! ${opcr} loses`)
+      if (board.resigned) return this.showWin(board, opc, `WINS: ${pcr} RESIGNS`)
+      if (board.repCount == 3) return this.showWin(board, pc, `-- ${opcr} STALEMATE: ns(${pStats.nStones} -- ${opStats.nStones})`)
     }
     return win
   }
@@ -192,12 +192,13 @@ export class TableStats extends GameStats {
   }
   showWin(board: Board, win: StoneColor, text: string): StoneColor {
     let lose = otherColor(win), winS = this.score(win), loseS = this.score(lose)
-    setTimeout(() => alert(`${win} ${text}! ${winS} -- ${loseS}`), 200)
+    let winr = TP.colorScheme[win]
+    setTimeout(() => alert(`${winr} ${text}! ${winS} -- ${loseS}`), 200)
     return win
   }
   showControl(table: Table) {
     let hexMap = table.miniMap
-    hexMap.forEachHex(hex => {
+    hexMap.forEachHex<Hex2>(hex => {
       table.clearStone(hex)                // from mimi-map
       let ic = this.inControl[hex.district]
       if (ic !== undefined) {
@@ -219,7 +220,7 @@ export class TableStats extends GameStats {
       this.dStonesText[district] = dsText
     }
   }
-  getDSText(hex: Hex) {
+  getDSText(hex: Hex2) {
     let district = hex.district, dsText = this.dStonesText[district]
     if (!dsText) {
       dsText = new Text(``, F.fontSpec(26)); // radius/2 ?
@@ -230,7 +231,7 @@ export class TableStats extends GameStats {
     }
     return dsText
   }
-  showDSText(hex: Hex) {
+  showDSText(hex: Hex2) {
     let district = hex.district
     let n0 = this.pStat(stoneColor0).dStones[district]
     let n1 = this.pStat(stoneColor1).dStones[district]

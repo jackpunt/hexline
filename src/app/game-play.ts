@@ -1,5 +1,5 @@
 import { HexDir, HexAxis, H, InfDir } from "./hex-intfs";
-import { Hex, HexMap, S_Resign, S_Skip } from "./hex";
+import { Hex, Hex2, HexMap, S_Resign } from "./hex";
 import { HexEvent } from "./hex-event";
 import { S, stime, Undo, KeyBinder } from "@thegraid/createjs-lib";
 import { GameStats, PlayerStats, TableStats } from "./stats";
@@ -151,7 +151,7 @@ export class GamePlay0 {
     while (!!(nhex = nhex.links[dr])) {
       if (!color || nhex.stoneColor === color) rv.push(nhex)
     }
-    rv.sort((ahex, bhex) => bhex.x - ahex.x)
+    rv.sort((ahex, bhex) => bhex.cx - ahex.cx)
     return rv
   }
 
@@ -186,7 +186,9 @@ export class GamePlay0 {
       this.addUndoRec(this, `undoCapture(${this.captured.length})`, ()=>this.undoCapture(this.captured.slice(capLen)))
 
   }
-  /** remove StoneColor influence & InfMark(axis) from line(hex,ds) */
+  /** remove StoneColor influence & InfMark(axis) from line(hex,ds) 
+   * return all Stones of color on the line
+   */
   removeInfluenceDir(hex: Hex, ds: HexAxis, color: StoneColor): Hex[] {
     let line = this.hexlineToArray(hex, ds, undefined) // ALL hexes on the line
     //this.showLine(`.removeInfluence:${hex.Aname}:${color}`, line)
@@ -337,21 +339,21 @@ export class GamePlay extends GamePlay0 {
    * @param board 
    */
   recalcBoard(board: HSC[]) {
-    let axisDone: AxisDone = {} // indexed by axis
+    let axisDone: AxisDone = {} // indexed by axis: Set<H.axis>
+    // doing hex.clearStone() en masse:
     this.hexMap.allStones = []
-    this.hexMap.forEachHex(hex => { hex.stone = undefined; hex.setNoInf() })
-    // put all the Stones on map:
+    this.hexMap.forEachHex(hex => { hex.stone = undefined; hex.clearInf() }) // QQQ: this.setStone(undefined) ??
     board.forEach(hsc => {
-      this.table.setStone(new Stone(hsc.color), hsc.hex) // new Stone on hexMap [hex.stone = stone]
+      this.setStone(hsc.hex, new Stone(hsc.color))    // put new Stones on map:
     })
     // scan each Line once to assert influence
     board.forEach(hsc => {
-      this.assertInfluence(hsc.hex, hsc.color, false, axisDone)
+      this.assertInfluence(hsc.hex, hsc.color, false, axisDone) // TODO: NEEDS WORK567890
     })
   }
   override setStone(hex: Hex, stone: Stone) {
     super.setStone(hex, stone)
-    this.table.setStone(stone, hex)
+    if (hex instanceof Hex2) this.table.setStone(stone, hex)
   }
   /** addStone to hexMap(hex), assertInfluence, Captured, Undo & Stats? */
   override addStone(hex: Hex, stone: Stone) {
