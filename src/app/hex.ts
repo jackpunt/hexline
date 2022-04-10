@@ -80,26 +80,21 @@ export class Hex {
   set district(d: number) {
     this._district = d
   }
+  readonly map: HexMap;  // Note: this.parent == this.map.hexCont [cached]
+  readonly row: number
+  readonly col: number
   inf: { [Key in StoneColor]: INF }
-  row: number
-  col: number
-  get cx(): number { return this.col * 2 + (this.row % 2) }
-  map: HexMap;  // Note: this.parent == this.map.hexCont [cached]
-  stone: Stone
+
+  //get cx(): number { return this.col * 2 + (this.row % 2) }
+  stone: Stone  // Note: the 'Stone' is irrelevant; all we need is the stoneColor for HSC
   /** color of the Stone or undefined */
   get stoneColor(): StoneColor | undefined { return !!this.stone ? this.stone.color : undefined};
   /** true if hex is unplayable (& empty) because it was captured by previous Move. */
-  isCaptured: boolean // capMark
-  /** Link to neighbor in each S.dirs direction [NE, E, SE, SW, W, NW] */
-  links: LINKS = {
-    // NE: undefined,
-    // E: undefined,
-    // SE: undefined,
-    // SW: undefined,
-    // W: undefined,
-    // NW: undefined
-  }
-  setName(aname: string): this { this.Aname = aname; return this}
+  isCaptured: boolean // capMark OR map.history[0].includes(this)
+  /** Link to neighbor in each H.dirs direction [NE, E, SE, SW, W, NW] */
+  links: LINKS = { }
+
+  setName(aname: string): this { this.Aname = aname; return this }
 
   setStone(stone: Stone) {
     if (!stone) return (this.clearStone(), undefined)
@@ -203,7 +198,7 @@ export class Hex2 extends Hex {//Container {
     this._district = d
     this.distText.text = `${d}`
   }
-  radius: number;   // determines width & height
+  readonly radius: number;   // determines width & height
   hexShape: Shape   // colored hexagon is Child to this.cont
   color: string     // district color of Hex
   capMark: CapMark; // set if recently captured (markCapture); prevents dragFunc using as dropTarget
@@ -225,8 +220,6 @@ export class Hex2 extends Hex {//Container {
     let w = radius * Math.sqrt(3), h = radius * 1.5
     this.x += col * w + Math.abs(row % 2) * w/2
     this.y += row * h
-    this.row = row
-    this.col = col
     this.cont.setBounds(-w/2, -h/2, w, h)
 
     let rc = `${row},${col}`
@@ -238,7 +231,7 @@ export class Hex2 extends Hex {//Container {
     this.distText = new Text(``, F.fontSpec(20)); 
     this.distText.textAlign = 'center'; this.distText.y = 20
     this.cont.addChild(this.distText)
-    this.showText(false)
+    this.showText(true)
   }
   /** set visibility of rcText & distText */
   showText(vis = !this.rcText.visible) {
@@ -341,21 +334,8 @@ export class HexMap extends Array<Array<Hex>> {
   // A color for each District:
   distColor = ["lightgrey","limegreen","deepskyblue","rgb(255,165,0)","violet","rgb(250,80,80)","yellow"]
 
-  makeRing0(radius1, radius0, color) {
-    let mark = new Shape(), rad = (radius1 - radius0)
-    mark.graphics.setStrokeStyle(rad).s(color)
-    mark.graphics.arc(0, 0, radius1-rad/2, 0, 2*Math.PI, false)
-    return mark
-  }
-  makeRing(radius, radius0, color) {
-    let mark = new Shape()
-    mark.graphics.f(color).dc(0,0, radius)
-    mark.cache(-radius, -radius, 2*radius, 2*radius)
-    mark.graphics.c().f(C.BLACK).dc(0, 0, radius0)
-    mark.updateCache("destination-out")
-    return mark
-  }
-  makeMark(radius: number, radius0: number = 0, color = C.markColor) {
+  /** for contrast paint it black AND white, leave a hole in the middle unpainted. */
+  makeMark(radius: number, radius0: number = 0) {
     let mark = new Shape(), cb = "rgba(0,0,0,.3)", cw="rgba(255,255,255,.3)"
     mark.graphics.f(cb).dp(0, 0, radius, 6, 0, 30)
     mark.graphics.f(cw).dp(0, 0, radius, 6, 0, 30)
@@ -409,7 +389,7 @@ export class HexMap extends Array<Array<Hex>> {
     hex.district = district
     if (!this[row]) {
       this[row] = new Array<Hex>()
-      if (row < (this.minRow || 1)) this.minRow = row
+      if (this.minRow === undefined || row < this.minRow) this.minRow = row
     }
     if (this.minCol === undefined || col < this.minCol) this.minCol = col
     if (this.maxCol === undefined || col > this.maxCol) this.maxCol = col
@@ -418,29 +398,32 @@ export class HexMap extends Array<Array<Hex>> {
     this.link(hex)   // link to existing neighbors
     return hex
   }
-  /** Array.forEach does not use negative indices */
+  /** Array.forEach does not use negative indices: ASSERT [row,col] is non-negative */
   forEachHex<K extends Hex>(fn: (hex: K) => void) {
-    for (let ir = this.minRow || 0; ir < this.length; ir++) {
-      !!this[ir] && this[ir].forEach((hex: K) => fn(hex)) // ASSERT: col index is non-negative!
+    // minRow generally [0 or 1] always <= 5, so not worth it
+    //for (let ir = this.minRow || 0; ir < this.length; ir++) { 
+    for (let ir of this) {
+      // beginning and end of this AND ir may be undefined
+      for (let hex of ir) { hex !== undefined && fn(hex as K) }
     }
   }
   findHex<K extends Hex>(fn: (hex: K) => boolean): K {
-    let found: Hex
-    for (let ir = this.minRow || 0; ir < this.length; ir++) {
-      if (!this[ir]) continue
-      found = this[ir].find((hex: K) => fn(hex))
-      if (found !== undefined) return found as K
+    let found: K
+    for (let ir of this) {
+      if (!ir) continue
+      found = ir.find((hex: K) => fn(hex)) as K
+      if (found !== undefined) return found
     }
-    return found as K
+    return found // undefined
   }
-  mapEachHex<T>(fn: (hex: Hex) => T): T[] {
+  mapEachHex<K extends Hex,T>(fn: (hex: K) => T): T[] {
     let rv: T[] = []
-    this.forEachHex((hex: Hex) => rv.push(fn(hex)))
+    this.forEachHex<K>(hex => rv.push(fn(hex)))
     return rv
   }
   filterEachHex<K extends Hex>(fn: (hex: K) => boolean): K[] {
     let rv: K[] = []
-    this.forEachHex<K>((hex: K) => fn(hex) && rv.push(hex))
+    this.forEachHex<K>(hex => fn(hex) && rv.push(hex))
     return rv
   }
   showMark(hex?: Hex) {
@@ -506,10 +489,10 @@ export class HexMap extends Array<Array<Hex>> {
     this.distSize = nh
     this.nDistricts = TP.ftHexes(mh) // 7 or 19
 
-    let hexMap = this
-    let mrc: RC = { col: Math.ceil(mh / 2), row: 2 }, district = 0
+    let hexMap = this, district = 0
+    let mrc: RC = { col: Math.ceil((mh+1) / 2), row: Math.floor(mh*1.25) } // row,col to be non-negative
     let dirs: HexDir[] = ['NE', 'SE', 'S', 'SW', 'NW', 'N',] // N-S aligned!
-    this.makeDistrict(nh, district++, mrc.row, mrc.col) // Central District [0]
+    this.makeDistrict(mh, nh, district++, mrc.row, mrc.col) // Central District [0]
     for (let ring = 1; ring < mh; ring++) {
       //mrc.row -= 1 // start to North
       mrc = hexMap.nextRowCol(mrc, 'NW', hexMap.nsTopo(mrc)) // NW + NE => 'N' for next metaHex
@@ -517,7 +500,7 @@ export class HexMap extends Array<Array<Hex>> {
         // newMetaHexesOnLine(ring, rc, dir, district, dcolor, hexAry)
         for (let i = 0; i < ring; i++) {
           mrc = hexMap.nextRowCol(mrc, dir, hexMap.nsTopo(mrc))
-          let hexAry = this.makeDistrict(nh, district++, mrc.row, mrc.col)
+          let hexAry = this.makeDistrict(mh, nh, district++, mrc.row, mrc.col)
           let dcolor = this.pickColor(hexAry[0])
           hexAry.forEach(hex => hex.setHexColor(dcolor))
         }
@@ -538,7 +521,7 @@ export class HexMap extends Array<Array<Hex>> {
   /** 
    * @param nh number of hexes on a side
    */
-  makeDistrict(nh: number, district: number, mr, mc): Hex2[] {
+  makeDistrict(mh:number, nh: number, district: number, mr, mc): Hex2[] {
     let mcp = Math.abs(mc % 2), mrp = Math.abs(mr % 2), dia = 2 * nh - 1
     let dcolor = (district == 0) ? 0 : (1 + ((district + nh + mr) % 6))
     // irow-icol define topology of MetaHex composed of HexDistrict 
@@ -563,8 +546,8 @@ export class HexMap extends Array<Array<Hex>> {
     //console.log(`.makeDistrict: [mr: ${mr}, mc: ${mc}] hex0= ${hex.Aname}`, hex)
     for (let ring = 1; ring < nh; ring++) {
       rc = this.nextRowCol(rc, 'W') // step West to start a ring
-        // place 'ring' hexes along each axis-line:
-        ; (H.dirs as InfDir[]).forEach(dir => rc = this.newHexesOnLine(ring, rc, dir, district, dcolor, hexAry))
+      // place 'ring' hexes along each axis-line:
+      H.infDirs.forEach(dir => rc = this.newHexesOnLine(ring, rc, dir, district, dcolor, hexAry))
     }
     //console.groupEnd()
     this.district[district] = hexAry

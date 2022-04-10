@@ -82,7 +82,7 @@ export class GameStats {
     })
   }
   /** compute pstats, return StonColor of winner (or undefined) */
-  update(board: Board): StoneColor {
+  update(board?: Board): StoneColor {
     let nDist = TP.ftHexes(TP.mHexes)  // each MetaHex is a District
     this.zeroCounters()
     this.hexMap.forEachHex((hex) => this.incCounters(hex))
@@ -112,8 +112,7 @@ export class GameStats {
     let s0M = 1.3, dMaxM = 1, dist0M = 1, nStoneM = 1.1, nInfM = .3, nThreatM = .2, nAttackM = .5
     this.wVector = dStoneM.concat([s0M, dMaxM, dist0M, nStoneM, nInfM, nThreatM, nAttackM])
   }
-  statVector(pid: number, gStats: GameStats): number[] {
-    let color = this.plyrColors[pid]
+  statVector(color: StoneColor, gStats: GameStats): number[] {
     let pstat = gStats.pStat(color)
     let score = gStats.score(color)
     let nDist0 = pstat.dStones[0]
@@ -127,8 +126,8 @@ export class GameStats {
   sumVector(v0: number[]): number {
     return v0.reduce((sum, cv) => sum+cv, 0)
   }
-  getSummaryStat(gStats: GameStats, pNdx: number, wVec = this.wVector) {
-    let sv = this.statVector(pNdx, gStats)
+  getSummaryStat(gStats: GameStats, color: StoneColor, wVec = this.wVector) {
+    let sv = this.statVector(color, gStats)
     this.mulVector(sv, wVec)
     return this.sumVector(sv)
   }
@@ -142,8 +141,7 @@ export class TableStats extends GameStats {
   dStonesText: Text[] = []
 
   sStat(color: StoneColor): number {
-    let pNdx = this.allPlayers.findIndex(plyr => plyr.color === color)
-    return this.getSummaryStat(this, pNdx)
+    return this.getSummaryStat(this, color)
   }
   // turn?
   constructor(gamePlay: GamePlay0, table: Table) {
@@ -169,8 +167,10 @@ export class TableStats extends GameStats {
     repText.color = (n < 3) ? C.YELLOW : C.RED
     repText.visible = (n >= 0)
   }
-  /** update all the stats */
-  override update(board: Board): StoneColor {
+  /** update all the stats 
+   * @board if supplied, check for win/resign/stalemate
+   */
+  override update(board?: Board): StoneColor {
     const win = super.update(board)
     this.showBoardRep(board.repCount)
     if (!!this.table) {
@@ -178,7 +178,7 @@ export class TableStats extends GameStats {
       this.showControl(this.table)
       this.hexMap.update()
     }
-    if (this.gameOver(board, win)) {
+    if (!!board && this.gameOver(board, win)) {
       let plyr = this.gamePlay.curPlayer, pc = plyr.color, pcr=TP.colorScheme[pc], pStats = plyr.stats
       let op = this.gamePlay.nextPlayer, opc = op.color, opcr=TP.colorScheme[opc], opStats = op.stats
       if (!!win) return this.showWin(board, win, `WINS! ${opcr} loses`)

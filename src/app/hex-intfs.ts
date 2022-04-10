@@ -25,6 +25,7 @@ export namespace H {
 
   export const axis: HexAxis[] = [NE, E, SE];           // minimal reference directions
   export const dirs: HexDir[] = [NE, E, SE, SW, W, NW]; // standard direction signifiers () ClockWise
+  export const infDirs: InfDir[] = dirs as InfDir[]     // until we extract from typeof InfDir
   export const dirRot: {[key in HexDir] : number} = { N: 0, E: 90, S: 180, W: 270, NE: 30, SE: 150, SW: 210, NW: 330 }
   export const dirRev: {[key in HexDir] : InfDir} = { N: E, S: E, E: W, W: E, NE: SW, SE: NW, SW: NE, NW: SE }
 

@@ -9,11 +9,17 @@ import { TP, StoneColor, otherColor, stoneColor0, stoneColor1 } from "./table-pa
 type XYWH = {x: number, y: number, w: number, h: number} // like a Rectangle
 type HEX_STATUS = { found: boolean, sui: boolean, caps: Hex[] }
 const S_stagemousemove = 'stagemousemove'
+
+/**
+ * Graphical representation of the 'color' of a Move onto the HexMap.
+ * 
+ * can be repainted temporarily by 'shift', but that does not change the underlying color.
+ */
 export class Stone extends Shape {
   static radius: number = TP.hexRad
   static height: number = Stone.radius*Math.sqrt(3)/2
   get radius() { return Stone.height -1 }
-  color: StoneColor;
+  readonly color: StoneColor;
   /** put new Stone of color on cont at location of hex */
   constructor(color: StoneColor) {
     super()
@@ -23,15 +29,15 @@ export class Stone extends Shape {
   paint(color = this.color) {
     this.paint1(TP.colorScheme[color])
   }
-  paint0(color: string) {
-    let rad = this.radius
-    this.graphics.c().f(color).dc(0, 0, this.radius)
-    this.cache(-rad, -rad, 2*rad, 2*rad)
-    this.graphics.c().f(C.BLACK).dc(0, 0, this.radius/2)
+  paint2(color: string) {
+    this.paint1(color)
+    this.graphics.c().f(C.BLACK).dc(0, 0, this.radius/2) // put a hole in it!
     this.updateCache("destination-out")
   }
   paint1(color: string) {
-    this.graphics.c().f(color).dc(0, 0, this.radius)
+    let rad = this.radius
+    this.graphics.c().f(color).dc(0, 0, rad)
+    this.cache(-rad, -rad, 2*rad, 2*rad)
   }
 }
 /** layout display components, setup callbacks to GamePlay */
@@ -42,7 +48,7 @@ export class Table extends EventDispatcher  {
   stage: Stage;
   scaleCont: Container
   hexMap: HexMap = new HexMap()
-  nextHex: Hex2 = new Hex2("grey", Stone.radius, undefined).setName('nextHex') // no hexMap.
+  nextHex: Hex2 = new Hex2("grey", Stone.radius, undefined).setName('nextHex') // Graphics, but no hexMap.
   undoCont: Container = new Container()
   undoShape: Shape = new Shape();
   skipShape: Shape = new Shape();
@@ -232,16 +238,13 @@ export class Table extends EventDispatcher  {
     this.viewCaptured = []
   }
   dragShift = false // last shift state in dragFunc
-  dragHex: Hex = undefined // last hex in dragFunc
+  dragHex: Hex2 = undefined // last hex in dragFunc
   isDragging() { return !!this.dragHex }
-  stopDragging(noMove = true) {
+
+  stopDragging(target: Hex2 = this.nextHex) {
     //console.log(stime(this, `.stopDragging: target=`), this.dragger.dragCont.getChildAt(0), {noMove, isDragging: this.isDragging()})
     if (!this.isDragging()) return
-    if (noMove) {
-      this.dropTarget = this.nextHex
-      // this.nextHex.stone.x = this.nextHex.x
-      // this.nextHex.stone.y = this.nextHex.y
-    }
+    target && (this.dropTarget = target)
     this.dragger.stopDrag()
   }
 
@@ -270,14 +273,10 @@ export class Table extends EventDispatcher  {
     this.dragShift = shift
     this.dragHex = hex
     this.unmarkViewCaptured() // a new Hex/target, remove prior capture marks
-    if (!!hex.stone && hex != this.nextHex) return nonTarget(hex) // occupied
-    if (!!hex.capMark && !shift) return nonTarget(hex) // was captured last turn
-    // let move0 = this.gamePlay.history[0] // ALTERNATIVE to hex.capMark
-    // if (!shift && move0 && move0.captured.includes(hex)) return nonTarget(hex) // was captured last turn
-    let pstats = this.gamePlay.gStats.pStat(color)
-    if (hex.district == 0 && pstats.dMax <= pstats.dStones[0]) return nonTarget(hex)
+    if (!this.gamePlay.isLegalMove(hex, color, (h,c)=>true)) // bypass getCaptures
+      return nonTarget(hex) 
 
-    let { found, sui, caps } = this.getHexStatus(hex, color)
+    let { found, sui, caps } = this.getHexStatus(hex, color) // see if sui&caps is cached
     if (!found) {
       caps = this.gamePlay.getCaptures(hex, color) // set captured and undoCapture
       sui = !caps
@@ -340,7 +339,7 @@ export class Table extends EventDispatcher  {
   /** attach nextHex.stone to mouse-drag */
   dragStone() {
     if (this.isDragging()) {
-      this.stopDragging(false) // drop and make move
+      this.stopDragging(this.dropTarget) // drop and make move
     } else {
       this.dragger.dragTarget(this.nextHex.stone, { x: TP.hexRad / 2, y: TP.hexRad / 2 })
     }

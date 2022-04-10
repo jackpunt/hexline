@@ -3,7 +3,7 @@ import { Hex } from "./hex";
 import { H } from "./hex-intfs";
 import { GameStats } from "./stats";
 import { Stone, Table } from "./table";
-import { StoneColor, TP } from "./table-params";
+import { otherColor, StoneColor, stoneColor0, stoneColor1, TP } from "./table-params";
 
 
 class RoboBase implements Mover {
@@ -69,38 +69,84 @@ export class Planner {
   gamePlay: GamePlay0
   // pcs: StoneColor[]   // Player colors by plyr.index
   weightVec0: number[] = []
+  weightVec1: number[] = []
+  weightVecs: { }
+  state: State
+
   constructor(gamePlay: GamePlay0) {
     this.gamePlay = gamePlay
     // compatible with statVector in stats.ts
     let nDist = TP.ftHexes(TP.mHexes)  // each MetaHex is a District
     let dStoneM = new Array<number>(nDist).fill(1, 0, nDist)
-    let s0M = 1.3, dMaxM = 1, dist0M = 1, nStoneM = 1.1, nInfM = .3, nThreatM = .2, nAttackM = .5
-    this.weightVec0 = dStoneM.concat([s0M, dMaxM, dist0M, nStoneM, nInfM, nThreatM, nAttackM])
+    // s0 = inControl, dMax, district0, nStones, nInf
+    let s0M0 = 1.3, dMaxM0 = 1, dist0M0 = 1, nStoneM0 = 1.1, nInfM0 = .3, nThreatM0 = .2, nAttackM0 = .5
+    this.weightVec0 = dStoneM.concat([s0M0, dMaxM0, dist0M0, nStoneM0, nInfM0, nThreatM0, nAttackM0])
+    this.weightVecs[stoneColor0] = this.weightVec0
+
+    let s0M1 = 1.4, dMaxM1 = .9, dist0M1 = .8, nStoneM1 = 1.2, nInfM1 = .25, nThreatM1 = .25, nAttackM1 = .6
+    this.weightVec1 = dStoneM.concat([s0M1, dMaxM1, dist0M1, nStoneM1, nInfM1, nThreatM1, nAttackM1])
+    this.weightVecs[stoneColor1] = this.weightVec1
+
   }
   // after doPlayerMove (or undoMove...)
-  getScore(update = false): number {
+  getValue(color: StoneColor, update = false): number {
+    let weightVec = this.weightVecs[color]
     let gamePlay = this.gamePlay
-    let hexMap = gamePlay.hexMap
-    let history = gamePlay.history
-    let move0 = history[0], stone = move0.stone, hex = move0.hex
-    let board = move0.board
     let gStats = gamePlay.gStats
-    update && gStats.update(board)
-    let s0 = gamePlay.gStats.getSummaryStat(gStats, 0, this.weightVec0)
-    let s1 = gamePlay.gStats.getSummaryStat(gStats, 1, this.weightVec0)
+    let move0 = gamePlay.history[0]
+    update && gStats.update(move0 && move0.board) // force re-calc of stats & sStat(w0)
+    let s0 = gamePlay.gStats.getSummaryStat(gStats, stoneColor0, weightVec)
+    let s1 = gamePlay.gStats.getSummaryStat(gStats, stoneColor1, weightVec)
     return s0 - s1
   }
-  lookahead(pndx: number, nMoves: number) {
+  getState(color: StoneColor, update?: boolean): State {
+    let value = this.getValue(color, update)    // best move will maximize value
+    return { move: this.gamePlay.history[0], value }
+  }
+  /** lookahead from current gamePlay; update State values looking nPlys deep */
+  lookahead(color: StoneColor, nPlys: number): State {
+    let state = this.doOnePly(color)
+    if (nPlys <= 0) return state
+    let node = state.moves
+
+    return state
+  }
+  doOnePly(color: StoneColor): State {
+    // assert: history[0] is valid (because first move has been done)
     // this.gamePlay: hexMap, history, allBoards, ...
-    let hexes = new HexGen(this.gamePlay).gen(), result: IteratorResult<void | Hex, void>
+    // do not need/have 'nextHex', just create a Stone for player:
+    let gamePlay = this.gamePlay
+    let state0 = this.state
+    let moves = state0.moves = new Map<Hex,State>(), stone = new Stone(color)
+    let bestHex: Hex, bestValue: number = 0
+
+    let hexes = new HexGen(gamePlay).gen(), result: IteratorResult<void | Hex, void>
     while ((result = hexes.next()) && !result.done) {
       let hex = (result.value as Hex)
-    }
-  }
+      gamePlay.doPlayerMove(hex, stone)
+      let state = this.getState(color)
+      moves.set(hex, state)
+      gamePlay.undoMove(false)  // allow new move by same player
 
+      if (state.value > bestValue) {
+        bestValue = state.value
+        bestHex = hex
+      }
+    }
+    state0.bestHex = bestHex; state0.bestValue = bestValue // best estimate of value at this ply
+    return state0
+  }
 }
+
+// move.hex, move.stone, move.board, move.board.captured, move.board.nextPlayerIndex
+/** 
+ * move is how we got here.. could be backlink? index into gamePlay.history?
+ * value is current best estimate of value
+ */
+type State = { move: Move, value: number, moves?: MOVES, bestHex?: Hex, bestValue?: number } 
+type MOVES = Map<Hex, State>
 class HexGen {
-  // moves that kill move0.hex: scan each of 6 axies, using isNotSuicide()->captures
+  // moves that kill move0.hex: scan each of 6 axies, using getCaptures()
   // moves near *my* last move (history[1])
   // all moves in district <= 7 (and later: 19)
 
@@ -125,10 +171,10 @@ class HexGen {
   }
 
   *checkHex(hexary: Iterable<Hex>, 
-    pred: (hex: Hex, color: StoneColor) => boolean = (hex, color) => !!this.gamePlay.getCaptures(hex, color)) {
+    pred?: (hex: Hex, color: StoneColor) => boolean) {
     for (let nHex of hexary) {
       // new move && not suicide:
-      if (!this.hexes.has(nHex) && pred(nHex, this.color)) yield nHex
+      if (!this.hexes.has(nHex) && this.gamePlay.isLegalMove(nHex, this.color, pred)) yield nHex
     }
   }
 
@@ -146,13 +192,13 @@ class HexGen {
   attackHex(hex: Hex) {
     let pred = (nhex: Hex, color: StoneColor) => {
       let caps = this.gamePlay.getCaptures(nhex, color)
-      return !!caps && caps.includes(hex)
+      return !!caps && caps.includes(hex) // true if (not suicide and) hex was captured
     }
     let genHex = this.radialHex(hex)
     return this.checkHex(genHex, pred)
   }
   *radialHex(hex: Hex) {
-    for (let dn of H.dirs) {
+    for (let dn of H.dirs) {    // extend in each radial direction
       let nHex = hex
       while (nHex = nHex.links[dn]) yield (nHex)
     }

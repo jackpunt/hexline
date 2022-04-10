@@ -76,9 +76,9 @@ export class GamePlay0 {
         this.setNextPlayer()
       }
       let move0 = this.history[0]  // the new, latest 'move'
+      this.gStats.update(move0 && move0.board) // when undo to beginning of game, do check for 'win'
       if (!!move0) {
         move0.board.setRepCount(this.history) // undo: decrement repCount; because: shift()
-        this.gStats.update(move0.board)
       }
     }
   }
@@ -100,7 +100,7 @@ export class GamePlay0 {
    * remove all influence of color on each axis from Hex
    * assert influence of color on each axis from Hex (w/o stone on hex)
    */
-   removeStone(hex: Hex) {
+  removeStone(hex: Hex) {
     let stone = hex.clearStone()
 
     this.assertInfluence(hex, stone.color, false) // reassert stoneColor on line (for what's left)
@@ -114,7 +114,7 @@ export class GamePlay0 {
     this.curHex = hex;
 
     let move = new Move(hex, stone)
-    this.history.unshift(move) // record Move in History
+    this.history.unshift(move) // record Move in History[0]
     this.captured = []
     if (hex == this.hexMap.skipHex) {
       this.doPlayerSkip(hex, stone)
@@ -239,6 +239,15 @@ export class GamePlay0 {
   get lastCaptured(): Hex[] {
     return this.captured
   }
+  /** caller can enhance pred, but should/must include call to getCaptures for suicide prevention. */
+  isLegalMove(nHex: Hex, color: StoneColor,
+    pred: (hex: Hex, color: StoneColor) => boolean = (hex, color) => !!this.getCaptures(hex, color)) {
+    if (!!nHex.stone) return false
+    if (nHex.isCaptured) return false
+    let pstats = this.gStats.pStat(color)
+    if (nHex.district == 0 && pstats.dMax <= pstats.dStones[0]) return false
+    return pred(nHex, color) // and [generally] this.captured is set
+  }
 
   /**
    * called from dragFunc, before a Move.
@@ -281,8 +290,8 @@ export class GamePlay extends GamePlay0 {
     KeyBinder.keyBinder.setKey('q', {thisArg: this, func: this.undoMove})
     KeyBinder.keyBinder.setKey('r', {thisArg: this, func: this.redoMove})
     KeyBinder.keyBinder.setKey('t', {thisArg: this, func: this.skipMove})
-    KeyBinder.keyBinder.setKey('M-K', {thisArg: this, func: this.resignMove})// M-S-k
-    KeyBinder.keyBinder.setKey('Escape', {thisArg: table, func: table.stopDragging})// M-S-k
+    KeyBinder.keyBinder.setKey('M-K', {thisArg: this, func: this.resignMove})// S-M-k
+    KeyBinder.keyBinder.setKey('Escape', {thisArg: table, func: table.stopDragging}) // Escape
     table.undoShape.on(S.click, () => this.undoMove(), this)
     table.redoShape.on(S.click, () => this.redoMove(), this)
     table.skipShape.on(S.click, () => this.skipMove(), this)
@@ -311,12 +320,12 @@ export class GamePlay extends GamePlay0 {
   }
 
   override undoMove(undoTurn: boolean = true) {
-    this.table.stopDragging(true) // drop on nextHex (no Move)
+    this.table.stopDragging() // drop on nextHex (no Move)
     super.undoMove(undoTurn)
     this.showRedoMark()
   }
   redoMove() {
-    this.table.stopDragging(true) // drop on nextHex (no Move)
+    this.table.stopDragging() // drop on nextHex (no Move)
     let move = this.redoMoves.shift()
     if (!move) return
     move.captured = []
@@ -376,11 +385,11 @@ export class GamePlay extends GamePlay0 {
   }
 
   skipMove() {
-    this.table.stopDragging(true) // drop on nextHex (no Move)
+    this.table.stopDragging() // drop on nextHex (no Move)
     this.doPlayerMove(this.hexMap.skipHex, this.table.nextHex.stone) // dummy move for history & redos
   }
   resignMove() {
-    this.table.stopDragging(true) // drop on nextHex (no Move)
+    this.table.stopDragging() // drop on nextHex (no Move)
     this.doPlayerMove(this.hexMap.resignHex, this.table.nextHex.stone) // move Stone to table.resignHex
   }
   override doPlayerSkip() {
@@ -470,7 +479,7 @@ class BoardRegister extends Map<string, Board> {
       b0.repCount += 1
       return b0
     }
-    this.set(board.id, board)
+    this.set(board.id, board)     // Note: boards are never removed, even by undo; just decr repCount
     return board
   }
 }
