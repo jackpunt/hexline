@@ -136,22 +136,20 @@ export class GamePlay0 {
     this.setNextPlayer()
   }
   
-  /** return Array<Hex> where each Hex in on the given axis, with Stone of color. 
+  /** return Array<Hex> of each Hex (west-to-east) on the given axis, with Stone of color. 
    * @param color if undefined, return all Hex on axis
    */
-  hexlineToArray(hex: Hex, ds: HexDir, color: StoneColor): Hex[] {
+  hexlineToArray(hex: Hex, ds: HexAxis, color: StoneColor): Hex[] {
     let rv: Array<Hex> = (!color || (hex.stoneColor === color)) ? [hex] : []
     let nhex: Hex = hex
-    rv['ds'] = ds
     while (!!(nhex = nhex.links[ds])) {
       if (!color || nhex.stoneColor === color) rv.push(nhex)
     }
     let dr = H.dirRev[ds]; 
     nhex = hex
     while (!!(nhex = nhex.links[dr])) {
-      if (!color || nhex.stoneColor === color) rv.push(nhex)
+      if (!color || nhex.stoneColor === color) rv.unshift(nhex)
     }
-    rv.sort((ahex, bhex) => bhex.cx - ahex.cx)
     return rv
   }
 
@@ -191,20 +189,18 @@ export class GamePlay0 {
    */
   removeInfluenceDir(hex: Hex, ds: HexAxis, color: StoneColor): Hex[] {
     let line = this.hexlineToArray(hex, ds, undefined) // ALL hexes on the line
-    //this.showLine(`.removeInfluence:${hex.Aname}:${color}`, line)
-    let rv: Hex[] = [] ; 
-    line.forEach(hex => {
-      hex.delInf(color, ds, true)    // do not addUndoRec()
-      if (hex.stoneColor === color) rv.push(hex)
+    //this.showLine(`.removeInfluenceDir:${hex.Aname}:${color}`, line)
+    return line.filter(hex => { 
+      hex.delInf(color, ds, true)     // do not addUndoRec()
+      return (hex.stoneColor === color)
     })
-    return rv
   }
   // from line of Hex -> set Influence in Hex & HexMap
   /** show influence on map AND remove captured stones */
   assertInfluenceDir(hex: Hex, ds: HexAxis, color: StoneColor, incr = false, 
     line: Hex[] = incr ? [hex] : this.hexlineToArray(hex, ds, color)) {
     // Hexes with Stones of color on line [E..W]
-    //this.showLine(`.assertInfluence:${hex.Aname}:${color}`, line)
+    //this.showLine(`.assertInfluenceDir:${hex.Aname}:${color}`, line)
     let dr = H.dirRev[ds]
     // SINGLE pass: alternating from left/right end of line: insert 'final' influence
     for (let low = 0, high = line.length - 1; high >= 0; low++, high--) {
@@ -229,9 +225,8 @@ export class GamePlay0 {
       nhex.delInf(color, dn, false, undo);
       this.skipAndSet(nhex, color, ds, dn, incr)
     }
-    nhex = nhex.links[dn]
-    while (!!nhex && nhex.isInf(color, dn)) { nhex = nhex.links[dn]}
-    if (!nhex) return
+    do { nhex = nhex.links[dn] } while (!!nhex && nhex.isInf(color, dn))
+    if (!nhex) return         // end of the line
     nhex.setInf(color, dn, ds, incr ? undo : undefined)  // no undo when remove
     if (nhex.isCapture(color) && nhex != this.curHex) {  // pick up suicide later...
       this.captureStone(nhex) // capture Stone of *other* color
@@ -250,7 +245,7 @@ export class GamePlay0 {
    * assertInfluence on hex of color; without setting a Stone; 
    * see if hex is [still] attacked by other color
    * then undo the influence and undo/replace any captures
-   * @return captures (this.captures) or undefined is Move is suicide
+   * @return captures (this.captured) or undefined if Move is suicide
    */
   getCaptures(hex: Hex, color: StoneColor): Hex[] | undefined {
     this.captured = []

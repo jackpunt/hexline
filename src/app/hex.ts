@@ -9,7 +9,7 @@ export const S_Skip = 'Hex@skip'
 
 // Note: graphics.drawPolyStar(x,y,radius, sides, pointSize, angle) will do a regular polygon
 
-type LINKS = { [key in InfDir]: Hex }
+type LINKS = { [key in InfDir]?: Hex }
 type INF   = { [key in InfDir]?: InfMark }
 type ToAxis= {[key in InfDir] : HexAxis}
 const dnToAxis: ToAxis = { NW: 'SE', W: 'E', SW: 'NE', NE: 'NE', E: 'E', SE: 'SE' }
@@ -92,12 +92,12 @@ export class Hex {
   isCaptured: boolean // capMark
   /** Link to neighbor in each S.dirs direction [NE, E, SE, SW, W, NW] */
   links: LINKS = {
-    NE: undefined,
-    E: undefined,
-    SE: undefined,
-    SW: undefined,
-    W: undefined,
-    NW: undefined
+    // NE: undefined,
+    // E: undefined,
+    // SE: undefined,
+    // SW: undefined,
+    // W: undefined,
+    // NW: undefined
   }
   setName(aname: string): this { this.Aname = aname; return this}
 
@@ -214,7 +214,7 @@ export class Hex2 extends Hex {//Container {
     return `Hex[${this.row},${this.col}]`
   }
 
-  /** One Hex cell in the game, shown as a polyStar Shape of radius @ (XY=0,0) */
+  /** One Hex2 cell in the game, shown as a polyStar Shape of radius @ (XY=0,0) */
   constructor(color: string, radius: number, map: HexMap, row?: number, col?: number) {
     super(map, row, col);
     this.radius = radius
@@ -337,7 +337,7 @@ export class HexMap extends Array<Array<Hex>> {
   distSize: number;      // nh: number of hex sides for each district (1--6)
   metaSize: number;      // mh: MetaHex order (2 or 3)
   nDistricts: number;    // number of districts = ftHexes(metaSize)
-
+  district: Array<Hex[]> = []
   // A color for each District:
   distColor = ["lightgrey","limegreen","deepskyblue","rgb(255,165,0)","violet","rgb(250,80,80)","yellow"]
 
@@ -526,11 +526,11 @@ export class HexMap extends Array<Array<Hex>> {
     this.centerOnContainer()
   }
   pickColor(hex: Hex2): string {
-    let adjColor: string[] = [hex.map.distColor[0]], dist0 = hex.district
+    let adjColor: string[] = [hex.map.distColor[0]] // colors not to use
     H.dirs.forEach(hd => {
       let nhex: Hex2 = hex
       while (!!(nhex = nhex.links[hd])) {
-        if (nhex.district != dist0) { adjColor.push(nhex.color); return }
+        if (nhex.district != hex.district) { adjColor.push(nhex.color); return }
       }
     })
     return hex.map.distColor.find(ci => !adjColor.includes(ci))
@@ -567,6 +567,7 @@ export class HexMap extends Array<Array<Hex>> {
         ; (H.dirs as InfDir[]).forEach(dir => rc = this.newHexesOnLine(ring, rc, dir, district, dcolor, hexAry))
     }
     //console.groupEnd()
+    this.district[district] = hexAry
     return hexAry
   }
   /**
