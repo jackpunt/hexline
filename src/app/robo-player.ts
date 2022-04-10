@@ -1,5 +1,6 @@
 import { Board, GamePlay0, Move, Mover, Player } from "./game-play";
 import { Hex } from "./hex";
+import { H } from "./hex-intfs";
 import { GameStats } from "./stats";
 import { Stone, Table } from "./table";
 import { StoneColor, TP } from "./table-params";
@@ -89,5 +90,74 @@ export class Planner {
     let s1 = gamePlay.gStats.getSummaryStat(gStats, 1, this.weightVec0)
     return s0 - s1
   }
+  lookahead(pndx: number, nMoves: number) {
+    // this.gamePlay: hexMap, history, allBoards, ...
+    let hexes = new HexGen(this.gamePlay).gen(), result: IteratorResult<void | Hex, void>
+    while ((result = hexes.next()) && !result.done) {
+      let hex = (result.value as Hex)
+    }
+  }
+
+}
+class HexGen {
+  // moves that kill move0.hex: scan each of 6 axies, using isNotSuicide()->captures
+  // moves near *my* last move (history[1])
+  // all moves in district <= 7 (and later: 19)
+
+  // Note: getCaptures() does assertInfluence & removeStone and then invokes undoRecs & undoInfluence
+  // we *could* place the stone & evaluate the board before the undo
+  // we *could* copy the hexMap state and keep it in the move tree
+  // Q: is it more expensise to do/influence/capture/undo OR copy-hexMap?
+  // Can we make a hexMap & Hex[] without Shapes/Graphics?
+
+  constructor (private gamePlay: GamePlay0) {}
+  hexes = new Set<Hex>()
+  plyr = this.gamePlay.curPlayer
+  color = this.plyr.color
+  move0 = this.gamePlay.history[0]  // last move otherPlayer made
+  move1 = this.gamePlay.history[1]  // last move plyr made
+
+  ; *gen() {
+    yield* this.attackHex(this.move0.hex)
+    yield* this.alignHex(this.move0.hex)
+    yield* this.adjacentHex(this.move1.hex)
+    for (let d  of [0, 1, 2, 3, 4, 5, 6]) yield* this.allHexInDistrict(d)
+  }
+
+  *checkHex(hexary: Iterable<Hex>, 
+    pred: (hex: Hex, color: StoneColor) => boolean = (hex, color) => !!this.gamePlay.getCaptures(hex, color)) {
+    for (let nHex of hexary) {
+      // new move && not suicide:
+      if (!this.hexes.has(nHex) && pred(nHex, this.color)) yield nHex
+    }
+  }
+
+  //this.gamePlay.getCaptures(nHex, color)
+  adjacentHex(hex: Hex) {
+    return this.checkHex(Object.values(hex.links))  
+  }
+  allHexInDistrict(d: number) {
+    return this.checkHex(this.gamePlay.hexMap.district[d])
+  }
+  alignHex(hex: Hex) {
+    let genHex = this.radialHex(hex)
+    return this.checkHex(genHex)
+  }
+  attackHex(hex: Hex) {
+    let pred = (nhex: Hex, color: StoneColor) => {
+      let caps = this.gamePlay.getCaptures(nhex, color)
+      return !!caps && caps.includes(hex)
+    }
+    let genHex = this.radialHex(hex)
+    return this.checkHex(genHex, pred)
+  }
+  *radialHex(hex: Hex) {
+    for (let dn of H.dirs) {
+      let nHex = hex
+      while (nHex = nHex.links[dn]) yield (nHex)
+    }
+    return
+  }
+
 
 }
