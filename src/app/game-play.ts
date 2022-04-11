@@ -5,6 +5,7 @@ import { S, stime, Undo, KeyBinder } from "@thegraid/createjs-lib";
 import { GameStats, PlayerStats, TableStats } from "./stats";
 import { Stone, Table } from "./table";
 import { otherColor, StoneColor, stoneColor0, stoneColors, TP} from "./table-params"
+import { Planner } from "./robo-player";
 
 type HSC = { hex: Hex, color: StoneColor }
 type AxisDone = { [key in HexAxis]?: Set<Hex> }
@@ -42,8 +43,8 @@ export class GamePlay0 {
   get nextPlayer() { return this.allPlayers[this.nextPlayerIndex]}
   makeAllPlayers() {
     this.allPlayers = []
-    this.allPlayers[0] = new Player(0, stoneColors[0])
-    this.allPlayers[1] = new Player(1, stoneColors[1])
+    this.allPlayers[0] = new Player(0, stoneColors[0], this)
+    this.allPlayers[1] = new Player(1, stoneColors[1], this)
     this.gStats = new GameStats(this.hexMap, this.allPlayers) // AFTER allPlayers are defined so can set pStats
   }
   otherPlayer(plyr: Player) { return plyr == this.allPlayers[0] ? this.allPlayers[0] : this.allPlayers[1]}
@@ -76,24 +77,34 @@ export class GamePlay0 {
         this.setNextPlayer()
       }
       let move0 = this.history[0]  // the new, latest 'move'
-      this.gStats.update(move0 && move0.board) // when undo to beginning of game, do check for 'win'
+      this.gStats.update() // when undo to beginning of game, do check for 'win'
       if (!!move0) {
         move0.board.setRepCount(this.history) // undo: decrement repCount; because: shift()
       }
     }
   }
-  undoCapture(captured: Hex[ ]) { }
+  /** unmarkCapture (& capMarks if Hex2), reset current capture to history[0] */
+  undoCapture(captured: Hex[]) {
+    captured.forEach(hex => hex.unmarkCapture())
+    let move0 = this.history[0]
+    if (move0) {
+      move0.captured.forEach(hex => hex.markCapture())
+      this.hexMap.showMark(move0.hex)
+    }
+  }
   doPlayerSkip(hex: Hex, stone: Stone) {  }  // TODO: put something on history?
   doPlayerResign(hex: Hex, stone: Stone) { } // TODO: ??
 
   setStone(hex: Hex, stone: Stone) {
     hex.setStone(stone)
   }
-  /** addStone to hexMap(hex), assertInfluence, Captured, Undo & Stats? */
+  /** addStone to setStone(hex)->hex.setStone(color); assertInfluence & Captured; addUndoRec (no stats) */
   addStone(hex: Hex, stone: Stone) {
     this.setStone(hex, stone)  // move Stone onto Hex & HexMap [hex.stone = stone]
     this.assertInfluence(hex, stone.color)
-  }
+    if (!this.undoRecs.isUndoing) {
+      this.addUndoRec(this, `removeStone(${hex.Aname}:${stone.color})`, () => this.removeStone(hex)) // remove for undo
+    }  }
   /** 
    * remove Move that placed hex
    * remove stone Shape from hex
@@ -110,7 +121,7 @@ export class GamePlay0 {
   }
 
   /** remove captured Stones, from placing Stone on Hex */
-  doPlayerMove(hex: Hex, stone: Stone) {
+  doPlayerMove(hex: Hex, stone: Stone, setNext = true) {
     this.curHex = hex;
 
     let move = new Move(hex, stone)
@@ -124,16 +135,14 @@ export class GamePlay0 {
       this.addStone(hex, stone) // add Stone and Capture (& removeStone) w/addUndoRec
     }
     move.captured = this.captured;
-    if (!this.undoRecs.isUndoing) {
-      this.addUndoRec(this, `removeStone(${hex.Aname}:${stone.color})`, () => this.removeStone(hex)) // remove for undo
-    }
-    this.undoInfluence.flushUndo()   // TODO: modularize to gamePlay.allowDrop(hex)
+
     this.undoRecs.closeUndo()
+    this.undoInfluence.flushUndo() // <=== no going back! [skipAndSet] maybe just closeUndo() ??
 
     move.board = this.allBoards.addBoard(this.nextPlayerIndex, move, this.hexMap)
     move.board.setRepCount(this.history) // >= 1 [should be NO-OP, from addBoard]
-    this.gStats.update(move.board) // showRepCount(), showWin()
-    this.setNextPlayer()
+    this.gStats.update() // showRepCount(), showWin()
+    if (setNext) this.setNextPlayer()
   }
   
   /** return Array<Hex> of each Hex (west-to-east) on the given axis, with Stone of color. 
@@ -220,7 +229,7 @@ export class GamePlay0 {
    * @returns 
    */
   skipAndSet(nhex: Hex, color: StoneColor, ds: HexAxis, dn: InfDir, incr = false) {
-    let undo = this.undoInfluence
+    let undo = this.undoInfluence     // skipAndSet is undoable by getCaptures()
     if (incr && nhex.getInf(color, dn)) {
       nhex.delInf(color, dn, false, undo);
       this.skipAndSet(nhex, color, ds, dn, incr)
@@ -256,7 +265,7 @@ export class GamePlay0 {
    * then undo the influence and undo/replace any captures
    * @return captures (this.captured) or undefined if Move is suicide
    */
-  getCaptures(hex: Hex, color: StoneColor): Hex[] | undefined {
+  getCaptures(hex: Hex, color: StoneColor, func?: (hex: Hex) => void): Hex[] | undefined {
     this.captured = []
     this.undoInfluence.flushUndo().enableUndo()
     let undo0 = this.undoRecs
@@ -266,6 +275,7 @@ export class GamePlay0 {
     // capture may *remove* some inf & InfMarks!
     let suicide = hex.isAttack(otherColor(color))
     //console.log({undo: this.undoInfluence.concat([]), capt: this.captured.concat([]) })
+    if (func) func(hex)
     this.undoInfluence.closeUndo().pop()
     this.undoRecs.closeUndo().pop()
     this.undoRecs = undo0
@@ -292,31 +302,26 @@ export class GamePlay extends GamePlay0 {
     KeyBinder.keyBinder.setKey('t', {thisArg: this, func: this.skipMove})
     KeyBinder.keyBinder.setKey('M-K', {thisArg: this, func: this.resignMove})// S-M-k
     KeyBinder.keyBinder.setKey('Escape', {thisArg: table, func: table.stopDragging}) // Escape
+    KeyBinder.keyBinder.setKey('m', {thisArg: this, func: this.makeMove})
     table.undoShape.on(S.click, () => this.undoMove(), this)
     table.redoShape.on(S.click, () => this.redoMove(), this)
     table.skipShape.on(S.click, () => this.skipMove(), this)
   }
-
+  makeMove() {
+    console.log(stime(this, `.makeMove stone=`), this.table.nextHex.stone)
+    this.curPlayer.makeMove(this.table.nextHex.stone, true)
+  }
 
   /** undo last undo block */
   override undoStones() {
     let undoNdx = this.undoRecs.length -1;
     let popRec = (undoNdx >= 0) ? this.undoRecs[undoNdx].concat([]) : [] // copy undoRecs[] so it is stable in log
-    console.groupCollapsed(`undoIt-${undoNdx}`)
+    console.groupCollapsed(`${stime(this)}undoIt-${undoNdx}`)
     console.log(stime(this, `.undoStones: undoRec[${undoNdx}] =`), popRec);
     super.undoStones()
     this.hexMap.update();
     console.log(stime(this, `.undoIt: after[${undoNdx}]`), { Stones: [].concat(this.hexMap.allStones), undo: this.undoRecs });
     console.groupEnd()   // "undoIt-ndx"
-  }
-  /** remove capMarks */
-  override undoCapture(captured: Hex[], pcap?: Move) {
-    captured.forEach(hex => hex.unmarkCapture())
-    let pMove = this.history[0]
-    if (pMove) {
-      pMove.captured.forEach(hex => hex.markCapture())
-      this.hexMap.showMark(pMove.hex)
-    }
   }
 
   override undoMove(undoTurn: boolean = true) {
@@ -397,9 +402,9 @@ export class GamePlay extends GamePlay0 {
     this.addUndoRec(this.table, 'clearNextHex', () => this.table.clearStone(hex)) // clear other Player's Stone
   }
   /** remove captured Stones, from placing Stone on Hex */
-  override doPlayerMove(hex: Hex, stone: Stone) {
+  override doPlayerMove(hex: Hex, stone: Stone, setNext?: boolean) {
     this.unmarkOldCaptures()       // this player no longer constrained?
-    super.doPlayerMove(hex, stone) // skipAndSet -> captureStone -> mark new Captures
+    super.doPlayerMove(hex, stone, setNext) // skipAndSet -> captureStone -> mark new Captures
     this.hexMap.update()
   }
   override setNextPlayer(ndx?: number): Player {
@@ -449,7 +454,7 @@ export class Move {
   }
 }
 export interface Mover {
-  makeMove(stone: Stone): void
+  makeMove(stone: Stone, useRobo: boolean): void
 }
 
 export class Player implements Mover {
@@ -459,13 +464,18 @@ export class Player implements Mover {
   stats: PlayerStats;
   mover: Mover
   otherPlayer: Player
+  gamePlay: GamePlay0
+  planner: Planner
  
-  constructor(index: number, color: StoneColor) {
+  constructor(index: number, color: StoneColor, gamePlay: GamePlay0) {
     this.index = index
     this.color = color
     this.name = `Player${index}-${color}`
+    this.gamePlay = gamePlay
+    this.planner = new Planner(gamePlay)
   }
-  makeMove(stone: Stone) {
+  makeMove(stone: Stone, useRobo = false) {
+    if (useRobo) this.planner.makeMove(stone)
     return 
   }
 }

@@ -68,11 +68,12 @@ class HexCont extends Container {
  */
 export class Hex {
   constructor(map: HexMap, row?: number, col?: number, name?: string) {
+    this.setName(name)
     this.map = map
     this.row = row
     this.col = col
-    this.setName(name)
     this.inf = Obj.fromEntries(stoneColors.map(c => [c, {}]))
+    this.links = {}
   }
   Aname: string
   _district: number // district ID
@@ -92,7 +93,7 @@ export class Hex {
   /** true if hex is unplayable (& empty) because it was captured by previous Move. */
   isCaptured: boolean // capMark OR map.history[0].includes(this)
   /** Link to neighbor in each H.dirs direction [NE, E, SE, SW, W, NW] */
-  links: LINKS = { }
+  links: LINKS
 
   setName(aname: string): this { this.Aname = aname; return this }
 
@@ -209,7 +210,7 @@ export class Hex2 extends Hex {//Container {
     return `Hex[${this.row},${this.col}]`
   }
 
-  /** One Hex2 cell in the game, shown as a polyStar Shape of radius @ (XY=0,0) */
+  /** Hex2 cell with graphics; shown as a polyStar Shape of radius @ (XY=0,0) */
   constructor(color: string, radius: number, map: HexMap, row?: number, col?: number) {
     super(map, row, col);
     this.radius = radius
@@ -306,9 +307,14 @@ export class Hex2 extends Hex {//Container {
   }
 }
 
-/** HexMap[row][col] keep registry of all Hex items map to/from [row, col] 
+/** 
+ * HexMap[row][col]: Hex or Hex2 elements. 
+ * If mapCont is set, then populate with Hex2 
  * 
- * The Hex items may be Hex or Hex2
+ * (TP.mh X TP.nh) hexes in districts; allStones: HSC[]
+ * 
+ * With a Mark and off-map: skipHex & resignHex
+ * 
  */
 export class HexMap extends Array<Array<Hex>> {
   radius: number = TP.hexRad
@@ -345,6 +351,7 @@ export class HexMap extends Array<Array<Hex>> {
     return mark
   }
 
+  /** HexMap: TP.mh X TP.nh hexes in districts; with a Mark, an off-map: skipHex & resignHex */
   constructor(radius: number = TP.hexRad, mapCont?: Container) {
     super()
     this.radius = radius

@@ -227,7 +227,7 @@ export class Table extends EventDispatcher  {
   set dropTarget(hex: Hex2) { hex = (hex || this.nextHex); this._dropTarget = hex; this.hexMap.showMark(hex)}
 
   viewCaptured: Hex[] = []
-  /** display captured mark on previoulsy captured Hex(s) */
+  /** display captured mark on previously captured Hex(s) */
   markViewCaptured(captured: Hex[]) {
     this.viewCaptured = captured
     this.viewCaptured.forEach(hex => hex.markCapture()) // show Mark *above* stoneCont

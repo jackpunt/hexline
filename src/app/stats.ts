@@ -82,7 +82,7 @@ export class GameStats {
     })
   }
   /** compute pstats, return StonColor of winner (or undefined) */
-  update(board?: Board): StoneColor {
+  update(): StoneColor {
     let nDist = TP.ftHexes(TP.mHexes)  // each MetaHex is a District
     this.zeroCounters()
     this.hexMap.forEachHex((hex) => this.incCounters(hex))
@@ -143,7 +143,7 @@ export class TableStats extends GameStats {
   sStat(color: StoneColor): number {
     return this.getSummaryStat(this, color)
   }
-  // turn?
+  // TableStats:
   constructor(gamePlay: GamePlay0, table: Table) {
     super(gamePlay.hexMap, gamePlay.allPlayers)
     this.gamePlay = gamePlay
@@ -170,10 +170,11 @@ export class TableStats extends GameStats {
   /** update all the stats 
    * @board if supplied, check for win/resign/stalemate
    */
-  override update(board?: Board): StoneColor {
-    const win = super.update(board)
-    this.showBoardRep(board.repCount)
+  override update(): StoneColor {
+    const win = super.update()
+    let move0 = this.gamePlay.history[0], board = move0 && move0.board
     if (!!this.table) {
+      !!board && this.showBoardRep(board.repCount)
       this.table.statsPanel.update()
       this.showControl(this.table)
       this.hexMap.update()
