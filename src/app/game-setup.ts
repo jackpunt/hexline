@@ -8,13 +8,14 @@ import { TP } from "./table-params";
 
 /** initialize & reset & startup the application. */
 export class GameSetup {
-
+  static setup: GameSetup
   stage: Stage;
 
   /** @param canvasId supply undefined for 'headless' Stage */
   constructor(canvasId: string) {
     stime.fmt = "MM-DD kk:mm:ss.SSS"
     this.stage = makeStage(canvasId, false)
+    GameSetup.setup = this
   }
   restart() {
     let deContainer = (cont: Container) => {

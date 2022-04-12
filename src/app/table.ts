@@ -226,13 +226,14 @@ export class Table extends EventDispatcher  {
   get dropTarget() { return this._dropTarget}
   set dropTarget(hex: Hex2) { hex = (hex || this.nextHex); this._dropTarget = hex; this.hexMap.showMark(hex)}
 
+  /** would be 'captured' by dropTarget. (like: history[-1].captured) */
   viewCaptured: Hex[] = []
-  /** display captured mark on previously captured Hex(s) */
+  /** display captured mark on would be captured Hex(s) */
   markViewCaptured(captured: Hex[]) {
     this.viewCaptured = captured
     this.viewCaptured.forEach(hex => hex.markCapture()) // show Mark *above* stoneCont
   }
-  /** remove captured mark from previously captured Hex(s) */
+  /** remove captured mark from would be captured Hex(s) */
   unmarkViewCaptured() { 
     this.viewCaptured.forEach(hex => hex.unmarkCapture())
     this.viewCaptured = []
