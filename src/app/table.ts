@@ -188,8 +188,9 @@ export class Table extends EventDispatcher  {
       const prev = !!lm ? lm.toString() : ""
       const capd = lm ? lm.captured : [] //this.gamePlay.lastCaptured 
       const board = !!this.hexMap.allStones[0] && lm.board
+      const robo = curPlayer.useRobo ? "robo" : "----"
       const info = { turn: tn, plyr: curPlayer.name, prev, capd, history, undo: this.gamePlay.undoRecs, board }
-      console.log(stime(this, `.setNextPlayer ---------------`), info, '-------------', !!this.stage.canvas);
+      console.log(stime(this, `.setNextPlayer -------${robo}----`), info, '-------------', !!this.stage.canvas);
     }
     this.undoText.text = `${this.gamePlay.undoRecs.length}`
     this.redoText.text = `${this.gamePlay.redoMoves.length}`

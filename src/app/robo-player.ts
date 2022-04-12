@@ -111,13 +111,16 @@ export class Planner {
 
   /** play this Stone, Player is stone.color */
   makeMove(stone: Stone, table?: Table) {
-    console.log(stime(this, `.makeMove: stone=`), stone)
+    //console.log(stime(this, `.makeMove: stone=`), stone)
     //let state0 = this.evalSomeMoves(stone.color) // eval current state & potential moves
     let state = this.lookahead(stone.color, this.maxPlys) // try someGoodMoves
     let hex = state.bestHex
     console.log(stime(this, `.makeMove: state=`), state)
-    table && table.dispatchEvent(new HexEvent(S.add, hex, stone)) //
-    //this.gamePlay.doPlayerMove(hex, stone)
+    if (table) {
+      table.nextHex.stone = undefined // unlink stone from nextHex
+      table.hexMap.showMark(hex)
+      table.dispatchEvent(new HexEvent(S.add, hex, stone)) //
+    }
   }
   /** 
    * lookahead from current State; with its potential MOVES
@@ -128,7 +131,7 @@ export class Planner {
    */
   lookahead(color: StoneColor, nPlys: number): State {
     let state0 = this.evalSomeMoves(color)
-    console.log(stime(this, `.lookahead: ${this.fill(nPlys)}`), nPlys, color, `after ${state0.move.Aname}`)
+    //console.log(stime(this, `.lookahead: ${this.fill(nPlys)}`), nPlys, color, `after ${state0.move.Aname}`)
     let stone = new Stone(color) // TODO: elide Stone, and play with StoneColor
     let breadth = 8, bestValue = Number.NEGATIVE_INFINITY, bestHex: Hex, bestState: State
     let moveAry = Array.from(state0.moves.entries()).sort((a, b) => b[1].value - a[1].value) // descending
@@ -141,7 +144,7 @@ export class Planner {
       }
     }
     bestState.bestHex = bestHex
-    console.log(stime(this, `.lookahead: ${this.fill(nPlys)}`), nPlys, color, { Aname: bestHex.Aname, bestHex, bestValue, bestState })
+    //console.log(stime(this, `.lookahead: ${this.fill(nPlys)}`), nPlys, color, { Aname: bestHex.Aname, bestHex, bestValue, bestState })
     return bestState // or resign? or skip?
   }
 
@@ -194,7 +197,7 @@ export class Planner {
     let state0 = this.evalState(color)
     let moves = state0.moves = new Map<Hex,State>(), stone = new Stone(color)
     let bestHex: Hex, bestValue: number = Number.NEGATIVE_INFINITY // state0.bestValue, state0.value
-    console.log(stime(this, `.evalSomeMoves: state0 in:`), Obj.objectFromEntries(state0))
+    //console.log(stime(this, `.evalSomeMoves: state0 in:`), Obj.objectFromEntries(state0))
 
     let hexes = new HexGen(gamePlay).gen(), result: IteratorResult<Hex, void>
     while ((result = hexes.next()) && !result.done) {
@@ -208,7 +211,7 @@ export class Planner {
       }
     }
     state0.bestHex = bestHex; state0.bestValue = bestValue // best estimate of value at this ply
-    console.log(stime(this, `.evalSomeMoves: state0 out:`), bestHex.Aname, Obj.objectFromEntries(state0))
+    //console.log(stime(this, `.evalSomeMoves: state0 out:`), bestHex.Aname, Obj.objectFromEntries(state0))
     return state0
   }
 }

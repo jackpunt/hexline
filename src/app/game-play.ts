@@ -322,15 +322,19 @@ export class GamePlay extends GamePlay0 {
     KeyBinder.keyBinder.setKey('M-K', {thisArg: this, func: this.resignMove})// S-M-k
     KeyBinder.keyBinder.setKey('Escape', {thisArg: table, func: table.stopDragging}) // Escape
     KeyBinder.keyBinder.setKey('C-s', {thisArg: GameSetup.setup, func: GameSetup.setup.restart})// C-s START
-    KeyBinder.keyBinder.setKey('m', {thisArg: this, func: this.makeMove})
+    KeyBinder.keyBinder.setKey('m', {thisArg: this, func: this.makeMove, argVal: false})
+    KeyBinder.keyBinder.setKey('n', {thisArg: this, func: this.makeMove, argVal: true})
     table.undoShape.on(S.click, () => this.undoMove(), this)
     table.redoShape.on(S.click, () => this.redoMove(), this)
     table.skipShape.on(S.click, () => this.skipMove(), this)
   }
-  makeMove() {
-    console.log(stime(this, `.makeMove stone=`), this.table.nextHex.stone)
+  makeMove(toggleAuto: boolean = false) {
+    //console.log(stime(this, `.makeMove stone=`), this.table.nextHex.stone)
     //this.curPlayer.makeMove(this.table.nextHex.stone, true)
-    this.curPlayer.planner.makeMove(this.table.nextHex.stone, this.table)
+    this.curPlayer.useRobo = (toggleAuto && !this.curPlayer.useRobo) // if toggle then useRobo = !useRobo
+    let useRobo = this.curPlayer.useRobo || !toggleAuto
+    console.log(stime(this, `.makeMove: curPlayer.useRobo=`), this.curPlayer.useRobo, useRobo)
+    this.curPlayer.makeMove(this.table.nextHex.stone, useRobo)
   }
 
   /** undo last undo block */
@@ -487,6 +491,7 @@ export class Player implements Mover {
   otherPlayer: Player
   gamePlay: GamePlay0
   planner: Planner
+  useRobo: boolean = false
  
   constructor(index: number, color: StoneColor, gamePlay: GamePlay0) {
     this.index = index
@@ -496,7 +501,9 @@ export class Player implements Mover {
     this.planner = new Planner(gamePlay)
   }
   makeMove(stone: Stone, useRobo = false) {
-    if (useRobo) this.planner.makeMove(stone)
+    let table = (this.gamePlay instanceof GamePlay) && this.gamePlay.table
+    if (useRobo || this.useRobo) 
+      setTimeout(() => this.planner.makeMove(stone, table), 5) // allow repaint
     return 
   }
 }
