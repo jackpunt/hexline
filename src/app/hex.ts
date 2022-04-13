@@ -86,22 +86,39 @@ export class Hex {
   readonly col: number
   inf: { [Key in StoneColor]: INF }
 
+  _color: StoneColor;
   //get cx(): number { return this.col * 2 + (this.row % 2) }
   stone: Stone  // Note: the 'Stone' is irrelevant; all we need is the stoneColor for HSC
   /** color of the Stone or undefined */
   get stoneColor(): StoneColor | undefined { return !!this.stone ? this.stone.color : undefined};
+  set stoneColor(color: StoneColor) { this._color = this.stoneColor}
   /** true if hex is unplayable (& empty) because it was captured by previous Move. */
   isCaptured: boolean // capMark OR map.history[0].includes(this)
   /** Link to neighbor in each H.dirs direction [NE, E, SE, SW, W, NW] */
   links: LINKS
 
   setName(aname: string): this { this.Aname = aname; return this }
-
+  setColor(color: StoneColor) {
+    if (!color) return this.clearColor()
+    this.stoneColor = color
+    let hsc = { Aname: this.Aname, hex: this, color }
+    this.map && this.map.allStones.push(hsc)
+    return color
+  }
+  clearColor() {
+    let color = this.stoneColor
+    if (!!this.stoneColor && !!this.map) {
+      this.map.allStones = this.map.allStones.filter(hsc => hsc.hex !== this)
+      this.stoneColor = undefined
+    }
+    return color
+  }
   setStone(stone: Stone) {
-    if (!stone) return (this.clearStone(), undefined)
+    if (!stone) return this.clearStone()
     this.stone = stone
     let hsc = { Aname: this.Aname, hex: this, color: stone.color }
     this.map && this.map.allStones.push(hsc)
+    return stone
   }
   clearStone(): Stone {
     let stone = this.stone
@@ -201,7 +218,7 @@ export class Hex2 extends Hex {//Container {
   }
   readonly radius: number;   // determines width & height
   hexShape: Shape   // colored hexagon is Child to this.cont
-  color: string     // district color of Hex
+  distColor: string // district color of Hex
   capMark: CapMark; // set if recently captured (markCapture); prevents dragFunc using as dropTarget
   distText: Text
   rcText: Text
@@ -285,7 +302,7 @@ export class Hex2 extends Hex {//Container {
   /** set hexShape using color */
   setHexColor(color: string, district?: number) {
     if (district !== undefined) this.district = district // hex.setHexColor update district
-    this.color = color
+    this.distColor = color
     let hexShape = this.paintHexShape(color, this.hexShape)
     if (hexShape !== this.hexShape) {
       this.cont.removeChild(this.hexShape)
@@ -520,7 +537,7 @@ export class HexMap extends Array<Array<Hex>> {
     H.dirs.forEach(hd => {
       let nhex: Hex2 = hex
       while (!!(nhex = nhex.links[hd])) {
-        if (nhex.district != hex.district) { adjColor.push(nhex.color); return }
+        if (nhex.district != hex.district) { adjColor.push(nhex.distColor); return }
       }
     })
     return hex.map.distColor.find(ci => !adjColor.includes(ci))

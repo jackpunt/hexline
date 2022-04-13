@@ -4,63 +4,69 @@ import { HexEvent } from "./hex-event";
 import { S, stime, Undo, KeyBinder } from "@thegraid/createjs-lib";
 import { GameStats, PlayerStats, TableStats } from "./stats";
 import { Stone, Table } from "./table";
-import { otherColor, StoneColor, stoneColor0, stoneColors, TP} from "./table-params"
+import { otherColor, StoneColor, stoneColor0, stoneColorRecord, stoneColors, TP} from "./table-params"
 import { Planner } from "./robo-player";
 import { GameSetup } from "./game-setup";
 
 type HSC = { hex: Hex, color: StoneColor }
 type AxisDone = { [key in HexAxis]?: Set<Hex> }
 export class GamePlay0 {
-  hexMap: HexMap = new HexMap()
+
+  constructor(gamePlay0?: GamePlay0) {
+    if (gamePlay0) {
+      this.original = gamePlay0
+      this.hexMap = gamePlay0.hexMap
+      this.history = gamePlay0.history
+      this.redoMoves = gamePlay0.redoMoves
+      this.allBoards = gamePlay0.allBoards
+      this.allPlayers = gamePlay0.allPlayers
+    } else {
+      this.hexMap = new HexMap()
+      this.history = []
+      this.redoMoves = []
+      this.allBoards = new BoardRegister()
+      this.allPlayers = stoneColors.map((color, ndx) => new Player(ndx, color, this))
+    }
+    this.gStats = new GameStats(this.hexMap, this.allPlayers) // AFTER allPlayers are defined so can set pStats
+  }
+
+  readonly gStats: GameStats
+  readonly hexMap: HexMap = new HexMap()
+  readonly history: Move[] = []          // sequence of Move that bring board to its state
+  readonly redoMoves: Move[] = []
+  readonly allBoards = new BoardRegister()
+  readonly allPlayers: Player[];
+
+  readonly original: GamePlay0
   /** last-current Hex to be played: immune to 'capture' [cf table.markHex] */
   curHex: Hex;
-  /** set by GamePlay: captureStone <- skipAndSet <- assertInfluenceDir <-assertInfluence <- addStone */
+  /** Transient: set by GamePlay: captureStone <- skipAndSet <- assertInfluenceDir <-assertInfluence <- addStone */
   captured: Hex[] = []
   undoInfluence: Undo = new Undo() // used by getCaptures()
 
-  allBoards = new BoardRegister()
-  
-  history: Move[] = []          // sequence of Move that bring board to its state
-  redoMoves: Move[] = []
-  gStats: GameStats
-  allPlayers: Player[] = [];
   turnNumber: number = 0
   get roundNumber() {return Math.floor((this.turnNumber - 1) / this.allPlayers.length) + 1 }
 
-  constructor() {
-    this.makeAllPlayers()
-    this.undoRecs.enableUndo()
-  }
+  get numPlayers(): number { return this.allPlayers.length; }
 
-  getNumPlayers(): number { return this.allPlayers.length; }
-  curPlayerNdx: number = 0;
   curPlayer: Player;
   getPlayer(color: StoneColor): Player {
     return this.allPlayers.find(p => p.color == color)
   }
-  get nextPlayerIndex() {
-    return (this.curPlayer.index + 1) % this.allPlayers.length;
-  }
-  get nextPlayer() { return this.allPlayers[this.nextPlayerIndex]}
-  makeAllPlayers() {
-    this.allPlayers = []
-    this.allPlayers[0] = new Player(0, stoneColors[0], this)
-    this.allPlayers[1] = new Player(1, stoneColors[1], this)
-    this.gStats = new GameStats(this.hexMap, this.allPlayers) // AFTER allPlayers are defined so can set pStats
-  }
-  otherPlayer(plyr: Player) { return plyr == this.allPlayers[0] ? this.allPlayers[1] : this.allPlayers[0]}
+
+  otherPlayer(plyr: Player = this.curPlayer) { return this.getPlayer(otherColor(plyr.color))}
+
   forEachPlayer(f: (p:Player, index?: number, players?: Player[]) => void) {
     this.allPlayers.forEach((p, index, players) => f(p, index, players));
   }
-  setNextPlayer(ndx = this.nextPlayerIndex): Player {
-    if (ndx != this.curPlayerNdx) this.endCurPlayer() // clean up nextHex on undo/skip/redo...
+  setNextPlayer(plyr = this.otherPlayer()): Player {
+    if (plyr != this.curPlayer) this.endCurPlayer() // clean up nextHex on undo/skip/redo...
     this.turnNumber += 1
-    this.curPlayerNdx = ndx;
-    return this.curPlayer = this.allPlayers[ndx]
+    return this.curPlayer = plyr
   }
   endCurPlayer() {}
 
-  undoRecs: Undo = new Undo();
+  undoRecs: Undo = new Undo().enableUndo();
   addUndoRec(obj: Object, name: string, value: any | Function = obj[name]) { 
     this.undoRecs.addUndoRec(obj, name, value); 
   }  
@@ -126,12 +132,12 @@ export class GamePlay0 {
   }
 
   /** remove captured Stones, from placing Stone on Hex */
-  doPlayerMove(hex: Hex, stone: Stone, setNext = true) {
+  doPlayerMove(hex: Hex, stone: Stone): StoneColor {
     this.unmarkOldCaptures()   // this player no longer constrained
     this.curHex = hex;         // immune from capture in skipAndSet
 
     let move = new Move(hex, stone)
-    this.history.unshift(move) // record Move in History[0]
+    this.history.unshift(move) // record Move in History[0] (including Skip & Resign)
     if (hex == this.hexMap.skipHex) {
       this.doPlayerSkip(hex, stone)
     } else if (hex == this.hexMap.resignHex) {
@@ -147,10 +153,11 @@ export class GamePlay0 {
     //console.log(stime(this, `.doPlayerMove: undoInfluence=`), this.undoInfluence) // confirm: EMPTY
     this.undoInfluence.flushUndo() // <=== no going back! [skipAndSet] maybe just closeUndo() ??
 
-    move.board = this.allBoards.addBoard(this.nextPlayerIndex, move, this.hexMap)
+    move.board = this.allBoards.addBoard(move, this.hexMap)
     move.board.setRepCount(this.history) // >= 1 [should be NO-OP, from addBoard]
-    this.gStats.update() // showRepCount(), showWin()
-    if (setNext) this.setNextPlayer()
+    let win = this.gStats.update() // showRepCount(), showWin()
+    //this.setNextPlayer() 
+    return win
   }
   
   /** return Array<Hex> of each Hex (west-to-east) on the given axis, with Stone of color. 
@@ -262,7 +269,7 @@ export class GamePlay0 {
   /** caller can enhance pred, but should/must include call to getCaptures for suicide prevention. */
   isLegalMove(nHex: Hex, color: StoneColor,
     pred: (hex: Hex, color: StoneColor) => boolean = (hex, color) => !!this.getCaptures(hex, color)) {
-    if (!!nHex.stone) return false
+    if (!!nHex.stoneColor) return false
     if (nHex.isCaptured) return false
     let pstats = this.gStats.pStat(color)
     if (nHex.district == 0 && pstats.dMax <= pstats.dStones[0]) return false
@@ -308,21 +315,21 @@ export class GamePlay0 {
 }
 /** implement the game logic */
 export class GamePlay extends GamePlay0 {
-  table: Table
-  override gStats: TableStats
+  readonly table: Table
+  override readonly gStats: TableStats
   constructor(table: Table) {
-    super()
+    super()            // hexMap, history, allPlayers, gStats...
     // setTable(table)
     this.table = table
     this.gStats = new TableStats(this, table) // AFTER allPlayers are defined so can set pStats
-    KeyBinder.keyBinder.setKey('M-z', {thisArg: this, func: this.undoMove})
-    KeyBinder.keyBinder.setKey('q', {thisArg: this, func: this.undoMove})
-    KeyBinder.keyBinder.setKey('r', {thisArg: this, func: this.redoMove})
-    KeyBinder.keyBinder.setKey('t', {thisArg: this, func: this.skipMove})
-    KeyBinder.keyBinder.setKey('M-K', {thisArg: this, func: this.resignMove})// S-M-k
+    KeyBinder.keyBinder.setKey('M-z', { thisArg: this, func: this.undoMove })
+    KeyBinder.keyBinder.setKey('q', { thisArg: this, func: this.undoMove })
+    KeyBinder.keyBinder.setKey('r', { thisArg: this, func: this.redoMove })
+    KeyBinder.keyBinder.setKey('t', { thisArg: this, func: this.skipMove })
+    KeyBinder.keyBinder.setKey('M-K', { thisArg: this, func: this.resignMove })// S-M-k
     KeyBinder.keyBinder.setKey('Escape', {thisArg: table, func: table.stopDragging}) // Escape
-    KeyBinder.keyBinder.setKey('C-s', {thisArg: GameSetup.setup, func: GameSetup.setup.restart})// C-s START
-    KeyBinder.keyBinder.setKey('m', {thisArg: this, func: this.makeMove})
+    KeyBinder.keyBinder.setKey('C-s', { thisArg: GameSetup.setup, func: GameSetup.setup.restart })// C-s START
+    KeyBinder.keyBinder.setKey('m', { thisArg: this, func: this.makeMove })
     KeyBinder.keyBinder.setKey('n', { thisArg: this, func: this.autoMove, argVal: true })
     KeyBinder.keyBinder.setKey('N', { thisArg: this, func: this.autoMove, argVal: false})
     table.undoShape.on(S.click, () => this.undoMove(), this)
@@ -430,14 +437,20 @@ export class GamePlay extends GamePlay0 {
     this.addUndoRec(this.table, 'clearNextHex', () => this.table.clearStone(hex)) // clear other Player's Stone
   }
   /** remove captured Stones, from placing Stone on Hex */
-  override doPlayerMove(hex: Hex, stone: Stone, setNext?: boolean) {
-    super.doPlayerMove(hex, stone, setNext) // skipAndSet -> captureStone -> mark new Captures
+  override doPlayerMove(hex: Hex, stone: Stone): StoneColor {
+    let win = super.doPlayerMove(hex, stone) // skipAndSet -> captureStone -> mark new Captures
     this.hexMap.update()
+    if (!!win) {
+      // addStoneEvent will NOT invoke this.setNextPlayer()
+      super.setNextPlayer()
+      this.table.logCurPlayer(true) // log for next move, but do not PutButtonOnPlayer(curPlayer)
+    }
+    return win
   }
-  override setNextPlayer(ndx?: number): Player {
-    super.setNextPlayer(ndx)
+  override setNextPlayer(plyr?: Player): Player {
+    super.setNextPlayer(plyr)
     this.hexMap.update()
-    return this.table.setNextPlayer(ndx)
+    return this.table.setNextPlayer()
   }
   override endCurPlayer(): void {
     let stone: Stone = this.table.nextHex.stone
@@ -451,8 +464,9 @@ export class GamePlay extends GamePlay0 {
   addStoneEvent(hev: HexEvent): void {
     let stone = hev.value as unknown as Stone
     let redo = this.redoMoves.shift()
-    if (!!redo && redo.hex !== hev.hex) this.redoMoves = []
-    this.doPlayerMove(hev.hex, stone)
+    if (!!redo && redo.hex !== hev.hex) this.redoMoves.splice(0, this.redoMoves.length) // pop all the redoMoves
+    let win = this.doPlayerMove(hev.hex, stone)
+    if (!win) this.setNextPlayer()
   }
   removeStoneEvent(hev: HexEvent) {
     throw new Error("Method not implemented.");
@@ -488,7 +502,6 @@ export class Player implements Mover {
   name: string
   index: number
   color: StoneColor
-  stats: PlayerStats;
   mover: Mover
   otherPlayer: Player
   gamePlay: GamePlay0
@@ -512,8 +525,8 @@ export class Player implements Mover {
 
 class BoardRegister extends Map<string, Board> {
   /** as Board as Set */
-  addBoard(nextPlayerIndex: number, move: Move, hexMap: HexMap) {
-    let board = new Board(nextPlayerIndex, move, hexMap) // calc board.id
+  addBoard(move: Move, hexMap: HexMap) {
+    let board = new Board(move, hexMap) // calc board.id
     let b0: Board = this.get(board.id) // find if previous instance of identical Board
     if (!!b0) {
       b0.repCount += 1
@@ -533,19 +546,19 @@ export class Board {
   id: string = ""   // to identify hexMap state
   hexStones: HSC[]  // to recreate hexMap state [not sure we need... maybe just do/undoMove]
   captured: Hex[]   // captured by current Players's Move
-  nextPlayerIndex: number // cannot play into captured Hexes
+  nextPlayerColor: StoneColor // cannot play into captured Hexes
   repCount: number = 1;
   resigned: StoneColor;   // set to color of Player who resigns to signal end of game.
   /**
    * Record the current state of the game.
-   * @param nextPlayerIndex identify Player to make next Move (player.color, table.getPlayer(color))
+   * @param nextPlayerColor identify Player to make next Move (player.color, table.getPlayer(color))
    * @param move Move: resigned & captured: not available for play by next Player
    * @param hexMap supplies board.hexStones[]: { Hex, StoneColor }
    */
-  constructor(nextPlayerIndex: number, move: Move, hexMap: HexMap) {
-    this.nextPlayerIndex = nextPlayerIndex
+  constructor(move: Move, hexMap: HexMap) {
+    this.nextPlayerColor = otherColor(move.stone.color)
     this.resigned = (move.hex.Aname == S_Resign) ? move.stone.color : undefined // keyboard: 'M-K'
-    this.id = this.cString(nextPlayerIndex, move.captured)
+    this.id = this.cString(this.nextPlayerColor, move.captured) + this.resigned ? move.Aname : ''
     this.hexStones = [].concat(hexMap.allStones)
     let nCol = hexMap.nCol
     this.hexStones.sort((a, b) => { return (a.hex.row - b.hex.row) * nCol + (a.hex.col - b.hex.col) });
@@ -556,8 +569,8 @@ export class Board {
   bString(hsc: HSC) { 
     return `${stoneColors.indexOf(hsc.color)}${hsc.hex.Aname.substring(3)}`
   }
-  cString(nextPlayerIndex: number, captured: Hex[]): string {
-    let rv = `Board(${nextPlayerIndex},`
+  cString(color: StoneColor, captured: Hex[]): string {
+    let opc = stoneColors.findIndex(c => (c !== color)), rv = `Board(${opc},` // other player color
     captured.forEach(hex => rv += hex.Aname.substring(4))
     return rv+')'
   }

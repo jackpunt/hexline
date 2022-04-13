@@ -1,18 +1,16 @@
 import { C } from "@thegraid/createjs-lib";
 
 export const stoneColors = ['black', 'white'] as const
-//export const stoneColors = ['blue', 'red'] as const
 export const stoneColor0 = stoneColors[0]
 export const stoneColor1 = stoneColors[1]
 //type stoneColorTuple = typeof stoneColors
 export type StoneColor = typeof stoneColors[number]
-//export function otherColor(color: StoneColor): StoneColor { return color === stoneColors[0] ? stoneColors[1] : stoneColors[0] }
 export function otherColor(color: StoneColor): StoneColor { return color === 'black' ? 'white' : 'black' }
 export function stoneColorRecord<T>(b: T = null, w: T = null): Record<StoneColor, T> { return { 'black': b, 'white': w } };
 export class TP {
-  static Black_White = {black: 'BLACK', white: 'WHITE'}
-  static Blue_Red = {black: 'BLUE', white: 'RED'}
-  static colorScheme = TP.Black_White
+  static Black_White = stoneColorRecord('BLACK', 'WHITE')
+  static Blue_Red = stoneColorRecord('BLUE', 'RED')
+  static colorScheme: Record<StoneColor, string> = TP.Black_White
   static numPlayers = 2;
   static mHexes = 3    // number hexes on side of Meta-Hex
   static nHexes = 2    // number of Hexes on side of District

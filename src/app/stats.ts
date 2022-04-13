@@ -10,7 +10,6 @@ import { ParamGUI, ParamItem, ParamLine, ParamType, } from '@thegraid/createjs-l
 import { Text } from "createjs-module";
 
 export class PlayerStats {
-  gStats: GameStats;
 
   dStones: number[] = [0];      // per-district (initialize district 0)
   dMinControl: boolean[] = [];  // per-district true if minControl of district
@@ -21,12 +20,10 @@ export class PlayerStats {
   nAttacks: number = 0;  // (Hex w/ inf >= 2) 'unplayable by opponent'
   nAdj: number = 0;      // number of adjacent stones [compactness]
 
-  constructor(plyr: Player, gStats: GameStats) {
-    this.gStats = gStats
-    let nDist = gStats.hexMap.nDistricts
+  constructor() {
+    let nDist = TP.ftHexes(TP.mHexes) // gStats.hexMap.nDistricts; 
     this.dStones = Array(nDist).fill(0, 0, nDist)
     this.dMinControl = Array(nDist).fill(false, 0, nDist)
-    plyr.stats = this
   }
 }
 
@@ -43,19 +40,20 @@ export class GameStats {
   constructor(hexMap: HexMap, allPlayers: Player[]) {
     this.hexMap = hexMap
     this.allPlayers = allPlayers
+    this.zeroCounters()
     this.setupStatVector()           // use default wVector
   }
   pStat(color: StoneColor): PlayerStats { return this.pStats[color] }
   zeroCounters() {
     let nDist = TP.ftHexes(TP.mHexes)
     this.inControl = Array<StoneColor>(nDist)      // undefined
-    this.allPlayers.forEach((p) => this.pStats[p.color] = new PlayerStats(p, this))
+    stoneColors.forEach((color) => this.pStats[color] = new PlayerStats())
   }
   incCounters(hex: Hex) {
     // count Stones of color (& in District)
-    let stone = hex.stone, hColor = hex.stoneColor
-    if (!!stone) {
-      let color = stone.color, district = hex.district, pstats = this.pStats[color]
+    let hColor = hex.stoneColor
+    if (!!hColor) {
+      let district = hex.district, pstats = this.pStats[hColor]
       pstats.nStones += 1
       let dStones = pstats.dStones[district] = (pstats.dStones[district] || 0) + 1
       if (district !== 0 && dStones > pstats.dMax) pstats.dMax = dStones
@@ -64,13 +62,13 @@ export class GameStats {
       }
     }
     // count influence, threats, & attacks
-    stoneColors.forEach(color => {
-      let pstats = this.pStats[color]
-      let infColor = Object.keys(hex.inf[color]).length
+    stoneColors.forEach(pColor => {
+      let pstats = this.pStats[pColor]
+      let infColor = Object.keys(hex.inf[pColor]).length
       if (infColor > 0) {
         pstats.nInf++
         if (infColor > 1) pstats.nAttacks++
-        if (!!stone && stone.color != color) {
+        if (!!hColor && hColor != pColor) {
           pstats.nThreats++
         }
       }
@@ -129,7 +127,7 @@ export class GameStats {
 }
 export class TableStats extends GameStats {
   table: Table         // presence indicates a GUI environment: showControl, showBoardRep
-  gamePlay: GamePlay0  // provides hexMap & allPlayers[]
+  gamePlay: GamePlay0  // provides hexMap & allPlayers[] & curPlayer, history for WIN detection
   boardRep: Text
   dStonesText: Text[] = []
 
@@ -141,7 +139,6 @@ export class TableStats extends GameStats {
     super(gamePlay.hexMap, gamePlay.allPlayers)
     this.gamePlay = gamePlay
     this.setTable(table)
-    this.zeroCounters()
   }
   setTable(table: Table) {
     this.table = table    // table points to: nextHex Container (for BoardRepCount)
@@ -173,8 +170,8 @@ export class TableStats extends GameStats {
       this.hexMap.update()
     }
     if (!!board && this.gameOver(board, win)) {
-      let plyr = this.gamePlay.curPlayer, pc = plyr.color, pcr=TP.colorScheme[pc], pStats = plyr.stats
-      let op = this.gamePlay.nextPlayer, opc = op.color, opcr=TP.colorScheme[opc], opStats = op.stats
+      let pc = move0.stone.color, pcr = TP.colorScheme[pc], pStats = this.pStat(pc)
+      let opc = otherColor(pc), opcr = TP.colorScheme[pc], opStats = this.pStat(opc)
       if (!!win) return this.showWin(board, win, `WINS! ${opcr} loses`)
       if (board.resigned) return this.showWin(board, opc, `WINS: ${pcr} RESIGNS`)
       if (board.repCount == 3) return this.showWin(board, pc, `-- ${opcr} STALEMATE: ns(${pStats.nStones} -- ${opStats.nStones})`)
@@ -194,6 +191,7 @@ export class TableStats extends GameStats {
     let hexMap = table.miniMap
     hexMap.forEachHex<Hex2>(hex => {
       table.clearStone(hex)                // from mimi-map
+      hex.clearStone()
       let ic = this.inControl[hex.district]
       if (ic !== undefined) {
         let stone = new Stone(ic)
@@ -236,7 +234,7 @@ export class TableStats extends GameStats {
     else
       hex.cont.localToLocal(7, -10, hex.map.infCont, dsText) // rotation from (0,-12)
     dsText.text = (n0 == 0 && n1 == 0) ? `` : `${n0}:${n1}`
-    dsText.color = (!hex.stone || C.dist(hex.stone.color, C.WHITE)<100) ? C.BLACK : C.WHITE
+    dsText.color = (!hex.stoneColor || C.dist(TP.colorScheme[hex.stoneColor], C.WHITE)<100) ? C.BLACK : C.WHITE
   }
 }
 /**

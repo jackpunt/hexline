@@ -171,27 +171,27 @@ export class Table extends EventDispatcher  {
     let pbr = this.scaleCont.localToLocal(bgr.x+bgr.w, bgr.y+bgr.h, this.hexMap.hexCont)
     this.hexMap.hexCont.cache(p00.x, p00.y, pbr.x-p00.x, pbr.y-p00.y) // cache hexCont (bounded by bgr)
 
-    this.gamePlay.setNextPlayer(0)   // make a placeable Stone for Player[0]
+    this.gamePlay.setNextPlayer(this.gamePlay.allPlayers[0])   // make a placeable Stone for Player[0]
     this.makeMiniMap(this.scaleCont, -(200+TP.mHexes*TP.hexRad), 600+100*TP.mHexes)
 
     this.on(S.add, this.gamePlay.addStoneEvent, this.gamePlay)[S.Aname] = "addStone"
     this.on(S.remove, this.gamePlay.removeStoneEvent, this.gamePlay)[S.Aname] = "removeStone"
     this.stage.update()
   }
-
-  setNextPlayer(ndx?: number, log: boolean = true): Player {
+  logCurPlayer(curPlayer) {
+    const history = this.gamePlay.history
+    const tn = this.gamePlay.turnNumber
+    const lm = history[0]
+    const prev = !!lm ? lm.toString() : ""
+    const capd = lm ? lm.captured : [] //this.gamePlay.lastCaptured 
+    const board = !!this.hexMap.allStones[0] && lm.board
+    const robo = curPlayer.useRobo ? "robo" : "----"
+    const info = { turn: tn, plyr: curPlayer.name, prev, capd, gamePlay: this.gamePlay, board }
+    console.log(stime(this, `.setNextPlayer -------${robo}----`), info, '-------------', !!this.stage.canvas);
+  }
+  setNextPlayer(log: boolean = true): Player {
     let curPlayer = this.gamePlay.curPlayer // after gamePlay.setNextPlayer()
-    if (log) {
-      const history = this.gamePlay.history
-      const tn = this.gamePlay.turnNumber
-      const lm = history[0]
-      const prev = !!lm ? lm.toString() : ""
-      const capd = lm ? lm.captured : [] //this.gamePlay.lastCaptured 
-      const board = !!this.hexMap.allStones[0] && lm.board
-      const robo = curPlayer.useRobo ? "robo" : "----"
-      const info = { turn: tn, plyr: curPlayer.name, prev, capd, history, undo: this.gamePlay.undoRecs, board }
-      console.log(stime(this, `.setNextPlayer -------${robo}----`), info, '-------------', !!this.stage.canvas);
-    }
+    if (log) this.logCurPlayer(curPlayer)
     this.undoText.text = `${this.gamePlay.undoRecs.length}`
     this.redoText.text = `${this.gamePlay.redoMoves.length}`
     this.putButtonOnPlayer(curPlayer);

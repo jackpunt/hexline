@@ -73,7 +73,7 @@ export class Planner {
   weightVecs: Record<StoneColor, number[]>
 
   constructor(gamePlay: GamePlay0) {
-    this.gamePlay = gamePlay
+    this.gamePlay = new GamePlay0(gamePlay)  // downgrade to GamePlay0
     // compatible with statVector in stats.ts
     let nDist = TP.ftHexes(TP.mHexes)  // each MetaHex is a District
     let dStoneM = new Array<number>(nDist).fill(1, 0, nDist), wv0, wv1
@@ -101,17 +101,23 @@ export class Planner {
     let value = this.getValue(color, update)    // best move for color will maximize value
     return { move, color, bestValue: value, value }
   }
-  maxPlys = 3
+  maxPlys = 5
   spaceFill = "               ".substring(0, this.maxPlys)
   fill(nPlys: number) { return this.spaceFill.substring(0, this.maxPlys-nPlys) }
 
+  resignState(color: StoneColor): State {
+    let v0 = Number.NEGATIVE_INFINITY, resignHex = this.gamePlay.hexMap.resignHex 
+    return { move: undefined, color, bestValue: v0, value: v0, bestHex: resignHex}
+  }
   /** play this Stone, Player is stone.color */
   makeMove(stone: Stone, table?: Table) {
     //console.log(stime(this, `.makeMove: stone=`), stone)
     //let state0 = this.evalSomeMoves(stone.color) // eval current state & potential moves
     let state = this.lookahead(stone.color, this.maxPlys) // try someGoodMoves
     let hex = state.bestHex
-    console.log(stime(this, `.makeMove: state=`), state)
+    let { move, color, bestValue, value, bestHex } = state
+    let s0 = { move, color, bestValue: bestValue.toFixed(2), value: value.toFixed(2), bestHex }
+    console.log(stime(this, `.makeMove: state=`), s0)
     if (table) {
       table.nextHex.stone = undefined // unlink stone from nextHex
       table.hexMap.showMark(hex)
@@ -139,7 +145,8 @@ export class Planner {
         bestValue = state1.bestValue; bestHex = hex; bestState = state1 // MAX (best of the worst)
       }
     }
-    bestState.bestHex = bestHex
+    if (!bestState) bestState = this.resignState(color)
+    else bestState.bestHex = bestHex
     //console.log(stime(this, `.lookahead: ${this.fill(nPlys)}`), nPlys, color, { Aname: bestHex.Aname, bestHex, bestValue, bestState })
     return bestState // or resign? or skip?
   }
@@ -160,7 +167,7 @@ export class Planner {
       let move = new Move(hex, stone)   // presumably achieve 'state1'
       gamePlay.history.unshift(move)           // to set repCount
       move.captured = gamePlay.captured        // set by outer getCapture; w/undoRecs to addStone!
-      move.board = gamePlay.allBoards.addBoard(gamePlay.nextPlayerIndex, move, gamePlay.hexMap)
+      move.board = gamePlay.allBoards.addBoard(move, gamePlay.hexMap)
       move.board.setRepCount(gamePlay.history) // >= 1 [should be NO-OP, from addBoard]
       let win = gamePlay.gStats.update()       // use GameStats: do NOT showRepCount(), showWin()
       //let state = this.evalState(stone.color)  // state ~~ state1: value, bestValue=value, bestHex
@@ -212,14 +219,13 @@ export class Planner {
   }
 }
 
-// move.hex, move.stone, move.board, move.board.captured, move.board.nextPlayerIndex
 /** 
  * move is how we got here.. (move0) could be backlink? index into gamePlay.history?
  * value is original estimate of value; 
  * bestValue is Max value over the evaluated MOVES; bestHex being the move that provides bestValue.
  */
 type State = { move: Move, color: StoneColor, value: number, moves?: MOVES, bestHex?: Hex, bestValue?: number } 
-type MOVES = Map<Hex, State>
+type MOVES = Map<Hex, State> // move.hex, move.stone, move.board, move.board.captured
 class HexGen {
   // moves that kill move0.hex: scan each of 6 axies, using getCaptures()
   // moves near *my* last move (history[1])
@@ -234,13 +240,13 @@ class HexGen {
   constructor (private gamePlay: GamePlay0) {}
   hexes = new Set<Hex>()
   move0 = this.gamePlay.history[0]  // last move otherPlayer made
-  move1 = this.gamePlay.history[1]  // last move plyr made
-  color = this.move1.stone.color
+  move1 = this.gamePlay.history[1]  // last move 'curPlayer' made
+  color = otherColor(this.move0.stone.color)
 
   ; *gen() {
     yield* this.attackHex(this.move0.hex)
     yield* this.alignHex(this.move0.hex)
-    yield* this.adjacentHex(this.move1.hex)
+    if (this.move1) yield* this.adjacentHex(this.move1.hex)
     for (let d  of [0, 1, 2, 3, 4, 5, 6]) yield* this.allHexInDistrict(d)
   }
 
