@@ -1,31 +1,25 @@
 // Game win: a Player controls 4 of 7 Districts
 // Control: Stone on >= 7 Hexes && Player.nHexes(district) - otherPlayer.nHexes(district) >= 3
 
-import { Board, GamePlay, GamePlay0, Player } from "./game-play";
+import { Board, GamePlay0, Player } from "./game-play";
 import { Hex, Hex2, HexMap } from "./hex";
 import { Stone, Table } from "./table";
-import { otherColor, StoneColor, stoneColor0, stoneColor1, stoneColors, TP } from "./table-params";
+import { otherColor, StoneColor, stoneColor0, stoneColor1, stoneColorRecord, stoneColors, TP } from "./table-params";
 import { C, F } from "@thegraid/createjs-lib";
 import { ParamGUI, ParamItem, ParamLine, ParamType, } from '@thegraid/createjs-lib'
 import { Text } from "createjs-module";
 
 export class PlayerStats {
   gStats: GameStats;
-  plyr: Player; // 
-  op: Player;   // op = this.table.otherPlayer(this.plyr)
 
   dStones: number[] = [0];      // per-district (initialize district 0)
   dMinControl: boolean[] = [];  // per-district true if minControl of district
   dMax: number = 0;      // max dStones in non-Central District
   nStones: number = 0;   // total on board
-  nInf: number = 0;      // (= nStones*6 - edge effects - E/W-underlap)
+  nInf: number = 0;      // (= nStones*6 - edge effects - E/W-overlap)
   nThreats: number = 0;  // (Hex w/ inf && [op].stone) 'jeopardy'
   nAttacks: number = 0;  // (Hex w/ inf >= 2) 'unplayable by opponent'
-
-  get rStones(): number  { return this.op.stats.nStones};   // [op].nStones
-  get rInf(): number     { return this.op.stats.rInf};      // [op].nInf
-  get rThreats(): number { return this.op.stats.nThreats};  // [op].nStones
-  get rAttacks(): number { return this.op.stats.nAttacks};  // [op].nStones
+  nAdj: number = 0;      // number of adjacent stones [compactness]
 
   constructor(plyr: Player, gStats: GameStats) {
     this.gStats = gStats
@@ -33,14 +27,12 @@ export class PlayerStats {
     this.dStones = Array(nDist).fill(0, 0, nDist)
     this.dMinControl = Array(nDist).fill(false, 0, nDist)
     plyr.stats = this
-    this.plyr = plyr
-    this.op = plyr.otherPlayer
   }
 }
 
 export class GameStats {
   hexMap: HexMap
-  pStats: PlayerStats[] = [] // indexed by StoneColor
+  pStats: Record<StoneColor, PlayerStats> = stoneColorRecord()
   allPlayers: Player[]
   inControl:  StoneColor[] = [] // (nStones[color] - nStones[oc] >= TP.diffControl) -> [district]=color
   score(color: StoneColor): number {
@@ -61,16 +53,19 @@ export class GameStats {
   }
   incCounters(hex: Hex) {
     // count Stones of color (& in District)
-    let stone = hex.stone
+    let stone = hex.stone, hColor = hex.stoneColor
     if (!!stone) {
-      let color = stone.color, district = hex.district, pstats = this.pStats[color] as PlayerStats
+      let color = stone.color, district = hex.district, pstats = this.pStats[color]
       pstats.nStones += 1
       let dStones = pstats.dStones[district] = (pstats.dStones[district] || 0) + 1
       if (district !== 0 && dStones > pstats.dMax) pstats.dMax = dStones
+      for (let nHex of Object.values(hex.links)) {
+        if (nHex.stoneColor === hColor) this.pStats[hColor].nAdj++
+      }
     }
     // count influence, threats, & attacks
     stoneColors.forEach(color => {
-      let pstats = this.pStats[color] as PlayerStats
+      let pstats = this.pStats[color]
       let infColor = Object.keys(hex.inf[color]).length
       if (infColor > 0) {
         pstats.nInf++
@@ -90,10 +85,10 @@ export class GameStats {
     // forEachDistrict(d => {})
     for (let d = 0; d < nDist; d++) {
       stoneColors.forEach(color => {
-        let pstats = this.pStats[color] as PlayerStats
+        let pstats = this.pStats[color]
         let dStones = pstats.dStones[d]
         let min = pstats.dMinControl[d] = (dStones >= TP.nMinControl)
-        if (min && dStones - ((this.pStats[otherColor(color)] as PlayerStats).dStones[d] || 0) >= TP.nDiffControl) {
+        if (min && dStones - (this.pStats[otherColor(color)].dStones[d] || 0) >= TP.nDiffControl) {
           this.inControl[d] = color
           if (this.score(color) >= TP.nVictory) win = color
         }
@@ -104,20 +99,18 @@ export class GameStats {
 
   // Mixin to compute weighted summaryStat over pStats
   wVector: number[] = []
-  plyrColors: StoneColor[]   // Player colors by plyr.index
   setupStatVector () {
     let nDist = TP.ftHexes(TP.mHexes)  // each MetaHex is a District
-    this.plyrColors = this.allPlayers.map(plyr => plyr.color)
     let dStoneM = new Array<number>(nDist).fill(1, 0, nDist)
-    let s0M = 1.3, dMaxM = 1, dist0M = 1, nStoneM = 1.1, nInfM = .3, nThreatM = .2, nAttackM = .5
-    this.wVector = dStoneM.concat([s0M, dMaxM, dist0M, nStoneM, nInfM, nThreatM, nAttackM])
+    let s0M = 1.3, dMaxM = 1, dist0M = 1, nStoneM = 1.1, nInfM = .3, nThreatM = .2, nAttackM = .5, nAdjM = .1
+    this.wVector = dStoneM.concat([s0M, dMaxM, dist0M, nStoneM, nInfM, nThreatM, nAttackM, nAdjM])
   }
   statVector(color: StoneColor, gStats: GameStats): number[] {
     let pstat = gStats.pStat(color)
     let score = gStats.score(color)
     let nDist0 = pstat.dStones[0]
-    let { dStones, dMax, nStones, nInf, nThreats, nAttacks } = pstat
-    return dStones.concat(score, dMax, nDist0, nStones, nInf, nThreats, nAttacks)
+    let { dStones, dMax, nStones, nInf, nThreats, nAttacks, nAdj } = pstat
+    return dStones.concat(score, dMax, nDist0, nStones, nInf, nThreats, nAttacks, nAdj)
   }
   mulVector(v0: number[], v1: number[]): number[] { // v0 = dotProd(v0, v1)
     for (let i in v0 ) v0[i] *= v1[i]

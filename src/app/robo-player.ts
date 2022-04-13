@@ -5,7 +5,7 @@ import { HexEvent } from "./hex-event";
 import { H } from "./hex-intfs";
 import { GameStats } from "./stats";
 import { Stone, Table } from "./table";
-import { otherColor, StoneColor, stoneColor0, stoneColor1, TP } from "./table-params";
+import { otherColor, StoneColor, stoneColor0, stoneColor1, stoneColorRecord, TP } from "./table-params";
 
 
 class RoboBase implements Mover {
@@ -65,29 +65,25 @@ class RoboBase implements Mover {
   nInf: number = 0;      // (= nStones*6 - edge effects - E/W-underlap)
   nThreats: number = 0;  // (Hex w/ inf && [op].stone)
   nAttacks: number = 0;  // (Hex w/ inf >= 2)
+  nAdj: number = 0;      // where 2 Hexes of same color are adjacent (times 2, a:b + b:a)
   inControl(d: StoneColor)  { return this.gStats.inControl[this.plyr.color][d]; }
  */
 export class Planner {
   gamePlay: GamePlay0
-  // pcs: StoneColor[]   // Player colors by plyr.index
-  weightVec0: number[] = []
-  weightVec1: number[] = []
-  weightVecs: { } = {}
+  weightVecs: Record<StoneColor, number[]>
 
   constructor(gamePlay: GamePlay0) {
     this.gamePlay = gamePlay
     // compatible with statVector in stats.ts
     let nDist = TP.ftHexes(TP.mHexes)  // each MetaHex is a District
-    let dStoneM = new Array<number>(nDist).fill(1, 0, nDist)
+    let dStoneM = new Array<number>(nDist).fill(1, 0, nDist), wv0, wv1
     // s0 = inControl, dMax, district0, nStones, nInf
-    let s0M0 = 1.3, dMaxM0 = 1, dist0M0 = 1, nStoneM0 = 1.1, nInfM0 = .3, nThreatM0 = .2, nAttackM0 = .5
-    this.weightVec0 = dStoneM.concat([s0M0, dMaxM0, dist0M0, nStoneM0, nInfM0, nThreatM0, nAttackM0])
-    this.weightVecs[stoneColor0] = this.weightVec0
+    let s0M0 = 1.3, dMaxM0 = 1, dist0M0 = 1, nStoneM0 = 1.1, nInfM0 = .3, nThreatM0 = .2, nAttackM0 = .5, nAdjM0 = .1
+    wv0 = dStoneM.concat([s0M0, dMaxM0, dist0M0, nStoneM0, nInfM0, nThreatM0, nAttackM0, nAdjM0])
 
-    let s0M1 = 1.4, dMaxM1 = .9, dist0M1 = .8, nStoneM1 = 1.2, nInfM1 = .25, nThreatM1 = .25, nAttackM1 = .6
-    this.weightVec1 = dStoneM.concat([s0M1, dMaxM1, dist0M1, nStoneM1, nInfM1, nThreatM1, nAttackM1])
-    this.weightVecs[stoneColor1] = this.weightVec1
-
+    let s0M1 = 1.4, dMaxM1 = .9, dist0M1 = .8, nStoneM1 = 1.2, nInfM1 = .25, nThreatM1 = .25, nAttackM1 = .6, nAdjM1 = .2
+    wv1 = dStoneM.concat([s0M1, dMaxM1, dist0M1, nStoneM1, nInfM1, nThreatM1, nAttackM1, nAdjM1])
+    this.weightVecs = stoneColorRecord(wv0, wv1)
   }
   // after doPlayerMove (or undoMove...)
   getValue(color: StoneColor, update = false): number {
@@ -105,7 +101,7 @@ export class Planner {
     let value = this.getValue(color, update)    // best move for color will maximize value
     return { move, color, bestValue: value, value }
   }
-  maxPlys = 2
+  maxPlys = 3
   spaceFill = "               ".substring(0, this.maxPlys)
   fill(nPlys: number) { return this.spaceFill.substring(0, this.maxPlys-nPlys) }
 

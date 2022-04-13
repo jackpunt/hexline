@@ -6,8 +6,9 @@ export const stoneColor0 = stoneColors[0]
 export const stoneColor1 = stoneColors[1]
 //type stoneColorTuple = typeof stoneColors
 export type StoneColor = typeof stoneColors[number]
-export function otherColor(color: StoneColor): StoneColor { return color == stoneColors[0] ? stoneColors[1] : stoneColors[0] }
-
+//export function otherColor(color: StoneColor): StoneColor { return color === stoneColors[0] ? stoneColors[1] : stoneColors[0] }
+export function otherColor(color: StoneColor): StoneColor { return color === 'black' ? 'white' : 'black' }
+export function stoneColorRecord<T>(b: T = null, w: T = null): Record<StoneColor, T> { return { 'black': b, 'white': w } };
 export class TP {
   static Black_White = {black: 'BLACK', white: 'WHITE'}
   static Blue_Red = {black: 'BLUE', white: 'RED'}

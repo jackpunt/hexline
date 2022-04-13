@@ -48,7 +48,7 @@ export class GamePlay0 {
     this.allPlayers[1] = new Player(1, stoneColors[1], this)
     this.gStats = new GameStats(this.hexMap, this.allPlayers) // AFTER allPlayers are defined so can set pStats
   }
-  otherPlayer(plyr: Player) { return plyr == this.allPlayers[0] ? this.allPlayers[0] : this.allPlayers[1]}
+  otherPlayer(plyr: Player) { return plyr == this.allPlayers[0] ? this.allPlayers[1] : this.allPlayers[0]}
   forEachPlayer(f: (p:Player, index?: number, players?: Player[]) => void) {
     this.allPlayers.forEach((p, index, players) => f(p, index, players));
   }
@@ -322,21 +322,23 @@ export class GamePlay extends GamePlay0 {
     KeyBinder.keyBinder.setKey('M-K', {thisArg: this, func: this.resignMove})// S-M-k
     KeyBinder.keyBinder.setKey('Escape', {thisArg: table, func: table.stopDragging}) // Escape
     KeyBinder.keyBinder.setKey('C-s', {thisArg: GameSetup.setup, func: GameSetup.setup.restart})// C-s START
-    KeyBinder.keyBinder.setKey('m', {thisArg: this, func: this.makeMove, argVal: false})
-    KeyBinder.keyBinder.setKey('n', {thisArg: this, func: this.makeMove, argVal: true})
+    KeyBinder.keyBinder.setKey('m', {thisArg: this, func: this.makeMove})
+    KeyBinder.keyBinder.setKey('n', { thisArg: this, func: this.autoMove, argVal: true })
+    KeyBinder.keyBinder.setKey('N', { thisArg: this, func: this.autoMove, argVal: false})
     table.undoShape.on(S.click, () => this.undoMove(), this)
     table.redoShape.on(S.click, () => this.redoMove(), this)
     table.skipShape.on(S.click, () => this.skipMove(), this)
   }
-  makeMove(toggleAuto: boolean = false) {
-    //console.log(stime(this, `.makeMove stone=`), this.table.nextHex.stone)
-    //this.curPlayer.makeMove(this.table.nextHex.stone, true)
-    this.curPlayer.useRobo = (toggleAuto && !this.curPlayer.useRobo) // if toggle then useRobo = !useRobo
-    let useRobo = this.curPlayer.useRobo || !toggleAuto
-    console.log(stime(this, `.makeMove: curPlayer.useRobo=`), this.curPlayer.useRobo, useRobo)
-    this.curPlayer.makeMove(this.table.nextHex.stone, useRobo)
+  makeMove() {
+    console.log(stime(this, `.makeMove: ${this.curPlayer.color}. useRobo=`), this.curPlayer.useRobo)
+    this.curPlayer.makeMove(this.table.nextHex.stone, true) // make one robo move
   }
-
+  autoMove(useRobo: boolean = false) {
+    let op = this.otherPlayer(this.curPlayer)
+    this.curPlayer.useRobo = op.useRobo = useRobo // if toggle then useRobo = !useRobo
+    console.log(stime(this, `.autoMove: ${this.curPlayer.color}.useRobo=`), this.curPlayer.useRobo)
+    console.log(stime(this, `.autoMove: ${op.color}.useRobo=`), op.useRobo)
+  }
   /** undo last undo block */
   override undoStones() {
     let undoNdx = this.undoRecs.length -1;
