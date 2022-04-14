@@ -5,6 +5,7 @@ import { Stone } from './table';
 export class HexEvent extends ValueEvent {
   hex: Hex
 
+  get stone () { return this.value as unknown as Stone}
   /** indicates a Stone was dropped on Hex.
    * or maybe a Stone was removed... type: AddStone, RemoveStone
    */

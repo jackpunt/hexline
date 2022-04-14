@@ -159,10 +159,9 @@ export class Table extends EventDispatcher  {
     // tweak when hexMap is tiny:
     let nh = TP.nHexes, mh = TP.mHexes
     if (nh == 1 || nh + mh <= 5) { bgr.w += 3*wide; mapCont.x += 3*wide; this.nextHex.x = minx - .87*wide }
+    this.nextHex.x = Math.round(this.nextHex.x); this.nextHex.y = Math.round(this.nextHex.y)
     this.undoCont.x = this.nextHex.x
     this.undoCont.y = this.nextHex.y + 100
-    //this.resignHex.x = this.nextHex.x; this.resignHex.y = this.nextHex.y // underlay nextHex
-    //this.hexMap.hexCont.addChild(this.resignHex)  // single Hex to hold a Stone when resigned
     this.hexMap.hexCont.addChild(this.nextHex.cont)  // single Hex to hold a Stone to play
     this.hexMap.markCont.addChild(this.undoCont)
 
@@ -212,12 +211,9 @@ export class Table extends EventDispatcher  {
     cont.addChild(stone)
   }
   /** before hex.clearStone(): removeChild(stone) */
-  clearStone(hex: Hex): Stone {
-    let stone = hex.stone   // invoke before hex.clearStone()
-    if (!!stone) {
-      stone.parent && stone.parent.removeChild(stone)
-    }
-    return stone
+  clearStone(hex: Hex = this.nextHex): Stone {
+    hex.stone?.parent?.removeChild(hex.stone)
+    return hex.stone
   }
   hexUnderObj(dragObj: DisplayObject) {
     let pt = dragObj.parent.localToLocal(dragObj.x, dragObj.y, this.hexMap.hexCont)
@@ -304,13 +300,9 @@ export class Table extends EventDispatcher  {
     stone.y = target.y
     if (target === this.nextHex) return
     this.dragger.stopDragable(stone)
-    this.clearStone(this.nextHex)
-    this.nextHex.stone = undefined // short version of: nextHex.setStone(undefined)
-
     this.dispatchEvent(new HexEvent(S.add, target, stone)) // gamePlay.doPlayerMove()
   }
-  // meta-n: 1:1, 2:7, 3:19, 4:37
-  
+ 
   /** default scaling-up value */
   upscale: number = 1.5;
   /** change cont.scale to given scale value. */

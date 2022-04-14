@@ -118,7 +118,6 @@ export class Planner {
     let s0 = { move, color, bestValue: bestValue.toFixed(2), value: value.toFixed(2), bestHex }
     console.log(stime(this, `.makeMove: state=`), s0)
     if (table) {
-      table.nextHex.stone = undefined // unlink stone from nextHex
       table.hexMap.showMark(hex)
       table.dispatchEvent(new HexEvent(S.add, hex, stone)) //
     }
@@ -279,7 +278,7 @@ class HexGen {
   attackHex(hex: Hex) {
     let pred = (nhex: Hex, color: StoneColor) => {
       let caps = this.gamePlay.getCaptures(nhex, color)
-      return !!caps && caps.includes(hex) // true if (not suicide and) hex was captured
+      return caps?.includes(hex) // true if (not suicide and) hex was captured
     }
     let genHex = this.radialHex(hex)
     return this.checkHex(genHex, pred)

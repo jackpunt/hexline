@@ -102,7 +102,7 @@ export class Hex {
     if (!color) return this.clearColor()
     this.stoneColor = color
     let hsc = { Aname: this.Aname, hex: this, color }
-    this.map && this.map.allStones.push(hsc)
+    this.map?.allStones.push(hsc)
     return color
   }
   clearColor() {
@@ -113,13 +113,15 @@ export class Hex {
     }
     return color
   }
+  /** record HSC in map.allStones. */
   setStone(stone: Stone) {
     if (!stone) return this.clearStone()
     this.stone = stone
     let hsc = { Aname: this.Aname, hex: this, color: stone.color }
-    this.map && this.map.allStones.push(hsc)
+    this.map?.allStones.push(hsc)
     return stone
   }
+  /** remove HSC from map.allStones. */
   clearStone(): Stone {
     let stone = this.stone
     if (!!stone && !!this.map) {
@@ -132,9 +134,9 @@ export class Hex {
   unmarkCapture() { this.isCaptured = false }
   /**
    * Is this Hex [already] influenced by color/dn? [for skipAndSet()]
-   * @param dn dir of Influence: ds | revDir[ds]
    * @param color StoneColor
-   * @returns true if Hex is StoneColor or full InfMark(ds) or InfMark.temp(dn)
+   * @param dn dir of Influence: ds | revDir[ds]
+   * @returns true if Hex is StoneColor or has InfMark(color, dn)
    */
   isInf(color: StoneColor, dn: InfDir): boolean {
     return (this.stoneColor == color) || !!this.getInf(color, dn)
@@ -166,7 +168,7 @@ export class Hex {
     let infMark = this.getInf(color, dn)
     if (!!infMark) {
       delete this.inf[color][dn]
-      undo && undo.addUndoRec(this, `setInf(${this},${dn},${color})`, () => { this.setInf(color, dn) })
+      undo?.addUndoRec(this, `setInf(${this},${dn},${color})`, () => { this.setInf(color, dn) })
     }
     return infMark
   }
@@ -360,6 +362,7 @@ export class HexMap extends Array<Array<Hex>> {
   /** for contrast paint it black AND white, leave a hole in the middle unpainted. */
   makeMark(radius: number, radius0: number = 0) {
     let mark = new Shape(), cb = "rgba(0,0,0,.3)", cw="rgba(255,255,255,.3)"
+    mark.mouseEnabled = false
     mark.graphics.f(cb).dp(0, 0, radius, 6, 0, 30)
     mark.graphics.f(cw).dp(0, 0, radius, 6, 0, 30)
     mark.cache(-radius, -radius, 2*radius, 2*radius)
@@ -405,7 +408,7 @@ export class HexMap extends Array<Array<Hex>> {
     this.hexCont.y = this.markCont.y = this.stoneCont.y = this.infCont.y = -(hexRect.y + hexRect.height/2)
   }
 
-  update() { !!this.hexCont.parent && this.hexCont.stage.update()}
+  update() { this.hexCont.parent?.stage.update()}
   addHex(row: number, col: number, district: number, dc: number): Hex {
     let color = this.distColor[dc]
     // If we have an on-screen Container, then use Hex2: (addToCont *before* makeAllDistricts)

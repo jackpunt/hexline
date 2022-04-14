@@ -253,7 +253,7 @@ export class GamePlay0 {
       nhex.delInf(color, dn, false, undo);
       this.skipAndSet(nhex, color, ds, dn, incr)
     }
-    do { nhex = nhex.links[dn] } while (!!nhex && nhex.isInf(color, dn))
+    do { nhex = nhex.links[dn] } while (nhex?.isInf(color, dn))
     if (!nhex) return         // end of the line
     nhex.setInf(color, dn, ds, incr ? undo : undefined)  // no undo when remove
     if (nhex.isCapture(color) && nhex != this.curHex) {  // pick up suicide later...
@@ -351,7 +351,7 @@ export class GamePlay extends GamePlay0 {
   override undoStones() {
     let undoNdx = this.undoRecs.length -1;
     let popRec = (undoNdx >= 0) ? this.undoRecs[undoNdx].concat([]) : [] // copy undoRecs[] so it is stable in log
-    console.groupCollapsed(`${stime(this)}undoIt-${undoNdx}`)
+    console.groupCollapsed(`${stime(this)}:undoIt-${undoNdx}`)
     console.log(stime(this, `.undoStones: undoRec[${undoNdx}] =`), popRec);
     super.undoStones()
     this.hexMap.update();
@@ -366,10 +366,9 @@ export class GamePlay extends GamePlay0 {
   }
   redoMove() {
     this.table.stopDragging() // drop on nextHex (no Move)
-    let move = this.redoMoves.shift()
+    let move = this.redoMoves[0]//.shift()
     if (!move) return
-    move.captured = []
-    this.doPlayerMove(move.hex, move.stone)
+    this.table.dispatchEvent(new HexEvent(S.add, move.hex, move.stone))
     this.showRedoMark()
   }
   showRedoMark() {
@@ -412,7 +411,7 @@ export class GamePlay extends GamePlay0 {
    * assert influence of color on each axis from Hex (w/o stone on hex)
    */
   override removeStone(hex: Hex) {
-    this.table.clearStone(hex)
+    this.table.clearStone(hex)   // GamePlay.removeStone(hex)
     super.removeStone(hex)
     this.hexMap.update()
   }
@@ -435,7 +434,7 @@ export class GamePlay extends GamePlay0 {
   }
   override doPlayerSkip() {
     let hex = this.table.nextHex
-    this.addUndoRec(this.table, 'clearNextHex', () => this.table.clearStone(hex)) // clear other Player's Stone
+    this.addUndoRec(this.table, 'clearNextHex', () => this.table.clearStone(hex)) // undo-skip: clear other Player's Stone
   }
   /** remove captured Stones, from placing Stone on Hex */
   override doPlayerMove(hex: Hex, stone: Stone): StoneColor {
@@ -454,19 +453,21 @@ export class GamePlay extends GamePlay0 {
     return this.table.setNextPlayer()
   }
   override endCurPlayer(): void {
-    let stone: Stone = this.table.nextHex.stone
-    if (!!stone && !!stone.parent) {
-      stone.parent.removeChild(stone)
-      this.hexMap.update()
+    // IFF stone is ON nextHex: this.table.clearStone() 
+    let nextHex = this.table.nextHex, stone = nextHex.stone
+    if (stone?.parent) {     // NOTE: nextHex.xy are already rounded:
+      if (Math.round(stone.x) == nextHex.x && Math.round(stone.y) == nextHex.y) {
+        stone.parent.removeChild(stone)
+        this.hexMap.update()
+      }
     }
   }
 
   /** dropFunc indicating new Move attempt */
   addStoneEvent(hev: HexEvent): void {
-    let stone = hev.value as unknown as Stone
-    let redo = this.redoMoves.shift()
-    if (!!redo && redo.hex !== hev.hex) this.redoMoves.splice(0, this.redoMoves.length) // pop all the redoMoves
-    let win = this.doPlayerMove(hev.hex, stone)
+    let redo = this.redoMoves.shift()   // pop one Move, maybe pop them all:
+    if (!!redo && redo.hex !== hev.hex) this.redoMoves.splice(0, this.redoMoves.length)
+    let win = this.doPlayerMove(hev.hex, hev.stone)
     if (!win) this.setNextPlayer()
   }
   removeStoneEvent(hev: HexEvent) {

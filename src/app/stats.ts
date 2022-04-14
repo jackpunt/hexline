@@ -16,7 +16,8 @@ export class PlayerStats {
   dMax: number = 0;      // max dStones in non-Central District
   nStones: number = 0;   // total on board
   nInf: number = 0;      // (= nStones*6 - edge effects - E/W-overlap)
-  nThreats: number = 0;  // (Hex w/ inf && [op].stone) 'jeopardy'
+  hThreats: Hex[] = [];  // Hexes with opponent & 1 threat (possible attack)
+  nThreats: number = 0;  // (Hex w/ inf && [op].stone) 'jeopardy' (hThreats.length)
   nAttacks: number = 0;  // (Hex w/ inf >= 2) 'unplayable by opponent'
   nAdj: number = 0;      // number of adjacent stones [compactness]
 
@@ -77,6 +78,7 @@ export class GameStats {
         if (infColor > 1) pstats.nAttacks++
         if (!!hColor && hColor != pColor) {
           pstats.nThreats++
+          pstats.hThreats.push(hex)
         }
       }
     })
