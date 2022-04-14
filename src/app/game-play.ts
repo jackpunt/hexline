@@ -1,10 +1,10 @@
-import { HexDir, HexAxis, H, InfDir } from "./hex-intfs";
+import { HexAxis, H, InfDir } from "./hex-intfs";
 import { Hex, Hex2, HexMap, S_Resign } from "./hex";
 import { HexEvent } from "./hex-event";
 import { S, stime, Undo, KeyBinder } from "@thegraid/createjs-lib";
-import { GameStats, PlayerStats, TableStats } from "./stats";
+import { GameStats, TableStats } from "./stats";
 import { Stone, Table } from "./table";
-import { otherColor, StoneColor, stoneColor0, stoneColorRecord, stoneColors, TP} from "./table-params"
+import { otherColor, StoneColor, stoneColors} from "./table-params"
 import { Planner } from "./robo-player";
 import { GameSetup } from "./game-setup";
 
@@ -20,17 +20,18 @@ export class GamePlay0 {
       this.redoMoves = gamePlay0.redoMoves
       this.allBoards = gamePlay0.allBoards
       this.allPlayers = gamePlay0.allPlayers
+      this.gStats = gamePlay0.gStats  // but may not be defined...
     } else {
       this.hexMap = new HexMap()
       this.history = []
       this.redoMoves = []
       this.allBoards = new BoardRegister()
       this.allPlayers = stoneColors.map((color, ndx) => new Player(ndx, color, this))
+      this.gStats = new GameStats(this.hexMap, this.allPlayers) // AFTER allPlayers are defined so can set pStats
     }
-    this.gStats = new GameStats(this.hexMap, this.allPlayers) // AFTER allPlayers are defined so can set pStats
   }
 
-  readonly gStats: GameStats
+   gStats: GameStats
   readonly hexMap: HexMap = new HexMap()
   readonly history: Move[] = []          // sequence of Move that bring board to its state
   readonly redoMoves: Move[] = []

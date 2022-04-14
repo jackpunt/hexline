@@ -5,14 +5,14 @@ import { Board, GamePlay0, Player } from "./game-play";
 import { Hex, Hex2, HexMap } from "./hex";
 import { Stone, Table } from "./table";
 import { otherColor, StoneColor, stoneColor0, stoneColor1, stoneColorRecord, stoneColors, TP } from "./table-params";
-import { C, F } from "@thegraid/createjs-lib";
+import { C, F, stime } from "@thegraid/createjs-lib";
 import { ParamGUI, ParamItem, ParamLine, ParamType, } from '@thegraid/createjs-lib'
 import { Text } from "createjs-module";
 
 export class PlayerStats {
 
-  dStones: number[] = [0];      // per-district (initialize district 0)
-  dMinControl: boolean[] = [];  // per-district true if minControl of district
+  readonly dStones: number[] = [0];      // per-district (initialize district 0)
+  readonly dMinControl: boolean[] = [];  // per-district true if minControl of district
   dMax: number = 0;      // max dStones in non-Central District
   nStones: number = 0;   // total on board
   nInf: number = 0;      // (= nStones*6 - edge effects - E/W-overlap)
@@ -21,32 +21,39 @@ export class PlayerStats {
   nAdj: number = 0;      // number of adjacent stones [compactness]
 
   constructor() {
-    let nDist = TP.ftHexes(TP.mHexes) // gStats.hexMap.nDistricts; 
-    this.dStones = Array(nDist).fill(0, 0, nDist)
-    this.dMinControl = Array(nDist).fill(false, 0, nDist)
+    let distLen = TP.ftHexes(TP.mHexes) // gStats.hexMap.nDistricts; 
+    this.dStones = Array(distLen).fill(0, 0, distLen)
+    this.dMinControl = Array(distLen).fill(false, 0, distLen)
   }
 }
 
 export class GameStats {
-  hexMap: HexMap
-  pStats: Record<StoneColor, PlayerStats> = stoneColorRecord()
-  allPlayers: Player[]
-  inControl:  StoneColor[] = [] // (nStones[color] - nStones[oc] >= TP.diffControl) -> [district]=color
+  readonly hexMap: HexMap
+  readonly allPlayers: Player[]
+  readonly pStats: Record<StoneColor, PlayerStats> = stoneColorRecord()
+  readonly inControl:  StoneColor[] = Array(TP.ftHexes(TP.mHexes)) // (nStones[color] - nStones[oc] >= TP.diffControl) -> [district]=color
   score(color: StoneColor): number {
     return this.inControl.filter(ic => ic == color).length
   }
 
   /** extract the useful bits for maintaining stats. */
-  constructor(hexMap: HexMap, allPlayers: Player[]) {
+  constructor(hexMap: HexMap, allPlayers: Player[], 
+    pStats: Record<StoneColor, PlayerStats> = stoneColorRecord(new PlayerStats(), new PlayerStats()), 
+    inControl: StoneColor[] = Array(TP.ftHexes(TP.mHexes))) {
     this.hexMap = hexMap
     this.allPlayers = allPlayers
-    this.zeroCounters()
+    this.pStats = pStats
+    this.inControl = inControl
     this.setupStatVector()           // use default wVector
   }
+  toGameStats() {
+    // remove TableStats methods:
+    return new GameStats(this.hexMap, this.allPlayers, this.pStats, this.inControl)
+  }
+
   pStat(color: StoneColor): PlayerStats { return this.pStats[color] }
-  zeroCounters() {
-    let nDist = TP.ftHexes(TP.mHexes)
-    this.inControl = Array<StoneColor>(nDist)      // undefined
+  zeroCounters(distLen = this.inControl.length) {
+    this.inControl.fill(undefined, 0, distLen)
     stoneColors.forEach((color) => this.pStats[color] = new PlayerStats())
   }
   incCounters(hex: Hex) {
@@ -74,14 +81,14 @@ export class GameStats {
       }
     })
   }
-  /** compute pstats, return StonColor of winner (or undefined) */
+  /** compute pstats, return StoneColor of winner (or undefined) */
   update(): StoneColor {
-    let nDist = TP.ftHexes(TP.mHexes)  // each MetaHex is a District
     this.zeroCounters()
-    this.hexMap.forEachHex((hex) => this.incCounters(hex))
+    let distLen = this.inControl.length; // = TP.ftHexes(TP.mHexes) -  1
+    this.hexMap.forEachHex((hex) => this.incCounters(hex)) // set nStones, dStones, etc
     let win: StoneColor
     // forEachDistrict(d => {})
-    for (let d = 0; d < nDist; d++) {
+    for (let d = 0; d < distLen; d++) {
       stoneColors.forEach(color => {
         let pstats = this.pStats[color]
         let dStones = pstats.dStones[d]
@@ -97,9 +104,9 @@ export class GameStats {
 
   // Mixin to compute weighted summaryStat over pStats
   wVector: number[] = []
-  setupStatVector () {
-    let nDist = TP.ftHexes(TP.mHexes)  // each MetaHex is a District
-    let dStoneM = new Array<number>(nDist).fill(1, 0, nDist)
+  setupStatVector() {
+    let distLen = this.inControl.length
+    let dStoneM = new Array<number>(distLen).fill(1, 0, distLen)
     let s0M = 1.3, dMaxM = 1, dist0M = 1, nStoneM = 1.1, nInfM = .3, nThreatM = .2, nAttackM = .5, nAdjM = .1
     this.wVector = dStoneM.concat([s0M, dMaxM, dist0M, nStoneM, nInfM, nThreatM, nAttackM, nAdjM])
   }
@@ -122,8 +129,6 @@ export class GameStats {
     this.mulVector(sv, wVec)
     return this.sumVector(sv)
   }
-
-
 }
 export class TableStats extends GameStats {
   table: Table         // presence indicates a GUI environment: showControl, showBoardRep
@@ -171,7 +176,7 @@ export class TableStats extends GameStats {
     }
     if (!!board && this.gameOver(board, win)) {
       let pc = move0.stone.color, pcr = TP.colorScheme[pc], pStats = this.pStat(pc)
-      let opc = otherColor(pc), opcr = TP.colorScheme[pc], opStats = this.pStat(opc)
+      let opc = otherColor(pc), opcr = TP.colorScheme[opc], opStats = this.pStat(opc)
       if (!!win) return this.showWin(board, win, `WINS! ${opcr} loses`)
       if (board.resigned) return this.showWin(board, opc, `WINS: ${pcr} RESIGNS`)
       if (board.repCount == 3) return this.showWin(board, pc, `-- ${opcr} STALEMATE: ns(${pStats.nStones} -- ${opStats.nStones})`)
@@ -183,8 +188,9 @@ export class TableStats extends GameStats {
   }
   showWin(board: Board, win: StoneColor, text: string): StoneColor {
     let lose = otherColor(win), winS = this.score(win), loseS = this.score(lose)
-    let winr = TP.colorScheme[win]
-    setTimeout(() => alert(`${winr} ${text}! ${winS} -- ${loseS}`), 200)
+    let winr = TP.colorScheme[win], msg = `${winr} ${text}! ${winS} -- ${loseS}`
+    console.log(stime(this, `.showWin:`), msg)
+    setTimeout(() => alert(msg), 200)
     return win
   }
   showControl(table: Table) {
