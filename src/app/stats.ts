@@ -177,7 +177,7 @@ export class TableStats extends GameStats {
       this.hexMap.update()
     }
     if (!!board && this.gameOver(board, win)) {
-      let pc = move0.stone.color, pcr = TP.colorScheme[pc], pStats = this.pStat(pc)
+      let pc = move0.stoneColor, pcr = TP.colorScheme[pc], pStats = this.pStat(pc)
       let opc = otherColor(pc), opcr = TP.colorScheme[opc], opStats = this.pStat(opc)
       if (!!win) return this.showWin(board, win, `WINS! ${opcr} loses`)
       if (board.resigned) return this.showWin(board, opc, `WINS: ${pcr} RESIGNS`)
@@ -198,13 +198,10 @@ export class TableStats extends GameStats {
   showControl(table: Table) {
     let hexMap = table.miniMap
     hexMap.forEachHex<Hex2>(hex => {
-      table.clearStone(hex)                // from mimi-map
-      hex.clearStone()
+      table.clearStone(hex)     // from mimi-map
       let ic = this.inControl[hex.district]
       if (ic !== undefined) {
-        let stone = new Stone(ic)
-        hex.setStone(stone)
-        table.setStone(stone, hex) // on mini-map
+        table.setStone(ic, hex) // on mini-map
       }
       this.showDSText(hex)
     })
@@ -242,7 +239,7 @@ export class TableStats extends GameStats {
     else
       hex.cont.localToLocal(7, -10, hex.map.infCont, dsText) // rotation from (0,-12)
     dsText.text = (n0 == 0 && n1 == 0) ? `` : `${n0}:${n1}`
-    dsText.color = (!hex.stoneColor || C.dist(TP.colorScheme[hex.stoneColor], C.WHITE)<100) ? C.BLACK : C.WHITE
+    dsText.color = (!hex.stone?.color || C.dist(TP.colorScheme[hex.stone.color], C.WHITE)<100) ? C.BLACK : C.WHITE
   }
 }
 /**
@@ -254,7 +251,6 @@ export class TableStats extends GameStats {
   nThreats: number = 0;  // (Hex w/ inf && [op].stone)
   nAttacks: number = 0;  // (Hex w/ inf >= 2)
   inControl(d: StoneColor)  { return this.gStats.inControl[this.plyr.color][d]; }
-
  */
 
 /** A "read-only" version of ParamGUI, to display value of target[fieldName] */

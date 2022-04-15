@@ -128,24 +128,23 @@ export class Planner {
    * otherColor [state0.color] has just moved: gamePlay in curState
    * find some good moves, play N of them, setting value(curState) 
    * return a State with bestValue, bestHex
-   * @param color evaluate from POV of given Player (generally, the next Player to move)
+   * @param stoneColor evaluate from POV of given Player (generally, the next Player to move)
    * @return the State representing the bestHex to be played
    */
-  lookahead(color: StoneColor, nPlys: number): State {
+  lookahead(stoneColor: StoneColor, nPlys: number): State {
     //console.log(stime(this, `.lookahead: ${this.fill(nPlys)}`), nPlys, color, `after ${state0.move.Aname}`)
-    let stone = new Stone(color) // TODO: elide Stone, and play with StoneColor
     let breadth = 8, bestValue = Number.NEGATIVE_INFINITY, bestHex: Hex, bestState: State
-    let state0 = this.evalSomeMoves(color) // generate first approx of possible moves
+    let state0 = this.evalSomeMoves(stoneColor) // generate first approx of possible moves
     let moveAry = Array.from(state0.moves.entries()).sort((a, b) => b[1].value - a[1].value) // descending
     for (let [hex, state1a] of moveAry) {
       if (--breadth < 0) break
       if (bestValue > state1a.value) break // lookahead would at best lower state value
-      let state1 = this.evalMoveInDepth(hex, stone, nPlys-1, state1a)  // see how good it really is...
+      let state1 = this.evalMoveInDepth(hex, stoneColor, nPlys-1, state1a)  // see how good it really is...
       if (state1.bestValue > bestValue || state1.bestValue === Number.NEGATIVE_INFINITY) {
         bestValue = state1.bestValue; bestHex = hex; bestState = state1 // MAX (best of the worst)
       }
     }
-    if (!bestState) bestState = this.resignState(color)
+    if (!bestState) bestState = this.resignState(stoneColor)
     else bestState.bestHex = bestHex
     //console.log(stime(this, `.lookahead: ${this.fill(nPlys)}`), nPlys, color, { Aname: bestHex.Aname, bestHex, bestValue, bestState })
     return bestState // or resign? or skip?
@@ -154,7 +153,7 @@ export class Planner {
   /** recurse with lookahead after playing hex.
    * @return State with bestHex to be played.
    */
-  evalMoveInDepth(hex: Hex, stone: Stone, nPlys: number, state1?: State): State {
+  evalMoveInDepth(hex: Hex, stoneColor: StoneColor, nPlys: number, state1?: State): State {
     let myWin: StoneColor = undefined
     /** 
      * with stone on hex: compute move, board, gStats
@@ -164,54 +163,55 @@ export class Planner {
      */
     let asifPlayerMove = (hex: Hex) => {
       let gamePlay = this.gamePlay
-      hex.setStone(stone)               // getCaptures(), allStones.push(stone); does not addStone()
+      // if Hex2: hex.stone = new Stone()
+      hex.setColor(stoneColor)               // getCaptures(), allStones.push(stone); does not addStone()
       //gamePlay.addStone(hex, stone)   // sub-optimal... assertInfluence, addUndoRec
 
       // setup board for gStats.update(); as if having made a Move(hex, stone)
-      let move = new Move(hex, stone)   // presumably achieve 'state1'
+      let move = new Move(hex, stoneColor)   // presumably achieve 'state1'
       gamePlay.history.unshift(move)           // to set repCount
       move.captured = gamePlay.captured        // set by outer getCapture; w/undoRecs to addStone!
       move.board = gamePlay.allBoards.addBoard(move, gamePlay.hexMap)
       move.board.setRepCount(gamePlay.history) // >= 1 [should be NO-OP, from addBoard]
       let win = gamePlay.gStats.update()       // use GameStats: do NOT showRepCount(), showWin()
-      //let state = this.evalState(stone.color)  // state ~~ state1: value, bestValue=value, bestHex
+      //let state = this.evalState(stoneColor)  // state ~~ state1: value, bestValue=value, bestHex
       //console.log(stime(this, `.asifPlayerMove: undoInf=`), gamePlay.undoInfluence)
       if (!win && nPlys > 0) {
-        let other = otherColor(stone.color)
+        let other = otherColor(stoneColor)
         let state2 = this.lookahead(other, nPlys) // Depth-First search: find moves from state1 to bestHex
         if (-state2.bestValue < state1.bestValue) state1.bestValue = -state2.bestValue // MIN
       }
       //console.log(stime(this, `.asifPlayerMove: undoInf=`), gamePlay.undoInfluence)
       gamePlay.history.shift()
       myWin = win         // record 'win' at top of stack. (overwriting other wins...)
-      // hex.clearStone()
+      // hex.clearColor()
       // getCaptures will: undoInfluence.close().pop(), undoRecs.close().pop(); this.captured
     }
-    this.gamePlay.getCaptures(hex, stone.color, asifPlayerMove)
-    return state1 || this.evalState(stone.color, myWin)     // zero order value after playing hex on hexMap
+    this.gamePlay.getCaptures(hex, stoneColor, asifPlayerMove)
+    return state1 || this.evalState(stoneColor, myWin)     // zero order value after playing hex on hexMap
   }
 
   /** 
    * find some MOVES from this GamePlay state/history,  and assign base value/State to each.
    * temp-make each move and score the gamePlay.
    * return State with { moves: MOVES, and proximal bestMove, bestValue }
-   * @param color evaluate from POV of given Player (generally, the next Player to move)
+   * @param stoneColor evaluate from POV of given Player (generally, the next Player to move)
    * @return a State with MOVES
    */
-  evalSomeMoves(color: StoneColor): State {
+  evalSomeMoves(stoneColor: StoneColor): State {
     let gamePlay = this.gamePlay
     // assert: history[0] is valid (because first move has been done)
     // this.gamePlay: hexMap, history, allBoards, ...
     // do not need/have 'table.nextHex', just create a Stone for player:
-    let state0 = this.evalState(color)
-    let moves = state0.moves = new Map<Hex,State>(), stone = new Stone(color)
+    let state0 = this.evalState(stoneColor)
+    let moves = state0.moves = new Map<Hex,State>()
     let bestHex: Hex, bestValue: number = Number.NEGATIVE_INFINITY // state0.bestValue, state0.value
     //console.log(stime(this, `.evalSomeMoves: state0 in:`), Obj.objectFromEntries(state0))
 
     let hexes = new HexGen(gamePlay).gen(), result: IteratorResult<Hex, void>
     while ((result = hexes.next()) && !result.done) {
       let hex = result.value as Hex
-      let state = this.evalMoveInDepth(hex, stone, 0) // get zero-order value of hex on hexMap
+      let state = this.evalMoveInDepth(hex, stoneColor, 0) // get zero-order value of hex on hexMap
       moves.set(hex, state)
 
       if (state.value > bestValue) {
@@ -247,7 +247,7 @@ class HexGen {
   hexes = new Set<Hex>()
   move0 = this.gamePlay.history[0]  // last move otherPlayer made
   move1 = this.gamePlay.history[1]  // last move 'curPlayer' made
-  color = otherColor(this.move0.stone.color)
+  color = otherColor(this.move0.stoneColor)
 
   ; *gen() {
     yield* this.attackHex(this.move0.hex)

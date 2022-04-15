@@ -76,8 +76,9 @@ export class Hex {
     this.links = {}
   }
   Aname: string
+  /** accessor so Hex2 can override-advise */
   _district: number // district ID
-  get district() {return this._district}
+  get district() { return this._district }
   set district(d: number) {
     this._district = d
   }
@@ -86,18 +87,16 @@ export class Hex {
   readonly col: number
   inf: { [Key in StoneColor]: INF }
 
-  _color: StoneColor;
-  //get cx(): number { return this.col * 2 + (this.row % 2) }
-  stone: Stone  // Note: the 'Stone' is irrelevant; all we need is the stoneColor for HSC
   /** color of the Stone or undefined */
-  get stoneColor(): StoneColor | undefined { return !!this.stone ? this.stone.color : undefined};
-  set stoneColor(color: StoneColor) { this._color = this.stoneColor}
+  stoneColor: StoneColor;
+
   /** true if hex is unplayable (& empty) because it was captured by previous Move. */
   isCaptured: boolean // capMark OR map.history[0].includes(this)
   /** Link to neighbor in each H.dirs direction [NE, E, SE, SW, W, NW] */
   links: LINKS
 
   setName(aname: string): this { this.Aname = aname; return this }
+  /** set hex.stoneColor and push HSC on allStones */
   setColor(color: StoneColor) {
     if (!color) return this.clearColor()
     this.stoneColor = color
@@ -113,23 +112,7 @@ export class Hex {
     }
     return color
   }
-  /** record HSC in map.allStones. */
-  setStone(stone: Stone) {
-    if (!stone) return this.clearStone()
-    this.stone = stone
-    let hsc = { Aname: this.Aname, hex: this, color: stone.color }
-    this.map?.allStones.push(hsc)
-    return stone
-  }
-  /** remove HSC from map.allStones. */
-  clearStone(): Stone {
-    let stone = this.stone
-    if (!!stone && !!this.map) {
-      this.map.allStones = this.map.allStones.filter(hsc => hsc.hex !== this)
-      this.stone = undefined
-    }
-    return stone
-  }
+
   markCapture() { this.isCaptured = true }
   unmarkCapture() { this.isCaptured = false }
   /**
@@ -215,7 +198,7 @@ export class Hex2 extends Hex {//Container {
   // if override set, then must override get!
   override get district() { return this._district }
   override set district(d: number) {
-    this._district = d
+    this._district = d    // cannot use super.district = d [causes recursion, IIRC]
     this.distText.text = `${d}`
   }
   readonly radius: number;   // determines width & height
@@ -224,6 +207,7 @@ export class Hex2 extends Hex {//Container {
   capMark: CapMark; // set if recently captured (markCapture); prevents dragFunc using as dropTarget
   distText: Text
   rcText: Text
+  stone: Stone
 
   override toString() {
     return `Hex[${this.row},${this.col}]`
@@ -301,6 +285,15 @@ export class Hex2 extends Hex {//Container {
     this.capMark = undefined
   }
 
+  /** remove HSC from map.allStones. */
+  override clearColor(): StoneColor {
+    this.stone = undefined
+    return super.clearColor()
+  }
+  /** make a Stone on this Hex2 */
+  setStone(stoneColor: StoneColor): Stone { // <=== rename to Hex2.setStone() ??
+    return this.stone = new Stone(stoneColor) // super.setColor(stoneColor) has already been invoked
+  }
   /** set hexShape using color */
   setHexColor(color: string, district?: number) {
     if (district !== undefined) this.district = district // hex.setHexColor update district

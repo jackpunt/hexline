@@ -20,7 +20,8 @@ export class Stone extends Shape {
   static height: number = Stone.radius*Math.sqrt(3)/2
   get radius() { return Stone.height -1 }
   readonly color: StoneColor;
-  /** put new Stone of color on cont at location of hex */
+
+  /** Stone is a Shape with a StoneColor */
   constructor(color: StoneColor) {
     super()
     this.color = color
@@ -181,9 +182,9 @@ export class Table extends EventDispatcher  {
     const history = this.gamePlay.history
     const tn = this.gamePlay.turnNumber
     const lm = history[0]
-    const prev = !!lm ? lm.toString() : ""
-    const capd = lm ? lm.captured : [] //this.gamePlay.lastCaptured 
-    const board = !!this.hexMap.allStones[0] && lm.board
+    const prev = lm?.toString() || ""
+    const capd = lm?.captured || [] //this.gamePlay.lastCaptured 
+    const board = !!this.hexMap.allStones[0] && lm?.board // TODO: hexMap.allStones>0 but history.len == 0
     const robo = curPlayer.useRobo ? "robo" : "----"
     const info = { turn: tn, plyr: curPlayer.name, prev, capd, gamePlay: this.gamePlay, board }
     console.log(stime(this, `.setNextPlayer -------${robo}----`), info, '-------------', !!this.stage.canvas);
@@ -197,21 +198,22 @@ export class Table extends EventDispatcher  {
     return curPlayer
   }
   putButtonOnPlayer(player: Player) {
-    let stone = new Stone(player.color)
-    this.gamePlay.setStone(this.nextHex, stone) // new Stone for Player
+    this.gamePlay.setStoneColor(this.nextHex, player.color) // player.color on nextHex
+    let stone = this.nextHex.stone
     this.dragger.makeDragable(stone, this, this.dragFunc, this.dropFunc)
     this.dragger.clickToDrag(stone)
     this.hexMap.update()
     player.makeMove(stone) // provoke to robo-player: respond with addStoneEvent;
   }
   /** after hex.setStone(stone): addChild(stone)  */
-  setStone(stone: Stone, hex: Hex2) {
+  setStone(stoneColor: StoneColor, hex: Hex2) {
+    let stone = hex.setStone(stoneColor)   // sets hex.stone to new Stone
     let cont: Container = (hex.map || this.hexMap).stoneCont // nextHex has no map...
     hex.cont.parent.localToLocal(hex.x, hex.y, cont, stone)
     cont.addChild(stone)
   }
   /** before hex.clearStone(): removeChild(stone) */
-  clearStone(hex: Hex = this.nextHex): Stone {
+  clearStone(hex: Hex2 = this.nextHex): Stone {
     hex.stone?.parent?.removeChild(hex.stone)
     return hex.stone
   }
