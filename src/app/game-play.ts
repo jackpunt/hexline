@@ -142,7 +142,7 @@ export class GamePlay0 {
    * assert influence of color on each axis from Hex (w/o stone on hex)
    */
   removeStone(hex: Hex) {
-    let stoneColor = hex.clearColor()
+    let stoneColor = hex.clearColor()            // Hex2.stone = undefined; remove HSC from allStones
     this.assertInfluence(hex, stoneColor, false) // reassert stoneColor on line (for what's left)
     if (!this.undoRecs.isUndoing) {
       this.addUndoRec(this, `undoRemove(${hex.Aname}:${stoneColor})`, () => this.addStone(hex, stoneColor)) // undoRemove
@@ -416,7 +416,7 @@ export class GamePlay extends GamePlay0 {
    * assert influence of color on each axis from Hex (w/o stone on hex)
    */
   override removeStone(hex: Hex2) {
-    this.table.clearStone(hex)   // GamePlay.removeStone(hex)
+    this.table.clearStone(hex)   // GamePlay.removeStone(hex): removeChild from table
     super.removeStone(hex)
     this.hexMap.update()
   }

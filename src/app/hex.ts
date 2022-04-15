@@ -229,7 +229,7 @@ export class Hex2 extends Hex {//Container {
     let rc = `${row},${col}`
     this.Aname = this.hexShape.name = `Hex@[${rc}]`
     let rct = this.rcText = new Text(rc, F.fontSpec(26)); // radius/2 ?
-    rct.textAlign = 'center'; rct.y = -15 // based on fontSize? & radius
+    rct.textAlign = 'center'; rct.y = -25 // based on fontSize? & radius
     this.cont.addChild(rct)
 
     this.distText = new Text(``, F.fontSpec(20)); 
@@ -290,9 +290,10 @@ export class Hex2 extends Hex {//Container {
     this.stone = undefined
     return super.clearColor()
   }
-  /** make a Stone on this Hex2 */
-  setStone(stoneColor: StoneColor): Stone { // <=== rename to Hex2.setStone() ??
-    return this.stone = new Stone(stoneColor) // super.setColor(stoneColor) has already been invoked
+  /** make a Stone on this Hex2: invoked by table.setStone() */
+  setStone(stoneColor: StoneColor): Stone {   // NOT setColor
+    // super.setStoneColor() -> super.setColor(stoneColor) has already been invoked
+    return this.stone = new Stone(stoneColor)
   }
   /** set hexShape using color */
   setHexColor(color: string, district?: number) {

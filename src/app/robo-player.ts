@@ -163,7 +163,7 @@ export class Planner {
      */
     let asifPlayerMove = (hex: Hex) => {
       let gamePlay = this.gamePlay
-      // if Hex2: hex.stone = new Stone()
+      // Only setColor, do not create a Stone:
       hex.setColor(stoneColor)               // getCaptures(), allStones.push(stone); does not addStone()
       //gamePlay.addStone(hex, stone)   // sub-optimal... assertInfluence, addUndoRec
 
@@ -208,8 +208,8 @@ export class Planner {
     let bestHex: Hex, bestValue: number = Number.NEGATIVE_INFINITY // state0.bestValue, state0.value
     //console.log(stime(this, `.evalSomeMoves: state0 in:`), Obj.objectFromEntries(state0))
 
-    let hexes = new HexGen(gamePlay).gen(), result: IteratorResult<Hex, void>
-    while ((result = hexes.next()) && !result.done) {
+    let hexGen = new HexGen(gamePlay).gen(), result: IteratorResult<Hex, void>
+    while ((result = hexGen.next()) && !result.done) {
       let hex = result.value as Hex
       let state = this.evalMoveInDepth(hex, stoneColor, 0) // get zero-order value of hex on hexMap
       moves.set(hex, state)
@@ -259,8 +259,10 @@ class HexGen {
   *checkHex(hexary: Iterable<Hex>, 
     pred?: (hex: Hex, color: StoneColor) => boolean) {
     for (let nHex of hexary) {
-      // new move && not suicide:
-      if (!this.hexes.has(nHex) && this.gamePlay.isLegalMove(nHex, this.color, pred)) yield nHex
+      if (this.hexes.has(nHex)) continue
+      this.hexes.add(nHex)
+      if (!this.gamePlay.isLegalMove(nHex, this.color, pred)) continue
+      yield nHex                // new move && not suicide
     }
   }
 

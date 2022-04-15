@@ -200,6 +200,7 @@ export class Table extends EventDispatcher  {
   putButtonOnPlayer(player: Player) {
     this.gamePlay.setStoneColor(this.nextHex, player.color) // player.color on nextHex
     let stone = this.nextHex.stone
+    stone[S.Aname] = `nextHex:${this.gamePlay.turnNumber}`
     this.dragger.makeDragable(stone, this, this.dragFunc, this.dropFunc)
     this.dragger.clickToDrag(stone)
     this.hexMap.update()
@@ -208,6 +209,7 @@ export class Table extends EventDispatcher  {
   /** after hex.setStone(stone): addChild(stone)  */
   setStone(stoneColor: StoneColor, hex: Hex2) {
     let stone = hex.setStone(stoneColor)   // sets hex.stone to new Stone
+    stone[S.Aname] = `[${hex.row},${hex.col}]`
     let cont: Container = (hex.map || this.hexMap).stoneCont // nextHex has no map...
     hex.cont.parent.localToLocal(hex.x, hex.y, cont, stone)
     cont.addChild(stone)
