@@ -5,7 +5,7 @@ import { Board, GamePlay0, Player } from "./game-play";
 import { Hex, Hex2, HexMap } from "./hex";
 import { Stone, Table } from "./table";
 import { otherColor, StoneColor, stoneColor0, stoneColor1, stoneColorRecord, stoneColors, TP } from "./table-params";
-import { C, F, stime } from "@thegraid/createjs-lib";
+import { C, F, S, stime } from "@thegraid/createjs-lib";
 import { ParamGUI, ParamItem, ParamLine, ParamType, } from '@thegraid/createjs-lib'
 import { Text } from "createjs-module";
 
@@ -196,7 +196,7 @@ export class TableStats extends GameStats {
     return win
   }
   showControl(table: Table) {
-    let hexMap = table.miniMap
+    let hexMap = table.miniMap; hexMap[S.Aname] = 'miniMap'
     hexMap.forEachHex<Hex2>(hex => {
       table.clearStone(hex)     // from mimi-map
       let ic = this.inControl[hex.district]

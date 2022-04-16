@@ -106,10 +106,10 @@ export class Hex {
   }
   clearColor() {
     let color = this.stoneColor
-    if (!!this.stoneColor && !!this.map) {
+    if (!!color && !!this.map) {
       this.map.allStones = this.map.allStones.filter(hsc => hsc.hex !== this)
-      this.stoneColor = undefined
     }
+    this.stoneColor = undefined
     return color
   }
 

@@ -298,7 +298,7 @@ export class GamePlay0 {
   }
 
   /**
-   * called from dragFunc, before a Move.
+   * called from dragFunc (or robo-player..), before a Move.
    * assertInfluence on hex of color; without setting a Stone; 
    * see if hex is [still] attacked by other color
    * then undo the influence and undo/replace any captures
@@ -317,7 +317,7 @@ export class GamePlay0 {
     if (func) func(hex)
     // like undoMove(), but without history/redo
     this.undoInfluence.closeUndo().pop()
-    this.undoRecs.closeUndo().pop() // like undoStones()
+    this.undoRecs.closeUndo().pop()    // like undoStones(); SHOULD replace captured Stones/Colors
     // TODO: addStone(hex) above, and do this always.
     if (!!hex.stoneColor) {            // if: func() {hex.setStone}; esp if undo(capture) -> addStone(hex)
       this.undoRecs.isUndoing = true
@@ -461,11 +461,11 @@ export class GamePlay extends GamePlay0 {
     return this.table.setNextPlayer()
   }
   override endCurPlayer(): void {
-    // IFF stone is ON nextHex: this.table.clearStone() 
-    let nextHex = this.table.nextHex, stone = nextHex.stone
-    if (stone?.parent) {     // NOTE: nextHex.xy are already rounded:
-      if (Math.round(stone.x) == nextHex.x && Math.round(stone.y) == nextHex.y) {
-        stone.parent.removeChild(stone)
+    // IFF stone is [still] ON nextHex: this.table.clearStone() 
+    let nextHex = this.table.nextHex, nxtStone = nextHex.stone
+    if (nxtStone?.parent) {     // NOTE: nextHex.xy are already rounded:
+      if (Math.round(nxtStone.x) == nextHex.x && Math.round(nxtStone.y) == nextHex.y) {
+        nxtStone.parent.removeChild(nxtStone)
         this.hexMap.update()
       }
     }
@@ -476,7 +476,7 @@ export class GamePlay extends GamePlay0 {
     let redo = this.redoMoves.shift()   // pop one Move, maybe pop them all:
     if (!!redo && redo.hex !== hev.hex) this.redoMoves.splice(0, this.redoMoves.length)
     // extract the StoneColor, ignore the Stone (thank you for your service!)
-    hev.stone?.parent?.removeChild(hev.stone)
+    hev.stone?.parent?.removeChild(hev.stone)    // remove nxtStone
     let win = this.doPlayerMove(hev.hex, hev.stoneColor)
     if (!win) this.setNextPlayer()
   }
