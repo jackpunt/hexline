@@ -112,9 +112,9 @@ export class GameStats {
     let s0M = 1.3, dMaxM = 1, dist0M = 1, nStoneM = 1.1, nInfM = .3, nThreatM = .2, nAttackM = .5, nAdjM = .1
     this.wVector = dStoneM.concat([s0M, dMaxM, dist0M, nStoneM, nInfM, nThreatM, nAttackM, nAdjM])
   }
-  statVector(color: StoneColor, gStats: GameStats): number[] {
-    let pstat = gStats.pStat(color)
-    let score = gStats.score(color)
+  statVector(color: StoneColor): number[] {
+    let pstat = this.pStat(color)
+    let score = this.score(color)
     let nDist0 = pstat.dStones[0]
     let { dStones, dMax, nStones, nInf, nThreats, nAttacks, nAdj } = pstat
     return dStones.concat(score, dMax, nDist0, nStones, nInf, nThreats, nAttacks, nAdj)
@@ -126,8 +126,8 @@ export class GameStats {
   sumVector(v0: number[]): number {
     return v0.reduce((sum, cv) => sum+cv, 0)
   }
-  getSummaryStat(gStats: GameStats, color: StoneColor, wVec = this.wVector) {
-    let sv = this.statVector(color, gStats)
+  getSummaryStat(color: StoneColor, wVec = this.wVector) {
+    let sv = this.statVector(color)
     this.mulVector(sv, wVec)
     return this.sumVector(sv)
   }
@@ -139,7 +139,7 @@ export class TableStats extends GameStats {
   dStonesText: Text[] = []
 
   sStat(color: StoneColor): number {
-    return this.getSummaryStat(this, color)
+    return this.getSummaryStat(color)
   }
   // TableStats:
   constructor(gamePlay: GamePlay0, table: Table) {
@@ -259,8 +259,8 @@ export class StatsPanel extends ParamGUI {
   gStats: TableStats
   bFields = ['score', 'sStat'] //
   pFields = ['nStones', 'nInf', 'nThreats', 'nAttacks', 'dMax'] // 'dStones', 'dMinControl', 
-  constructor(gStats: TableStats) {
-    super(gStats)    // but StatsPanel.setValue() does nothing
+  constructor(gStats: TableStats, defStyle?) {
+    super(gStats, defStyle)    // but StatsPanel.setValue() does nothing
     this.gStats = gStats
   }
   targetValue(target: object, fieldName: string, color: StoneColor) {

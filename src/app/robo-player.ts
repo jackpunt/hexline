@@ -1,11 +1,11 @@
 import { Obj, S, stime } from "@thegraid/createjs-lib";
-import { Board, GamePlay0, Move, Mover, Player } from "./game-play";
-import { Hex, Hex2 } from "./hex";
+import { Board, GamePlay, GamePlay0, Move, Mover, Player } from "./game-play";
+import { Hex, Hex2, HexMap } from "./hex";
 import { HexEvent } from "./hex-event";
 import { H } from "./hex-intfs";
 import { GameStats } from "./stats";
 import { Stone, Table } from "./table";
-import { otherColor, StoneColor, stoneColor0, stoneColor1, stoneColorRecord, TP } from "./table-params";
+import { otherColor, StoneColor, stoneColor0, stoneColor1, stoneColorRecord, stoneColors, TP } from "./table-params";
 
 
 class RoboBase implements Mover {
@@ -93,15 +93,14 @@ export class Planner {
       let value = (win == color) ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY
       return { move, color, bestValue: value, value}
     }
-    let gamePlay = this.gamePlay, gStats = gamePlay.gStats, other = otherColor(color)
-    let s0 = gamePlay.gStats.getSummaryStat(gStats, color, weightVec)
-    let s1 = gamePlay.gStats.getSummaryStat(gStats, other, weightVec)
+    let other = otherColor(color)
+    let s0 = this.gamePlay.gStats.getSummaryStat(color, weightVec)
+    let s1 = this.gamePlay.gStats.getSummaryStat(other, weightVec)
     let value = s0 - s1 // best move for color will maximize value
     return { move, color, bestValue: value, value }
   }
-  maxPlys = 8
-  spaceFill = "               ".substring(0, this.maxPlys)
-  fill(nPlys: number) { return this.spaceFill.substring(0, this.maxPlys-nPlys) }
+  spaceFill = "               ".substring(0, TP.nPlys)
+  fill(nPlys: number) { return this.spaceFill.substring(0, TP.nPlys-nPlys) }
 
   resignState(color: StoneColor): State {
     let v0 = Number.NEGATIVE_INFINITY, resignHex = this.gamePlay.hexMap.resignHex 
@@ -124,7 +123,7 @@ export class Planner {
     if (!this.gamePlay.gStats) this.gamePlay.gStats = this.gamePlay.original.gStats.toGameStats()
     //console.log(stime(this, `.makeMove: stone=`), stone)
     //let state0 = this.evalSomeMoves(stone.color) // eval current state & potential moves
-    let state = this.lookahead(stone.color, this.maxPlys) // try someGoodMoves
+    let state = this.lookahead(stone.color, TP.nPlys) // try someGoodMoves
     // hack to re-link any orphaned Stones to their hexes:
     this.restoreStones()
     let hex = state.bestHex
@@ -146,7 +145,7 @@ export class Planner {
    * @return the State representing the bestHex to be played
    */
   lookahead(stoneColor: StoneColor, nPlys: number): State {
-    console.groupCollapsed(`lookahead-${nPlys}-${stoneColor} after ${this.gamePlay.history[0].hex.Aname}`)
+    console.groupCollapsed(`lookahead-${nPlys}-${stoneColor} after ${otherColor(stoneColor)} ${this.gamePlay.history[0].hex.Aname}`)
     //console.log(stime(this, `.lookahead: ${this.fill(nPlys)}`), nPlys, color, `after ${state0.move.Aname}`)
     let breadth = 8, bestValue = Number.NEGATIVE_INFINITY, bestHex: Hex, bestState: State
     let state0 = this.evalSomeMoves(stoneColor) // generate first approx of possible moves
@@ -220,6 +219,7 @@ export class Planner {
     // assert: history[0] is valid (because first move has been done)
     // this.gamePlay: hexMap, history, allBoards, ...
     // do not need/have 'table.nextHex', just create a Stone for player:
+    this.gamePlay.gStats.update()
     let state0 = this.evalState(stoneColor)
     let moves = state0.moves = new Map<Hex,State>()
     let bestHex: Hex, bestValue: number = Number.NEGATIVE_INFINITY // state0.bestValue, state0.value
@@ -242,6 +242,221 @@ export class Planner {
     state0.bestHex = bestHex; state0.bestValue = bestValue // best estimate of value at this ply
     //console.log(stime(this, `.evalSomeMoves: state0 out:`), bestHex.Aname, Obj.objectFromEntries(state0))
     return state0
+  }
+}
+/**
+ * 1. evalSomeMoves as generator, so can yield the initial value; then sort and proceed with the good ones.
+ * ... but: not the MOVE generator; store state of board at [leaf] nodes of search graph.
+ * ... QQQ: do we store the whole hexMap? or just history or Board (from which we can recreate hexMap)? TIME vs SPACE
+ * ... AAA: first try save hexMap; and nullify refs in obsolete STATES.
+ * Also: keep 'allBoard' with link to the eval-node, so can find it even if not in first tier of nodes.
+ * 1b. gen->[gen: Iterable, value: number]; sort on [2], 
+ * 2. use internal HexMap<hex> to dodge all the graphics (now that it works)
+ * 2b. read move0 to see which hex was updated
+ * 3? maintain tree of forecast: prune when other player makes actual move; expand at the remaaining leafs.
+ * 
+ */
+export class Planner2 {
+  original: GamePlay
+  gamePlay: GamePlay0
+  weightVecs: Record<StoneColor, number[]>
+  maxPlys = 3
+
+  constructor(gamePlay: GamePlay) {
+    this.original = gamePlay
+    this.gamePlay = new GamePlay0()  // same TP.mH/nH size, but no mapCont
+    // use same Players:
+    stoneColors.forEach((color, ndx) => this.gamePlay.allPlayers[ndx] = gamePlay.allPlayers[ndx])
+
+    // compatible with statVector in stats.ts
+    let nDist = TP.ftHexes(TP.mHexes)  // each MetaHex is a District
+    let dStoneM = new Array<number>(nDist).fill(1, 0, nDist), wv0, wv1
+    // s0 = inControl, dMax, district0, nStones, nInf
+    let s0M0 = 1.3, dMaxM0 = 1, dist0M0 = 1, nStoneM0 = 1.1, nInfM0 = .3, nThreatM0 = .2, nAttackM0 = .5, nAdjM0 = .1
+    wv0 = dStoneM.concat([s0M0, dMaxM0, dist0M0, nStoneM0, nInfM0, nThreatM0, nAttackM0, nAdjM0])
+
+    let s0M1 = 1.4, dMaxM1 = .9, dist0M1 = .8, nStoneM1 = 1.2, nInfM1 = .25, nThreatM1 = .25, nAttackM1 = .6, nAdjM1 = .2
+    wv1 = dStoneM.concat([s0M1, dMaxM1, dist0M1, nStoneM1, nInfM1, nThreatM1, nAttackM1, nAdjM1])
+    this.weightVecs = stoneColorRecord(wv0, wv1)
+  }
+  syncHexMap(hexMap: HexMap) {
+    let myMap = this.gamePlay.hexMap
+    hexMap.forEachHex((hex: Hex2) => {
+      let row = hex.row, col = hex.col, myHex = myMap[row][col] 
+      myHex.stoneColor = hex.stoneColor
+    })
+  }
+
+  /** play this Stone, Player is stone.color */
+  makeMove(stone: Stone, table?: Table) {
+    if (!this.gamePlay.gStats) this.gamePlay.gStats = this.gamePlay.original.gStats.toGameStats()
+    this.syncHexMap(this.original.hexMap)
+
+    //console.log(stime(this, `.makeMove: stone=`), stone)
+    //let state0 = this.evalSomeMoves(stone.color) // eval current state & potential moves
+    let state = this.lookahead(stone.color, this.maxPlys) // try someGoodMoves
+
+    let hex = state.bestHex
+    let { move, color, bestValue, value, bestHex } = state
+    let s0 = { move, color, bestValue: bestValue.toFixed(2), value: value.toFixed(2), bestHex }
+    console.log(stime(this, `.makeMove: state=`), s0)
+    if (table) {
+      table.hexMap.showMark(hex)
+      table.dispatchEvent(new HexEvent(S.add, hex, stone)) //
+    }
+  }
+  /** 
+   * lookahead from current State; with its potential MOVES
+   * try someGoodMoves, update State values looking nPlys deep
+   * otherColor [state0.color] has just moved: gamePlay in curState
+   * find some good moves, play N of them, setting value(curState) 
+   * return a State with bestValue, bestHex
+   * @param stoneColor evaluate from POV of given Player (generally, the next Player to move)
+   * @return the State representing the bestHex to be played
+   */
+  lookahead(stoneColor: StoneColor, nPlys: number): State {
+    console.groupCollapsed(`lookahead-${nPlys}-${stoneColor} after ${this.gamePlay.history[0].hex.Aname}`)
+    //console.log(stime(this, `.lookahead: ${this.fill(nPlys)}`), nPlys, color, `after ${state0.move.Aname}`)
+    let breadth = 8, bestValue = Number.NEGATIVE_INFINITY, bestHex: Hex, bestState: State
+
+    let hexGen = new HexGen(this.gamePlay).gen(), result: IteratorResult<Hex, void>
+    let hexGenA = Array.from(hexGen)
+    let moveAry0 = hexGenA.map(hex => {
+      let evalr = this.evalMoveInDepth(hex, stoneColor, 0)
+      let result = evalr.next()
+      return { evalr, result }
+    }) // first order value
+    let moveAry1 = moveAry0.filter((evalr_result) => !evalr_result.result.done)
+    let moveAry2 = moveAry1.map(evalr_result => { return { evalr: evalr_result.evalr, state: evalr_result.result.value as State } })
+    let moveAry = moveAry2.sort((a, b) => b.state.value - a.state.value) // descending value of State
+    for (let evalr_state of moveAry) {
+      if (--breadth < 0) break
+      if (bestValue > evalr_state.state.value) break // lookahead would at best lower state value
+      let hex = evalr_state.state.bestHex            // possibly the only Hex...
+      let result = evalr_state.evalr.next(nPlys - 1)  // see how good it really is...
+      if (!result.done) {
+        let state = result.value as State
+        if (state.bestValue > bestValue || state.bestValue === Number.NEGATIVE_INFINITY) {
+          bestValue = state.bestValue; bestHex = hex; bestState = state // MAX (best of the worst)
+        }
+      }
+    }
+    console.groupEnd()
+    //if (!bestState) bestState = this.resignState(stoneColor)
+    //else bestState.bestHex = bestHex
+    //console.log(stime(this, `.lookahead: ${this.fill(nPlys)}`), nPlys, color, { Aname: bestHex.Aname, bestHex, bestValue, bestState })
+    return bestState // or resign? or skip?
+  }
+
+  /** recurse with lookahead after playing hex.
+   * @return State with bestHex to be played.
+   */
+  *evalMoveInDepth(hex: Hex, stoneColor: StoneColor, nPlys: number) {
+    let myWin: StoneColor = undefined
+    /** 
+     * with stone on hex: compute move, board, gStats
+     * then remove stone (and getCaptures will undo the rest)
+     * 
+     * plugin func for gamePlay.getCaptures(hex, color) 
+     */
+    let asifPlayerMove = (hex: Hex) => {
+      let gamePlay = this.gamePlay
+      // Only setColor, do not create a Stone:
+      hex.setColor(stoneColor)               // getCaptures(), allStones.push(stone); does not addStone()
+      //gamePlay.addStone(hex, stone)   // sub-optimal... assertInfluence, addUndoRec
+
+      // setup board for gStats.update(); as if having made a Move(hex, stone)
+      let move = new Move(hex, stoneColor)   // presumably achieve 'state1'
+      gamePlay.history.unshift(move)           // to set repCount
+      move.captured = gamePlay.captured        // set by outer getCapture; w/undoRecs to addStone!
+      move.board = gamePlay.allBoards.addBoard(move, gamePlay.hexMap)
+      move.board.setRepCount(gamePlay.history) // >= 1 [should be NO-OP, from addBoard]
+      let win = gamePlay.gStats.update()       // use GameStats: do NOT showRepCount(), showWin()
+      //let state = this.evalState(stoneColor)  // state ~~ state1: value, bestValue=value, bestHex
+      //console.log(stime(this, `.asifPlayerMove: undoInf=`), gamePlay.undoInfluence)
+      if (!win && nPlys > 0) {
+        let other = otherColor(stoneColor)
+        let state2 = this.lookahead(other, nPlys) // Depth-First search: find moves from state1 to bestHex
+        if (-state2.bestValue < state.bestValue) state.bestValue = -state2.bestValue // MIN
+      }
+      //console.log(stime(this, `.asifPlayerMove: undoInf=`), gamePlay.undoInfluence)
+      gamePlay.history.shift()
+      myWin = win         // record 'win' at top of stack. (overwriting other wins...)
+      // hex.clearColor()
+      // getCaptures will: undoInfluence.close().pop(), undoRecs.close().pop(); this.captured
+    }
+    this.gamePlay.getCaptures(hex, stoneColor, asifPlayerMove)
+    let state = this.evalState(stoneColor, myWin)     // zero order value after playing hex on hexMap
+    yield state
+  }
+
+  /** Make a State object with simple value */
+  evalState(color: StoneColor, win?: StoneColor): State {
+    let move = this.gamePlay.history[0], weightVec = this.weightVecs[color]
+    if (win) {
+      let value = (win == color) ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY
+      return { move, color, bestValue: value, value}
+    }
+    let other = otherColor(color)
+    let s0 = this.gamePlay.gStats.getSummaryStat(color, weightVec)
+    let s1 = this.gamePlay.gStats.getSummaryStat(other, weightVec)
+    let value = s0 - s1 // best move for color will maximize value
+    return { move, color, bestValue: value, value }
+  }  
+}
+/** generate pairs of Pair<HexGen, value> */
+class HexGen2 {
+  constructor (private gamePlay: GamePlay0) {}
+  hexes = new Set<Hex>()
+  move0 = this.gamePlay.history[0]  // last move otherPlayer made
+  move1 = this.gamePlay.history[1]  // last move 'curPlayer' made
+  color = otherColor(this.move0.stoneColor) // my StoneColor
+  threats = this.gamePlay.gStats.pStat(this.color).hThreats
+
+  ;*gen0() {
+    yield this.checkHex(this.alignHex(this.move0.hex))
+    for (let hex of this.threats)
+      yield this.checkHex(this.alignHex(hex))
+    yield this.checkHex(this.alignHex(this.move1.hex))
+    yield this.checkHex(this.alignHex(this.move0.hex))
+    for (let [dn, hex] of Object.entries(this.move0.hex.links))
+      yield this.checkHex(this.radGen(hex, dn))
+  }
+
+
+  ; *gen1(): Generator<Hex, void, unknown> {
+    yield *this.checkHex(this.alignHex(this.move0.hex))
+    for (let hex of this.threats)
+      yield* this.checkHex(this.alignHex(hex))
+    yield *this.checkHex(this.alignHex(this.move1.hex))
+    yield *this.checkHex(this.alignHex(this.move0.hex))
+    for (let [dn, hex] of Object.entries(this.move0.hex.links))
+      yield* this.checkHex(this.radGen(hex, dn))
+  }
+  ; *radGen(hex, dn) {
+    while (hex = hex.links[dn]) yield hex // follow links[dn] from hex to edge of hexMap
+  }
+  ; *checkHex(hexary: Iterable<Hex>, pred?: (hex: Hex, color: StoneColor) => boolean) {
+    for (let nHex of hexary) {
+      if (this.hexes.has(nHex)) continue
+      if (!pred) this.hexes.add(nHex)
+      if (!this.gamePlay.isLegalMove(nHex, this.color, pred)) continue
+      this.hexes.add(nHex)
+      yield nHex                // new move && not suicide
+    }
+  }
+
+  /** Hexes that an on-axis to the given Hex */
+  alignHex(hex: Hex) {
+    let genHex = this.radialHex(hex)
+    return this.checkHex(genHex)
+  }
+  ; *radialHex(hex: Hex) {
+    for (let dn of Object.keys(hex.links)) {    // extend in each radial direction
+      let nHex = hex
+      while (nHex = nHex.links[dn]) yield nHex
+    }
+    return
   }
 }
 
@@ -270,7 +485,7 @@ class HexGen {
   color = otherColor(this.move0.stoneColor)
 
   ; *gen() {
-    yield* this.attackHex(this.move0.hex)
+    //yield* this.attackHex(this.move0.hex)
     yield* this.alignHex(this.move0.hex)
     if (this.move1) yield* this.adjacentHex(this.move1.hex)
     for (let d  of [0, 1, 2, 3, 4, 5, 6]) yield* this.allHexInDistrict(d)
@@ -288,16 +503,15 @@ class HexGen {
   }
 
   //this.gamePlay.getCaptures(nHex, color)
-  adjacentHex(hex: Hex) {
-    return this.checkHex(Object.values(hex.links))  
-  }
   allHexInDistrict(d: number) {
     return this.checkHex(this.gamePlay.hexMap.district[d])
   }
-  alignHex(hex: Hex) {
-    let genHex = this.radialHex(hex)
-    return this.checkHex(genHex)
+
+  /** alignHex with range = 1 */
+  adjacentHex(hex: Hex) {
+    return this.checkHex(Object.values(hex.links))  
   }
+  /** Hexes which attack the indicated Hex, but really: just use alignHex */
   attackHex(hex: Hex) {
     let pred = (nhex: Hex, color: StoneColor) => {
       let caps = this.gamePlay.getCaptures(nhex, color)
@@ -306,10 +520,16 @@ class HexGen {
     let genHex = this.radialHex(hex)
     return this.checkHex(genHex, pred)
   }
-  *radialHex(hex: Hex) {
-    for (let dn of H.dirs) {    // extend in each radial direction
+  /** Hexes that an on-axis to the given Hex */
+  alignHex(hex: Hex) {
+    let genHex = this.radialHex(hex)
+    return this.checkHex(genHex)
+  }
+  ; *radialHex(hex: Hex) {
+    let dirs = Object.keys(hex.links) // directions with linked neighbors
+    for (let dn of dirs) {
       let nHex = hex
-      while (nHex = nHex.links[dn]) yield (nHex)
+      while (nHex = nHex.links[dn]) yield nHex
     }
     return
   }

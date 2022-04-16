@@ -8,11 +8,12 @@ export type StoneColor = typeof stoneColors[number]
 export function otherColor(color: StoneColor): StoneColor { return color === 'black' ? 'white' : 'black' }
 export function stoneColorRecord<T>(b: T = null, w: T = null): Record<StoneColor, T> { return { 'black': b, 'white': w } };
 export class TP {
+  static nPlys = 8     // for robo-player lookahead
   static Black_White = stoneColorRecord('BLACK', 'WHITE')
   static Blue_Red = stoneColorRecord('BLUE', 'RED')
   static colorScheme: Record<StoneColor, string> = TP.Black_White
   static numPlayers = 2;
-  static mHexes = 3    // number hexes on side of Meta-Hex
+  static mHexes = 2    // number hexes on side of Meta-Hex
   static nHexes = 1    // number of Hexes on side of District
   static nVictory = 4  // number of Districts to control
   static nMinControl  = (TP.nHexes <= 1) ? 1 : TP.nHexes + 1 // [1, 1, 3, 4, 5, ...]

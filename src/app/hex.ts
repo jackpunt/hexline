@@ -101,7 +101,7 @@ export class Hex {
     if (!color) return this.clearColor() // color that was cleared
     this.stoneColor = color
     let hsc = { Aname: this.Aname, hex: this, color }
-    this.map?.allStones.push(hsc)
+    this.row && this.map?.allStones.push(hsc) // no push: Aname == nextHex
     return color  // color that was set
   }
   clearColor() {
