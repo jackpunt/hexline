@@ -48,8 +48,8 @@ export class Table extends EventDispatcher  {
   gamePlay: GamePlay;
   stage: Stage;
   scaleCont: Container
-  hexMap: HexMap = new HexMap()
-  nextHex: Hex2 = new Hex2("grey", Stone.radius, undefined).setName('nextHex') // Graphics, but no hexMap.
+  hexMap: HexMap; // from gamePlay.hexMap
+  nextHex: Hex2;
   undoCont: Container = new Container()
   undoShape: Shape = new Shape();
   skipShape: Shape = new Shape();
@@ -65,7 +65,6 @@ export class Table extends EventDispatcher  {
     stage['table'] = this // backpointer so Containers can find their Table (& curMark)
     this.stage = stage
     this.scaleCont = this.makeScaleCont(!!this.stage) // scaleCont & background
-    this.nextHex.cont.scaleX = this.nextHex.cont.scaleY = 2
     this.setupUndoButtons(55, 45)
   }
   setupUndoButtons(bSize, sRad) {
@@ -156,6 +155,8 @@ export class Table extends EventDispatcher  {
     mapCont.x = bgr.x + (bgr.w) / 2
     mapCont.y = bgr.y + (bgr.h) / 2
 
+    this.nextHex = new Hex2("grey", Stone.radius, this.hexMap).setName('nextHex')
+    this.nextHex.cont.scaleX = this.nextHex.cont.scaleY = 2
     this.nextHex.x = minx + 2 * wide; this.nextHex.y = miny + 2.0 * high;
     // tweak when hexMap is tiny:
     let nh = TP.nHexes, mh = TP.mHexes
@@ -187,7 +188,7 @@ export class Table extends EventDispatcher  {
     const board = !!this.hexMap.allStones[0] && lm?.board // TODO: hexMap.allStones>0 but history.len == 0
     const robo = curPlayer.useRobo ? "robo" : "----"
     const info = { turn: tn, plyr: curPlayer.name, prev, capd, gamePlay: this.gamePlay, board }
-    console.log(stime(this, `.setNextPlayer -------${robo}----`), info, '-------------', !!this.stage.canvas);
+    console.log(stime(this, `.setNextPlayer ----${robo}----`), info);
   }
   setNextPlayer(log: boolean = true): Player {
     let curPlayer = this.gamePlay.curPlayer // after gamePlay.setNextPlayer()
@@ -206,19 +207,7 @@ export class Table extends EventDispatcher  {
     this.hexMap.update()
     player.makeMove(stone) // provoke to robo-player: respond with addStoneEvent;
   }
-  /** after hex.setStone(stone): addChild(stone)  */
-  setStone(stoneColor: StoneColor, hex: Hex2) {
-    let stone = hex.setStone(stoneColor)   // sets hex.stone to new Stone
-    stone[S.Aname] = `[${hex.row},${hex.col}]`
-    let cont: Container = (hex.map || this.hexMap).stoneCont // nextHex has no map...
-    hex.cont.parent.localToLocal(hex.x, hex.y, cont, stone)
-    cont.addChild(stone)
-  }
-  /** before hex.clearStone(): removeChild(stone) */
-  clearStone(hex: Hex2 = this.nextHex): Stone {
-    hex.stone?.parent?.removeChild(hex.stone)
-    return hex.stone
-  }
+
   hexUnderObj(dragObj: DisplayObject) {
     let pt = dragObj.parent.localToLocal(dragObj.x, dragObj.y, this.hexMap.hexCont)
     return this.hexMap.hexUnderPoint(pt.x, pt.y)

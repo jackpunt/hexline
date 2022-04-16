@@ -398,28 +398,6 @@ export class GamePlay extends GamePlay0 {
     }    
   }
 
-  /** set StoneColor and table.setStone() */
-  override setStoneColor(hex: Hex, stoneColor: StoneColor) {
-    super.setStoneColor(hex, stoneColor) // set only hex.color
-    if (hex instanceof Hex2) this.table.setStone(stoneColor, hex)
-  }
-  /** setStone on hexMap(hex), assertInfluence, Captured, Undo (no stats) */
-  override addStone(hex: Hex2, stoneColor: StoneColor) {
-    super.addStone(hex, stoneColor) // setStoneColor -> hex.setStone... table.setStone
-    this.hexMap.update()
-  }
-
-  /** 
-   * remove Move that placed hex
-   * remove stone Shape from hex
-   * remove all influence of color on each axis from Hex
-   * assert influence of color on each axis from Hex (w/o stone on hex)
-   */
-  override removeStone(hex: Hex2) {
-    this.table.clearStone(hex)   // GamePlay.removeStone(hex): removeChild from table
-    super.removeStone(hex)
-    this.hexMap.update()
-  }
   override captureStone(nhex: Hex): void {
     super.captureStone(nhex)
     nhex.markCapture()
@@ -431,18 +409,18 @@ export class GamePlay extends GamePlay0 {
 
   skipMove() {
     this.table.stopDragging() // drop on nextHex (no Move)
-    this.doPlayerMove(this.hexMap.skipHex, this.table.nextHex.stoneColor) // dummy move for history & redos
+    this.addStoneEvent(new HexEvent(S.add, this.hexMap.skipHex, this.table.nextHex.stoneColor)) // dummy move for history & redos
   }
   resignMove() {
     this.table.stopDragging() // drop on nextHex (no Move)
-    this.doPlayerMove(this.hexMap.resignHex, this.table.nextHex.stoneColor) // move Stone to table.resignHex
+    this.addStoneEvent(new HexEvent(S.add, this.hexMap.resignHex, this.table.nextHex.stoneColor)) // move Stone to table.resignHex
   }
   override doPlayerSkip() {
     // undo-skip: clear other Player's Stone from this.table.nextHex
-    this.addUndoRec(this.table, 'clearNextHex', () => this.table.clearStone()) // undo-skip
+    this.addUndoRec(this.table, 'clearNextHex', () => this.table.nextHex.clearColor()) // undo-skip
   }
   override doPlayerResign(hex: Hex, stoneColor: "black" | "white"): void {
-    this.addUndoRec(this.table, 'clearNextHex', () => this.table.clearStone()) // undo-resign
+    this.addUndoRec(this.table, 'clearNextHex', () => this.table.nextHex.clearColor()) // undo-resign
   }
   /** remove captured Stones, from placing Stone on Hex */
   override doPlayerMove(hex: Hex, color: StoneColor): StoneColor {
@@ -556,7 +534,8 @@ class BoardRegister extends Map<string, Board> {
  */
 export class Board {
   id: string = ""   // to identify hexMap state
-  hexStones: HSC[]  // to recreate hexMap state [not sure we need... maybe just do/undoMove]
+  history: Move[]   // to recreate hexMap state
+  hexStones: HSC[]  // to recreate hexMap state [without sequence info]
   captured: Hex[]   // captured by current Players's Move
   nextPlayerColor: StoneColor // cannot play into captured Hexes
   repCount: number = 1;
@@ -589,6 +568,34 @@ export class Board {
   setRepCount(history: Move[]) {
     this.repCount = history.filter(hmove => hmove.board === this).length
   }
+  getHexMap() {
+
+  }
+
+  /**
+   * clear Stones & influence, add Stones, assertInfluence
+   */
+  makeHexMap(gamePlay: GamePlay0, hexMap?: HexMap) {
+    let hsc = this.hexStones, oldMap = hexMap ? undefined : (hexMap = new HexMap())
+    let axisDone: AxisDone = {} // indexed by axis: Set<H.axis>
+    if (oldMap) {
+      // doing hex.clearColor() en masse:
+      oldMap.forEachHex(hex => {
+        hex.stoneColor = undefined
+        hex.clearInf()
+        if (hex instanceof Hex2) hex.map.stoneCont.removeChild(hex.stone)   //(hex.stone = undefined); // QQQ:
+         gamePlay.setStoneColor(hex, undefined)// ??
+      })
+      hsc.forEach(hsc => {
+        gamePlay.setStoneColor(hsc.hex, hsc.color)    // set StoneColors on map
+      })
+    }
+    // scan each Line once to assert influence
+    hsc.forEach(hsc => {
+      gamePlay.assertInfluence(hsc.hex, hsc.color, false, axisDone) // TODO: NEEDS WORK567890
+    })
+  }
+
 }
 // Given a board[list of Hex, each with B/W stone & next=B/W], 
 // generate a list of potential next move (B/W, Hex)

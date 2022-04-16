@@ -198,10 +198,10 @@ export class TableStats extends GameStats {
   showControl(table: Table) {
     let hexMap = table.miniMap; hexMap[S.Aname] = 'miniMap'
     hexMap.forEachHex<Hex2>(hex => {
-      table.clearStone(hex)     // from mimi-map
+      hex.clearColor()     // from mimi-map
       let ic = this.inControl[hex.district]
       if (ic !== undefined) {
-        table.setStone(ic, hex) // on mini-map
+        hex.setColor(ic)
       }
       this.showDSText(hex)
     })

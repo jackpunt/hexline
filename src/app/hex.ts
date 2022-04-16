@@ -98,11 +98,11 @@ export class Hex {
   setName(aname: string): this { this.Aname = aname; return this }
   /** set hex.stoneColor and push HSC on allStones */
   setColor(color: StoneColor) {
-    if (!color) return this.clearColor()
+    if (!color) return this.clearColor() // color that was cleared
     this.stoneColor = color
     let hsc = { Aname: this.Aname, hex: this, color }
     this.map?.allStones.push(hsc)
-    return color
+    return color  // color that was set
   }
   clearColor() {
     let color = this.stoneColor
@@ -285,9 +285,23 @@ export class Hex2 extends Hex {//Container {
     this.capMark = undefined
   }
 
+  override setColor(stoneColor: StoneColor): StoneColor {
+    super.setColor(stoneColor)
+    if (stoneColor) {
+      let stone = this.setStone(stoneColor), hex = this   // sets hex.stone to new Stone
+      stone[S.Aname] = `[${hex.row},${hex.col}]`
+      let cont: Container = hex.map.stoneCont
+      hex.cont.parent.localToLocal(hex.x, hex.y, cont, stone)
+      cont.addChild(stone)
+      hex.map.update()
+    } // else clearColor has been called
+    return stoneColor
+  }
   /** remove HSC from map.allStones. */
   override clearColor(): StoneColor {
+    this.stone?.parent?.removeChild(this.stone)
     this.stone = undefined
+    this.map.update()
     return super.clearColor()
   }
   /** make a Stone on this Hex2: invoked by table.setStone() */
