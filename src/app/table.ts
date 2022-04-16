@@ -199,7 +199,7 @@ export class Table extends EventDispatcher  {
     return curPlayer
   }
   putButtonOnPlayer(player: Player) {
-    this.gamePlay.setStoneColor(this.nextHex, player.color) // player.color on nextHex
+    this.nextHex.setColor(player.color)
     let stone = this.nextHex.stone
     stone[S.Aname] = `nextHex:${this.gamePlay.turnNumber}`
     this.dragger.makeDragable(stone, this, this.dragFunc, this.dropFunc)

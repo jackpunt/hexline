@@ -79,7 +79,7 @@ export class GamePlay0 {
       hex instanceof Hex2 && (hex.stone = undefined);
       hex.clearInf() }) // QQQ: this.setStone(undefined) ??
     board.forEach(hsc => {
-      this.setStoneColor(hsc.hex, hsc.color)    // set StoneColors on map
+      hsc.hex.setColor(hsc.color)
     })
     // scan each Line once to assert influence
     board.forEach(hsc => {
@@ -124,19 +124,16 @@ export class GamePlay0 {
   doPlayerSkip(hex: Hex, stoneColor: StoneColor) {  }  // doPlayerMove records history; override sets undoSkip 
   doPlayerResign(hex: Hex, stoneColor: StoneColor) { } // doPlayerMove records history
 
-  setStoneColor(hex: Hex, stoneColor: StoneColor) {
-    hex.setColor(stoneColor) // Note: GamePlay.setStoneColor does: table.setStone(stoneColor, Hex2)
-  }
   /** addStone to setStone(hex)->hex.setStone(color); assertInfluence & Captured; addUndoRec (no stats) */
   addStone(hex: Hex, stoneColor: StoneColor) {
-    this.setStoneColor(hex, stoneColor)  // move Stone onto Hex & HexMap [hex.stone = stone]
+    hex.setColor(stoneColor)             // move Stone onto Hex & HexMap [hex.stone = stone]
     this.assertInfluence(hex, stoneColor)
     if (!this.undoRecs.isUndoing) {
       this.addUndoRec(this, `removeStone(${hex.Aname}:${stoneColor})`, () => this.removeStone(hex)) // remove for undo
     }
   }
   /** 
-   * remove Move that placed hex
+   * remove Move/HSC from map
    * remove stone Shape from hex
    * remove all influence of color on each axis from Hex
    * assert influence of color on each axis from Hex (w/o stone on hex)
@@ -583,11 +580,13 @@ export class Board {
       oldMap.forEachHex(hex => {
         hex.stoneColor = undefined
         hex.clearInf()
-        if (hex instanceof Hex2) hex.map.stoneCont.removeChild(hex.stone)   //(hex.stone = undefined); // QQQ:
-         gamePlay.setStoneColor(hex, undefined)// ??
+        if (hex instanceof Hex2) {
+          hex.map.stoneCont.removeChild(hex.stone)   //(hex.stone = undefined); // QQQ:
+        }
+        hex.stoneColor = undefined
       })
       hsc.forEach(hsc => {
-        gamePlay.setStoneColor(hsc.hex, hsc.color)    // set StoneColors on map
+        hsc.hex.setColor(hsc.color)    // set StoneColors on map
       })
     }
     // scan each Line once to assert influence

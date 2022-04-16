@@ -285,30 +285,27 @@ export class Hex2 extends Hex {//Container {
     this.capMark = undefined
   }
 
+  /** make a Stone on this Hex2 */
   override setColor(stoneColor: StoneColor): StoneColor {
     super.setColor(stoneColor)
     if (stoneColor) {
-      let stone = this.setStone(stoneColor), hex = this   // sets hex.stone to new Stone
-      stone[S.Aname] = `[${hex.row},${hex.col}]`
-      let cont: Container = hex.map.stoneCont
-      hex.cont.parent.localToLocal(hex.x, hex.y, cont, stone)
+      let stone = this.stone = new Stone(stoneColor)
+      stone[S.Aname] = `[${this.row},${this.col}]`
+      let cont: Container = this.map.stoneCont
+      this.cont.parent.localToLocal(this.x, this.y, cont, stone)
       cont.addChild(stone)
-      hex.map.update()
-    } // else clearColor has been called
+      this.map.update()
+    } // else this.clearColor() has been called
     return stoneColor
   }
-  /** remove HSC from map.allStones. */
+  /** removeChild(stone) & HSC from map.allStones. */
   override clearColor(): StoneColor {
     this.stone?.parent?.removeChild(this.stone)
     this.stone = undefined
     this.map.update()
     return super.clearColor()
   }
-  /** make a Stone on this Hex2: invoked by table.setStone() */
-  setStone(stoneColor: StoneColor): Stone {   // NOT setColor
-    // super.setStoneColor() -> super.setColor(stoneColor) has already been invoked
-    return this.stone = new Stone(stoneColor)
-  }
+
   /** set hexShape using color */
   setHexColor(color: string, district?: number) {
     if (district !== undefined) this.district = district // hex.setHexColor update district
