@@ -4,7 +4,7 @@ import { HexEvent } from "./hex-event";
 import { S, stime, Undo, KeyBinder } from "@thegraid/createjs-lib";
 import { GameStats, TableStats } from "./stats";
 import { Stone, Table } from "./table";
-import { otherColor, StoneColor, stoneColors} from "./table-params"
+import { otherColor, StoneColor, stoneColors, TP} from "./table-params"
 import { Planner } from "./robo-player";
 import { GameSetup } from "./game-setup";
 
@@ -347,6 +347,7 @@ export class GamePlay extends GamePlay0 {
     KeyBinder.keyBinder.setKey('M-K', { thisArg: this, func: this.resignMove })// S-M-k
     KeyBinder.keyBinder.setKey('Escape', {thisArg: table, func: table.stopDragging}) // Escape
     KeyBinder.keyBinder.setKey('C-s', { thisArg: GameSetup.setup, func: GameSetup.setup.restart })// C-s START
+    KeyBinder.keyBinder.setKey('C-c', { thisArg: this, func: this.stopPlan })// C-c Stop Planner
     KeyBinder.keyBinder.setKey('m', { thisArg: this, func: this.makeMove })
     KeyBinder.keyBinder.setKey('n', { thisArg: this, func: this.autoMove, argVal: true })
     KeyBinder.keyBinder.setKey('N', { thisArg: this, func: this.autoMove, argVal: false})
@@ -354,7 +355,15 @@ export class GamePlay extends GamePlay0 {
     table.redoShape.on(S.click, () => this.redoMove(), this)
     table.skipShape.on(S.click, () => this.skipMove(), this)
   }
+  maxPlys: number; maxBreadth: number
+  stopPlan() {
+    this.maxPlys = TP.maxPlys; this.maxBreadth = TP.maxBreadth
+    TP.maxPlys = TP.maxBreadth = -1
+    this.curPlayer.useRobo = this.otherPlayer(this.curPlayer).useRobo = false // if toggle then useRobo = !useRobo
+    console.log(stime(this, `.stopPlan:`), { maxPlys: this.maxPlys, maxBreadth: this.maxBreadth })
+  }
   makeMove() {
+    if (TP.maxBreadth == -1) { TP.maxPlys = this.maxPlys; TP.maxBreadth = this.maxPlys }
     console.log(stime(this, `.makeMove: ${this.curPlayer.color}. useRobo=`), this.curPlayer.useRobo)
     this.curPlayer.makeMove(this.table.nextHex.stone, true) // make one robo move
   }

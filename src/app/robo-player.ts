@@ -133,7 +133,7 @@ export class Planner {
     //console.log(stime(this, `.makeMove: stone=`), stone)
     this.gamePlay.gStats.update()
     let state0 = this.evalState(stone.color)
-    let state = this.lookahead(state0, stone.color, TP.nPlys) // try someGoodMoves
+    let state = this.lookahead(state0, stone.color, 0) // try someGoodMoves
     let hex = state.bestHex
     let { move, color, bestValue, value, bestHex, hex: shex } = state
     let s0 = { move, color, bestValue: bestValue.toFixed(2), value: value.toFixed(2), bestHex, hex: shex }
@@ -145,7 +145,7 @@ export class Planner {
   }
   /** 
    * lookahead from current State; with its potential MOVES
-   * try someGoodMoves, update State values looking nPlys deep
+   * try someGoodMoves, update State values looking maxPlys deep
    * otherColor [state0.color] has just moved: gamePlay in curState
    * find some good moves, play N of them, setting value(curState) 
    * return a State with bestValue, bestHex
@@ -158,12 +158,12 @@ export class Planner {
     console.log(stime(this, `.evalSomeMoves: hexGenA=`), moveAry.length, moveAry.map(([h,s]) => [h.Aname, Math.round(s.value*1000)/1000]))
     console.log(stime(this, `.loookahead: state0, initial:`), state0.bestHex?.Aname, Obj.objectFromEntries(state0))
     // if no legal moves, we can 'skip' for -Infinity, keeping the same state and value
-    let breadth = 8, bestState = this.skipState(stoneColor)  // state0.value could be arbitrarily high... (and wrong)
+    let breadth = 0, bestState = this.skipState(stoneColor)  // state0.value could be arbitrarily high... (and wrong)
 
     for (let [hex, state1a] of moveAry) {
-      if (--breadth < 0) break
+      if (++breadth > TP.maxBreadth) break
       if (state1a.value < bestState.bestValue ) break // lookahead would at best lower state value
-      this.evalMoveInDepth(hex, stoneColor, nPlys-1, bestState, state1a)  // see how good it really is...
+      this.evalMoveInDepth(hex, stoneColor, nPlys+1, bestState, state1a)  // see how good it really is...
     }
     console.groupEnd()
     //console.log(stime(this, `.lookahead: ${this.fill(nPlys)}`), nPlys, color, { Aname: bestHex.Aname, bestHex, bestValue, bestState })
@@ -174,9 +174,9 @@ export class Planner {
    * EvaluateNextState: recurse with lookahead after playing hex.
    * @param hex play stone to Hex and evaluate the board
    * @param stoneColor evaluate from this players POV
-   * @param nPlys if nPlys > 0 then lookahead with other Player.
+   * @param nPlys if nPlys < maxPlys then lookahead with other Player.
    * @param bestState update with bestValue & bestHex if playing to hex is better
-   * @param state1 if nPlys > 0 then state1 must be supplied: the curent state (from evalSomeMoves)
+   * @param state1 if nPlys < maxPlys then state1 must be supplied: the curent state (from evalSomeMoves)
    * @return state reached by playing hex (generally: state1)
    */
   evalMoveInDepth(hex: Hex, stoneColor: StoneColor, nPlys: number, bestState: State, state1?: State): State {
@@ -198,7 +198,7 @@ export class Planner {
       move.board = gamePlay.allBoards.addBoard(move, gamePlay.hexMap)
       move.board.setRepCount(gamePlay.history) // >= 1 [should be NO-OP, from addBoard]
       let win = gamePlay.gStats.update()       // use GameStats: do NOT showRepCount(), showWin()
-      if (!win && nPlys > 0) {
+      if (!win && nPlys < TP.maxPlys) {
         let other = otherColor(stoneColor)
         let state2 = this.lookahead(state1, other, nPlys) // Depth-First search: find moves from state1 to bestHex
         if (-state2.bestValue < state1.bestValue) {
@@ -239,7 +239,7 @@ export class Planner {
     // Find/Gen the legal moves *before* evalMoveInDepth changes gStats/pStats:
     let hexGenA = Array.from(hexGen)
     for (let hex of hexGenA) {
-      let state = this.evalMoveInDepth(hex, stoneColor, 0, state0, undefined) // get zeroth-order value of hex on hexMap
+      let state = this.evalMoveInDepth(hex, stoneColor, TP.maxPlys, state0, undefined) // get zeroth-order value of hex on hexMap
       state0.moves.set(hex, state)
     }
     //console.log(stime(this, `.evalSomeMoves: state0 out:`), state0.bestHex?.Aname, Obj.objectFromEntries(state0))
@@ -320,23 +320,23 @@ export class Planner2 {
   lookahead(stoneColor: StoneColor, nPlys: number): State {
     console.groupCollapsed(`lookahead-${nPlys}-${stoneColor} after ${this.gamePlay.history[0].hex.Aname}`)
     //console.log(stime(this, `.lookahead: ${this.fill(nPlys)}`), nPlys, color, `after ${state0.move.Aname}`)
-    let breadth = 8, bestValue = Number.NEGATIVE_INFINITY, bestHex: Hex, bestState: State
+    let breadth = 0, bestValue = Number.NEGATIVE_INFINITY, bestHex: Hex, bestState: State
 
     let hexGen = new HexGen(this.gamePlay).gen(), result: IteratorResult<Hex, void>
     let hexGenA = Array.from(hexGen)
     let moveAry0 = hexGenA.map(hex => {
-      let evalr = this.evalMoveInDepth(hex, stoneColor, 0)
+      let evalr = this.evalMoveInDepth(hex, stoneColor, TP.maxPlys) // first order value
       let result = evalr.next()
       return { evalr, result }
-    }) // first order value
+    })
     let moveAry1 = moveAry0.filter((evalr_result) => !evalr_result.result.done)
     let moveAry2 = moveAry1.map(evalr_result => { return { evalr: evalr_result.evalr, state: evalr_result.result.value as State } })
     let moveAry = moveAry2.sort((a, b) => b.state.value - a.state.value) // descending value of State
     for (let evalr_state of moveAry) {
-      if (--breadth < 0) break
+      if (breadth++ > TP.maxBreadth) break
       if (bestValue > evalr_state.state.value) break // lookahead would at best lower state value
       let hex = evalr_state.state.bestHex            // possibly the only Hex...
-      let result = evalr_state.evalr.next(nPlys - 1)  // see how good it really is...
+      let result = evalr_state.evalr.next(nPlys + 1)  // see how good it really is...
       if (!result.done) {
         let state = result.value as State
         if (state.bestValue > bestValue || state.bestValue === Number.NEGATIVE_INFINITY) {
@@ -377,7 +377,7 @@ export class Planner2 {
       let win = gamePlay.gStats.update()       // use GameStats: do NOT showRepCount(), showWin()
       //let state = this.evalState(stoneColor)  // state ~~ state1: value, bestValue=value, bestHex
       //console.log(stime(this, `.asifPlayerMove: undoInf=`), gamePlay.undoInfluence)
-      if (!win && nPlys > 0) {
+      if (!win && nPlys < TP.maxPlys) {
         let other = otherColor(stoneColor)
         let state2 = this.lookahead(other, nPlys) // Depth-First search: find moves from state1 to bestHex
         if (-state2.bestValue < state.bestValue) state.bestValue = -state2.bestValue // MIN
