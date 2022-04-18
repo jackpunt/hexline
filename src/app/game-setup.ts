@@ -28,7 +28,7 @@ export class GameSetup {
     deContainer(this.stage)
     this.startup()
   }
-  defStyle = {rootColor: "rgba(160,160,160,.5)", arrowColor: "grey"}
+  defStyle = { rootColor: "rgba(160,160,160,.5)", arrowColor: "grey" }
   /**
    * 
    * @param gs generally *this* GameSetup
