@@ -8,7 +8,7 @@ export type StoneColor = typeof stoneColors[number]
 export function otherColor(color: StoneColor): StoneColor { return color === 'black' ? 'white' : 'black' }
 export function stoneColorRecord<T>(b: T = null, w: T = null): Record<StoneColor, T> { return { 'black': b, 'white': w } };
 export class TP {
-  static nPlys = 8     // for robo-player lookahead
+  static nPlys = 4     // for robo-player lookahead
   static Black_White = stoneColorRecord('BLACK', 'WHITE')
   static Blue_Red = stoneColorRecord('BLUE', 'RED')
   static colorScheme: Record<StoneColor, string> = TP.Black_White

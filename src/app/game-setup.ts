@@ -28,7 +28,6 @@ export class GameSetup {
     deContainer(this.stage)
     this.startup()
   }
-  defStyle = { rootColor: "rgba(160,160,160,.5)", arrowColor: "grey" }
   /**
    * 
    * @param gs generally *this* GameSetup
@@ -46,9 +45,9 @@ export class GameSetup {
     this.makeParamGUI(table, table.scaleCont, statsx, guiy) // modify TP.params...
   }
   makeStatsPanel(gStats: TableStats, parent: Container, x, y): StatsPanel {
-    let panel = new StatsPanel(gStats, this.defStyle) // a ReadOnly ParamGUI reading gStats [& pstat(color)]
-    let sp = "                   " 
-    let style = { arrowColor: 'rgba(0,0,0,0)' }, opts = { style }
+    let noArrow = { arrowColor: 'rgba(0,0,0,0)' }
+    let panel = new StatsPanel(gStats, noArrow) // a ReadOnly ParamGUI reading gStats [& pstat(color)]
+    let sp = "                   " , opts = { }
     panel.makeParamSpec("nStones", [sp], opts)
     panel.makeParamSpec("nInf", [sp], opts)
     panel.makeParamSpec("nAttacks", [sp], opts)
@@ -69,7 +68,7 @@ export class GameSetup {
     return panel
   }
   makeParamGUI(table: Table, parent: Container, x, y): ParamGUI {
-    let gui = new ParamGUI(TP, this.defStyle)
+    let gui = new ParamGUI(TP)
     let enable = false, nHex = (nH, mH) => { TP.fnHexes(nH, mH); enable && gui.selectValue("Start", "yes") }
     gui.makeParamSpec("Start", [" ", "yes", "no"], { fontSize: 40, fontColor: "red" })
     gui.makeParamSpec("mHexes", [2, 3, 4])
