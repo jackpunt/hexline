@@ -137,7 +137,7 @@ export class Planner {
     let hex = state.bestHex
     let { move, color, bestValue, value, bestHex, hex: shex } = state
     let s0 = { move, color, bestValue: bestValue.toFixed(2), value: value.toFixed(2), bestHex, hex: shex }
-    console.log(stime(this, `.makeMove: state=`), s0)
+    console.log(stime(this, `.makeMove: ${color} ${shex.Aname} state=`), s0)
     if (table) {
       table.hexMap.showMark(hex)
       table.dispatchEvent(new HexEvent(S.add, hex, stone)) //
@@ -153,7 +153,7 @@ export class Planner {
    * @return the State representing the bestHex to be played
    */
   lookahead(state0: State, stoneColor: StoneColor, nPlys: number): State {
-    console.groupCollapsed(`lookahead-${nPlys}-${stoneColor} after ${otherColor(stoneColor)} ${this.gamePlay.history[0].hex.Aname}`)
+    console.groupCollapsed(`${stime(this,`.lookahead`)}-${nPlys}-${stoneColor} after ${otherColor(stoneColor)} ${this.gamePlay.history[0].hex.Aname}`)
     let moveAry = this.evalSomeMoves(state0, stoneColor) // generate first approx of possible moves
     console.log(stime(this, `.evalSomeMoves: hexGenA=`), moveAry.length, moveAry.map(([h,s]) => [h.Aname, Math.round(s.value*1000)/1000]))
     console.log(stime(this, `.loookahead: state0, initial:`), state0.bestHex?.Aname, Obj.objectFromEntries(state0))
