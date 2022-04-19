@@ -57,7 +57,7 @@ export class Table extends EventDispatcher  {
   redoShape: Shape = new Shape(); 
   undoText: Text = new Text('', F.fontSpec(30));  // length of undo stack
   redoText: Text = new Text('', F.fontSpec(30));  // length of history stack
-  winText: Text = new Text('', F.fontSpec(40), C.WHITE)
+  winText: Text = new Text('', F.fontSpec(40), 'lightgrey')
 
   dragger: Dragger
 

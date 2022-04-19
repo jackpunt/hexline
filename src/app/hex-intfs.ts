@@ -1,5 +1,52 @@
 import { EventDispatcher } from "createjs-module"
 
+/** <yield: void, return: TReturn, yield-in: unknown> */
+//                            Generator<yield, return, yield-in>
+export type YieldR<TReturn> = Generator<void, TReturn, unknown>
+export function allowEventLoop<T>(genR: YieldR<T>, done?: (result: T) => void): void  {
+  let result = genR.next()
+  if (result.done) done && done(result.value)
+  else setTimeout(() => allowEventLoop(genR, done))
+}
+/** 
+ * Return next result from genR. 
+ * If genR returns an actual value, return that value
+ * If genR yields<void> then propagate a 'yield' to each yieldR0 up to allowEventLoop(); 
+ */
+export function* yieldR<T extends object> (genR: YieldR<T>)  {
+  let result = genR.next()
+  if (result.done) return result.value
+  yield
+  return yieldR(genR)
+}
+/** wrapper to yieldR0: maybe yield, then return genR.next()  */
+export function* yieldRx<T extends object> (genR: YieldR<T>, force = false)  {
+  if (force) yield
+  return yieldR(genR).next()
+}
+ 
+  /*
+  https://stackoverflow.com/questions/2282140/whats-the-yield-keyword-in-javascript
+  function loop(generator, data) {
+    result = generator.next(data);
+    if (!result.done) {
+      result.value(function(err, data) {
+          if(err) generator.throw(err); // continue next iteration of generator with an exception
+          else loop(generator, data);  // continue next iteration of generator normally
+      });
+    }
+  }
+  function* genSome() {
+    var result = yield loadFromDB('query')
+  }
+  loop(genSome())
+
+  https://stackoverflow.com/questions/71168892/how-to-initiate-programatically-a-user-performed-switch-to-debugging-mode-in-c
+  setTimeout(function run () {
+    generator.next();
+    setTimeout(run);
+  });
+  */
 /** Interface into RoboPlayer */
 export interface Notifyable {
   notify(source: EventDispatcher, eventName: string, dwell?: number): void
