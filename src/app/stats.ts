@@ -189,13 +189,16 @@ export class TableStats extends GameStats {
     return (!!win || !!board.resigned || board.repCount == 3) // win, lose, draw...
   }
   showWin(board: Board, win: StoneColor, text: string): StoneColor {
+    this.table.showRedoUndoCount()
     let lose = otherColor(win), winS = this.score(win), loseS = this.score(lose)
     let winr = TP.colorScheme[win], msg = `${winr} ${text}! ${winS} -- ${loseS}`
     console.log(stime(this, `.showWin:`), msg)
-    setTimeout(() => alert(msg), 200)
+    this.table.winText.text = msg
+    //setTimeout(() => alert(msg), 200)
     return win
   }
   showControl(table: Table) {
+    this.table.winText.text = ''
     let hexMap = table.miniMap; hexMap[S.Aname] = 'miniMap'
     hexMap.forEachHex<Hex2>(hex => {
       hex.clearColor()     // from mimi-map

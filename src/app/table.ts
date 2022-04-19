@@ -48,6 +48,7 @@ export class Table extends EventDispatcher  {
   gamePlay: GamePlay;
   stage: Stage;
   scaleCont: Container
+  bgRect: Shape
   hexMap: HexMap; // from gamePlay.hexMap
   nextHex: Hex2;
   undoCont: Container = new Container()
@@ -56,6 +57,7 @@ export class Table extends EventDispatcher  {
   redoShape: Shape = new Shape(); 
   undoText: Text = new Text('', F.fontSpec(30));  // length of undo stack
   redoText: Text = new Text('', F.fontSpec(30));  // length of history stack
+  winText: Text = new Text('', F.fontSpec(40), C.WHITE)
 
   dragger: Dragger
 
@@ -65,20 +67,22 @@ export class Table extends EventDispatcher  {
     stage['table'] = this // backpointer so Containers can find their Table (& curMark)
     this.stage = stage
     this.scaleCont = this.makeScaleCont(!!this.stage) // scaleCont & background
-    this.setupUndoButtons(55, 45)
   }
-  setupUndoButtons(bSize, sRad) {
-    this.skipShape.graphics.f("white").dp(0, 0, 40, 4, 0, sRad)  
-    this.undoShape.graphics.f("red").dp(-bSize, 0, 60, 3, 0, 180);
-    this.redoShape.graphics.f("green").dp(+bSize, 0, 60, 3, 0, 0); 
+  setupUndoButtons(xOffs, bSize, skipRad, bgr: XYWH) {
+    this.skipShape.graphics.f("white").dp(0, 0, 40, 4, 0, skipRad)  
+    this.undoShape.graphics.f("red").dp(-xOffs, 0, bSize, 3, 0, 180);
+    this.redoShape.graphics.f("green").dp(+xOffs, 0, bSize, 3, 0, 0); 
     this.undoText.x = -52; this.undoText.textAlign = "center"
     this.redoText.x = 52; this.redoText.textAlign = "center"
+    this.winText.x = 0; this.winText.textAlign = "center"
     let undoC = this.undoCont
     undoC.addChild(this.skipShape)
     undoC.addChild(this.undoShape)
     undoC.addChild(this.redoShape)
     undoC.addChild(this.undoText); this.undoText.y = -14;
     undoC.addChild(this.redoText); this.redoText.y = -14;
+    undoC.addChild(this.winText);
+    this.bgRect.parent.localToLocal(bgr.w/2, 30, undoC, this.winText)
     this.undoText.mouseEnabled = this.redoText.mouseEnabled = false
     this.enableHexInspector(52)
   }
@@ -167,10 +171,11 @@ export class Table extends EventDispatcher  {
     this.hexMap.hexCont.addChild(this.nextHex.cont)  // single Hex to hold a Stone to play
     this.hexMap.markCont.addChild(this.undoCont)
 
-    this.setBackground(this.scaleCont, bgr) // bounded by bgr
+    this.bgRect = this.setBackground(this.scaleCont, bgr) // bounded by bgr
     let p00 = this.scaleCont.localToLocal(bgr.x, bgr.y, this.hexMap.hexCont) 
     let pbr = this.scaleCont.localToLocal(bgr.x+bgr.w, bgr.y+bgr.h, this.hexMap.hexCont)
     this.hexMap.hexCont.cache(p00.x, p00.y, pbr.x-p00.x, pbr.y-p00.y) // cache hexCont (bounded by bgr)
+    this.setupUndoButtons(55, 60, 45, bgr)
 
     this.gamePlay.setNextPlayer(this.gamePlay.allPlayers[0])   // make a placeable Stone for Player[0]
     this.makeMiniMap(this.scaleCont, -(200+TP.mHexes*TP.hexRad), 600+100*TP.mHexes)
@@ -190,11 +195,14 @@ export class Table extends EventDispatcher  {
     const info = { turn: tn, plyr: curPlayer.name, prev, capd, gamePlay: this.gamePlay, board }
     console.log(stime(this, `.setNextPlayer ----${robo}----`), info);
   }
+  showRedoUndoCount() {
+    this.undoText.text = `${this.gamePlay.undoRecs.length}`
+    this.redoText.text = `${this.gamePlay.redoMoves.length}`
+  }
   setNextPlayer(log: boolean = true): Player {
     let curPlayer = this.gamePlay.curPlayer // after gamePlay.setNextPlayer()
     if (log) this.logCurPlayer(curPlayer)
-    this.undoText.text = `${this.gamePlay.undoRecs.length}`
-    this.redoText.text = `${this.gamePlay.redoMoves.length}`
+    this.showRedoUndoCount()
     this.putButtonOnPlayer(curPlayer);
     return curPlayer
   }
@@ -333,13 +341,14 @@ export class Table extends EventDispatcher  {
   }
 
   setBackground(scaleC: Container, bounds: XYWH, bgColor: string = TP.bgColor) {
+    let bgRect = new Shape(); bgRect[S.Aname] = "BackgroundRect"
     if (!!bgColor) {
       // specify an Area that is Dragable (mouse won't hit "empty" space)
-      let bgRect = new Shape(); bgRect[S.Aname] = "BackgroundRect"
       bgRect.graphics.f(bgColor).r(bounds.x, bounds.y, bounds.w, bounds.h);
       scaleC.addChildAt(bgRect, 0);
       //console.log(stime(this, ".makeScalableBack: background="), background);
     }
+    return bgRect
   }
   /** 
    * @param xos x-offset-to-center in Original Scale
