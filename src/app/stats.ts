@@ -1,7 +1,7 @@
 // Game win: a Player controls 4 of 7 Districts
 // Control: Stone on >= 7 Hexes && Player.nHexes(district) - otherPlayer.nHexes(district) >= 3
 
-import { Board, GamePlay0, Player } from "./game-play";
+import { Board, GamePlay, Player } from "./game-play";
 import { Hex, Hex2, HexMap } from "./hex";
 import { Stone, Table } from "./table";
 import { otherColor, StoneColor, stoneColor0, stoneColor1, stoneColorRecord, stoneColors, TP } from "./table-params";
@@ -134,7 +134,7 @@ export class GameStats {
 }
 export class TableStats extends GameStats {
   table: Table         // presence indicates a GUI environment: showControl, showBoardRep
-  gamePlay: GamePlay0  // provides hexMap & allPlayers[] & curPlayer, history for WIN detection
+  gamePlay: GamePlay  // provides hexMap & allPlayers[] & curPlayer, history for WIN detection
   boardRep: Text
   dStonesText: Text[] = []
 
@@ -142,7 +142,7 @@ export class TableStats extends GameStats {
     return this.getSummaryStat(color)
   }
   // TableStats:
-  constructor(gamePlay: GamePlay0, table: Table) {
+  constructor(gamePlay: GamePlay, table: Table) {
     super(gamePlay.hexMap, gamePlay.allPlayers)
     this.gamePlay = gamePlay
     this.setTable(table)
@@ -194,6 +194,7 @@ export class TableStats extends GameStats {
     let winr = TP.colorScheme[win], msg = `${winr} ${text}! ${winS} -- ${loseS}`
     console.log(stime(this, `.showWin:`), msg)
     this.table.winText.text = msg
+    this.gamePlay.autoMove(false)
     //setTimeout(() => alert(msg), 200)
     return win
   }
