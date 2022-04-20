@@ -336,7 +336,7 @@ export class Table extends EventDispatcher  {
     if (this.isDragging()) {
       this.stopDragging(this.dropTarget) // drop and make move
     } else {
-      this.dragger.dragTarget(this.nextHex.stone, { x: TP.hexRad / 2, y: TP.hexRad / 2 })
+      this.nextHex.stone?.parent && this.dragger.dragTarget(this.nextHex.stone, { x: TP.hexRad / 2, y: TP.hexRad / 2 })
     }
   }
 

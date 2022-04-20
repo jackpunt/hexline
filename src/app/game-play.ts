@@ -447,12 +447,11 @@ export class GamePlay extends GamePlay0 {
     return this.table.setNextPlayer()
   }
   override endCurPlayer(): void {
-    // IFF stone is [still] ON nextHex: this.table.clearStone() 
+    // IFF stone is [still] ON nextHex: Hex2.clearColor() 
     let nextHex = this.table.nextHex, nxtStone = nextHex.stone
     if (nxtStone?.parent) {     // NOTE: nextHex.xy are already rounded:
       if (Math.round(nxtStone.x) == nextHex.x && Math.round(nxtStone.y) == nextHex.y) {
-        nxtStone.parent.removeChild(nxtStone)
-        this.hexMap.update()
+        nextHex.clearColor()
       }
     }
   }
@@ -465,6 +464,7 @@ export class GamePlay extends GamePlay0 {
     hev.stone?.parent?.removeChild(hev.stone)    // remove nxtStone
     let win = this.doPlayerMove(hev.hex, hev.stoneColor)
     if (!win) this.setNextPlayer()
+    else this.endCurPlayer()
   }
   removeStoneEvent(hev: HexEvent) {
     throw new Error("Method not implemented.");

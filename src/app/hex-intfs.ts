@@ -1,23 +1,32 @@
+import { stime } from "@thegraid/createjs-lib"
 import { EventDispatcher } from "createjs-module"
 
 /** <yield: void, return: TReturn, yield-in: unknown> */
 //                            Generator<yield, return, yield-in>
 export type YieldR<TReturn> = Generator<void, TReturn, unknown>
 export function allowEventLoop<T>(genR: YieldR<T>, done?: (result: T) => void): void  {
+  console.log(stime('allowEventLoop', ` ENTER ->`), genR)
   let result = genR.next()
+  console.log(stime('allowEventLoop', `result =`), result)
   if (result.done) done && done(result.value)
-  else setTimeout(() => allowEventLoop(genR, done))
+  else {
+    console.log(stime('allowEventLoop', 'setTimeout ->'), genR)
+    setTimeout(() => allowEventLoop(genR, done))
+  }
 }
 /** 
  * Return next result from genR. 
  * If genR returns an actual value, return that value
  * If genR yields<void> then propagate a 'yield' to each yieldR0 up to allowEventLoop(); 
  */
-export function* yieldR<T extends object> (genR: YieldR<T>)  {
+export function* yieldR<T extends object> (genR: YieldR<T>) {
   let result = genR.next()
+  console.log(stime('yieldR', ` result=`), result, genR)
   if (result.done) return result.value
+  console.log(stime('yieldR', ` yield`))
   yield
-  return yieldR(genR)
+  console.log(stime('yieldR', ` resume`))
+  return yieldR(genR) // tail-recurse until returns result.value
 }
 /** wrapper to yieldR0: maybe yield, then return genR.next()  */
 export function* yieldRx<T extends object> (genR: YieldR<T>, force = false)  {
