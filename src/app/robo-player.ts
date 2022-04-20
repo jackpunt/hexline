@@ -259,7 +259,7 @@ export class Planner {
     }
     //yieldR(this.getCaptures(hex, stoneColor, asifPlayerMove())).next()
     let asifGen = asifPlayerMove()
-    let result: IteratorResult<any, Hex[]>, capGen = this.getCaptures(hex, stoneColor, () => asifGen.next())
+    let result: IteratorResult<any, Hex[]>, capGen = this.getCaptures(hex, stoneColor, asifGen)
     while (result = capGen.next(), 
       console.log(stime(this, `.evalMoveInDepth: result(getCaptures) =`), result), !result.done) {
       console.log(stime(this, `.evalMoveInDepth: yield`))
@@ -275,7 +275,7 @@ export class Planner {
     }
     return stateR // return for evalSomeMoves: moves.set(hex, stateR); later stateR will be supplied as state1
   }
-  *getCaptures(hex: Hex, color: StoneColor, func?: () => IteratorResult<void, object>) {
+  *getCaptures(hex: Hex, color: StoneColor, func?: YieldR<object>) {
     let gamePlay = this.gamePlay
     let pcaps = gamePlay.captured; gamePlay.captured = []
     let undo0 = gamePlay.undoRecs, undoInf = gamePlay.undoInfluence
@@ -288,7 +288,7 @@ export class Planner {
     if (func) {
       //yieldR(func).next()
       let result: IteratorResult<void, object>
-      while (result = func(), console.log(stime(this, `.getCaptures: result(asif) =`), result), !result.done) {
+      while (result = func.next(), console.log(stime(this, `.getCaptures: result(asif) =`), result), !result.done) {
         console.log(stime(this, `.getCaptures: yield`))
         yield
         console.log(stime(this, `.getCaptures: resume -> asif`))
