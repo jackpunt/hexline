@@ -1,8 +1,8 @@
 import { Container, DisplayObject, Graphics, Shape, Text } from "createjs-module";
 import { C, F, Obj, RC, S, Undo } from "@thegraid/createjs-lib";
 import { HexAxis, HexDir, H, InfDir } from "./hex-intfs";
-import { Stone } from "./table";
-import { StoneColor, stoneColor0, stoneColor1, stoneColors, TP } from "./table-params";
+import { Stone, Table } from "./table";
+import { otherColor, StoneColor, stoneColor0, stoneColor1, stoneColors, TP } from "./table-params";
 
 export const S_Resign = 'Hex@Resign'
 export const S_Skip = 'Hex@skip'
@@ -202,13 +202,13 @@ export class Hex2 extends Hex {//Container {
     this.distText.text = `${d}`
   }
   readonly radius: number;   // determines width & height
-  hexShape: Shape   // colored hexagon is Child to this.cont
-  distColor: string // district color of Hex
-  capMark: CapMark; // set if recently captured (markCapture); prevents dragFunc using as dropTarget
-  distText: Text
-  rcText: Text
-  stone: Stone
-
+  hexShape: Shape   // shown on this.cont: colored hexagon
+  distColor: string // district color of hexShape (paintHexShape)
+  capMark: CapMark; // shown on this.map.markCont
+  distText: Text    // shown on this.cont
+  rcText: Text      // shown on this.cont
+  stone: Stone      // shown on this.map.stoneCont
+  stoneIdText: Text     // shown on this.map.markCont
   override toString() {
     return `Hex[${this.row},${this.col}]`
   }
@@ -219,6 +219,8 @@ export class Hex2 extends Hex {//Container {
     this.radius = radius
   
     this.setHexColor(color)
+    this.stoneIdText = new Text('', F.fontSpec(26))
+    this.stoneIdText.textAlign = 'center'; this.stoneIdText.regY = -20
 
     if (row === undefined || col === undefined) return
     let w = radius * Math.sqrt(3), h = radius * 1.5
@@ -226,14 +228,15 @@ export class Hex2 extends Hex {//Container {
     this.y += row * h
     this.cont.setBounds(-w/2, -h/2, w, h)
 
-    let rc = `${row},${col}`
+    let rc = `${row},${col}`, yc = -25
     this.Aname = this.hexShape.name = `Hex@[${rc}]`
+
     let rct = this.rcText = new Text(rc, F.fontSpec(26)); // radius/2 ?
-    rct.textAlign = 'center'; rct.y = -25 // based on fontSize? & radius
+    rct.textAlign = 'center'; rct.y = yc // based on fontSize? & radius
     this.cont.addChild(rct)
 
     this.distText = new Text(``, F.fontSpec(20)); 
-    this.distText.textAlign = 'center'; this.distText.y = 20
+    this.distText.textAlign = 'center'; this.distText.y = yc + 46 // yc + 26+20
     this.cont.addChild(this.distText)
     this.showText(true)
   }
@@ -271,12 +274,11 @@ export class Hex2 extends Hex {//Container {
     return infMark
   }
 
-  /** @param top set true to show capture mark on infCont (above stones) */
-  override markCapture(top = false) {
+  /** make and show a CapMark on this Hex2 */
+  override markCapture() {
     super.markCapture()
     if (this.capMark !== undefined) return // only 1 CapMark per Hex
-    let cont = top ? this.map.infCont : this.map.markCont
-    this.capMark = cont.addChild(new CapMark(this))
+    this.capMark = this.map.markCont.addChild(new CapMark(this))
   }
   override unmarkCapture() {
     super.unmarkCapture()
@@ -285,7 +287,18 @@ export class Hex2 extends Hex {//Container {
     this.capMark = undefined
   }
 
-  /** make a Stone on this Hex2 */
+  setStoneId(id: number | string) {
+    let sid = typeof id === 'number' ? `${id}` : id
+    this.stoneIdText.text = this.map.table ? sid : ''
+    this.stoneIdText.color = otherColor(this.stone.color)
+    let cont: Container = this.map.stoneCont
+    this.cont.parent.localToLocal(this.x, this.y, cont, this.stoneIdText)
+    cont.addChild(this.stoneIdText)
+  }
+  clearStoneId() {
+    this.stoneIdText?.parent?.removeChild(this.stoneIdText)
+  }
+  /** make a Stone on this Hex2 (from addStone(color)) */
   override setColor(stoneColor: StoneColor): StoneColor {
     super.setColor(stoneColor)
     if (stoneColor) {
@@ -294,12 +307,14 @@ export class Hex2 extends Hex {//Container {
       let cont: Container = this.map.stoneCont
       this.cont.parent.localToLocal(this.x, this.y, cont, stone)
       cont.addChild(stone)
+      this.map.table && this.setStoneId(this.map.table.gamePlay.turnNumber) // default value
       this.map.update()
     } // else this.clearColor() has been called
     return stoneColor
   }
   /** removeChild(stone) & HSC from map.allStones. */
   override clearColor(): StoneColor {
+    this.clearStoneId()
     this.stone?.parent?.removeChild(this.stone)
     this.stone = undefined
     this.map.update()
@@ -344,9 +359,11 @@ export class HexMap extends Array<Array<Hex>> {
   radius: number = TP.hexRad
   height: number = this.radius * 1.5;
   width: number = this.radius * Math.sqrt(3);
+  table: Table;          // if this is main Map for table (via)
+  mapCont: Container     // if using Hex2
   hexCont: Container     // hex shapes on bottom
-  markCont: Container    // showMark under Stones
   stoneCont: Container   // Stone in middle
+  markCont: Container    // showMark over Stones
   infCont: Container     // infMark on the top
   mark: DisplayObject
   minRow: number = undefined               // Array.forEach does not look at negative indices!
@@ -388,12 +405,14 @@ export class HexMap extends Array<Array<Hex>> {
     this.skipHex.Aname = S_Skip
     this.resignHex = new Hex(this)
     this.resignHex.Aname = S_Resign
-    if (!!mapCont) this.addToCont(mapCont)
+    if (!!mapCont) this.addToCont(mapCont, undefined)
   }
-  addToCont(mapCont: Container): this {
+  addToCont(mapCont: Container, table?: Table): this {
+    this.mapCont = mapCont
+    this.table = table
     this.hexCont = new Container()     // hex shapes on bottom
-    this.markCont = new Container()    // showMark under Stones
     this.stoneCont = new Container()   // Stone in middle
+    this.markCont = new Container()    // showMark under Stones
     this.infCont = new Container()     // infMark on the top
     // hexCont, stoneCont, markCont all x,y aligned
     mapCont.addChild(this.hexCont); this.hexCont[S.Aname] = "hexCont"

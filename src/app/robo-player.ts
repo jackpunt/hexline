@@ -142,19 +142,30 @@ export class Planner {
   }
   /** play this Stone, Player is stone.color */
   makeMove(stone: Stone, table?: Table) {
-    if (!this.gamePlay.gStats) this.gamePlay.gStats = this.gamePlay.original.gStats.toGameStats()
+    let gamePlay = this.gamePlay, tn0 = gamePlay.turnNumber, tn = gamePlay.history.length+1
+    if (!gamePlay.gStats) gamePlay.gStats = gamePlay.original.gStats.toGameStats()
     //console.log(stime(this, `.makeMove: stone=`), stone)
-    this.gamePlay.gStats.update()
+    gamePlay.gStats.update()
     let state0 = this.evalState(stone.color), sid0 = sid
-    allowEventLoop(this.lookahead(state0, stone.color, 0), (state: State) => {
+
+    let dispatchMove = (state: State) => {
       let hex = state.bestHex
-      console.log(stime(this, `.makeMove: MOVE = ${state.color} ${state.hex.Aname} state=`), copyOf(state),
+      console.log(stime(this, `.makeMove: MOVE#${tn} = ${state.color} ${state.hex.Aname} state=`), copyOf(state),
         `nStates=${sid-sid0}`)
       if (table) {
         table.hexMap.showMark(hex)
         table.dispatchEvent(new HexEvent(S.add, hex, stone)) //
       }
-    })
+    }
+    let firstMove = () => {
+      let lastDist = TP.ftHexes(TP.mHexes)-1, hex: Hex
+      //if (TP.nHexes == 1) {
+        hex = gamePlay.hexMap.district[lastDist][0]
+        dispatchMove(newState(new Move(hex, stone.color), stone.color, 0, hex))
+       //}
+    }
+    if (gamePlay.history.length < 1) return firstMove()
+    allowEventLoop(this.lookahead(state0, stone.color, 0), (state: State) => dispatchMove(state))
   }
   /** 
    * lookahead from current State; with its potential MOVES
@@ -167,32 +178,25 @@ export class Planner {
    * @return the State representing the bestHex to be played
    */
   *lookahead(state0: State, stoneColor: StoneColor, nPlys: number, done?: (state: State) => void) {
-    console.groupCollapsed(`${stime(this,`.lookahead`)}-${nPlys} after ${otherColor(stoneColor)}->${this.gamePlay.history[0].hex.Aname} ${stoneColor}->`)
+    console.groupCollapsed(`${stime(this,`.lookahead`)}-${nPlys} after ${otherColor(stoneColor)}#${this.gamePlay.history.length}->${this.gamePlay.history[0].hex.Aname} ${stoneColor}->`)
     let moveAry = this.evalSomeMoves(state0, stoneColor).next().value // generate first approx of possible moves
-    console.log(stime(this, `.evalSomeMoves: hexGenA=`), moveAry.length, 
-                moveAry.map(([h,s]) => [h.Aname, M.decimalRound(s.value,3), M.decimalRound(s.bestValue,3)]))
-    console.log(stime(this, `.loookahead: initial state0:`), state0.move.Aname, state0.bestHex?.Aname, copyOf(state0))
-    console.log(stime(this, `.loookahead: initial moves:`), state0.move.Aname, state0.bestHex?.Aname, 
-                Array.from(state0.moves.entries()).map(([hex,state]) => {return {hex, state: copyOf(state)}}))
+    // console.log(stime(this, `.evalSomeMoves: moveAry=`), moveAry.length, 
+    //             moveAry.map(([h,s]) => [h.Aname, M.decimalRound(s.value,3), M.decimalRound(s.bestValue,3)]))
+    // console.log(stime(this, `.loookahead: initial state0:`), state0.move.Aname, state0.bestHex?.Aname, copyOf(state0))
+    // console.log(stime(this, `.loookahead: initial moves:`), state0.move.Aname, state0.bestHex?.Aname, 
+    //             Array.from(state0.moves.entries()).map(([hex,state]) => {return {hex, state: copyOf(state)}}))
     // if no legal moves, we can 'skip' for -Infinity, keeping the same state and value
     // state0.value could be arbitrarily high... (and wrong)
     let breadth = 0, bestState = this.skipState(stoneColor)
     for (let [hex, state1a] of moveAry) {
-      // let state1aC = Obj.objectFromEntries(state1a), bestStateC = Obj.objectFromEntries(bestState)
-      // console.log(stime(this, `.lookahead: evalInDepth0`), { hex, stoneColor, nPlys, state1aC, bestStateC })
       if (++breadth > TP.maxBreadth) break
       if (state1a.value < bestState.bestValue ) break // lookahead would at best lower state value
-      //yieldR(this.evalMoveInDepth(hex, stoneColor, nPlys+1, bestState, state1a)).next()  // see how good it really is...
       let evalGen = this.evalMoveInDepth(hex, stoneColor, nPlys+1, bestState, state1a)
-      let result
-      while (result = evalGen.next(), console.log(stime(this, `.lookahead: result(evalInDepth) =`),result), !result.done) {
-        console.log(stime(this, `.lookahead: yield evalMoveInDepth`))
-        yield
-        console.log(stime(this, `.lookahead: resume -> evalMoveInDepth`))
-      }
-      // let state1aD = Obj.objectFromEntries(state1a), bestStateD = Obj.objectFromEntries(bestState)
-      // console.log(stime(this, `.lookahead: evalInDepth1`), { hex, stoneColor, nPlys, state1aD, bestStateD })
+      let result: IteratorResult<void, State>
+      while (result = evalGen.next(), !result.done) yield
     }
+    console.log(stime(this, `.lookahead: evalAry =`),
+      moveAry.map(([h, s]) => [h.Aname, M.decimalRound(s.value, 3), M.decimalRound(s.bestValue, 3), s===bestState? '*': undefined]))
     console.groupEnd()
     let bestHex = bestState.bestHex, bestValue = M.decimalRound(bestState.bestValue, 3), Aname = bestHex.Aname
     console.log(stime(this, `.lookahead:`), nPlys, stoneColor, { Aname, bestHex, bestValue, bestState: copyOf(bestState) })
@@ -231,41 +235,27 @@ export class Planner {
       if (!win && nPlys < TP.maxPlys) {
         let other = otherColor(stoneColor)
         // Depth-First search: find moves from state1 to bestHex
-        console.log(stime(this, `.asif: yield [before planGen]`))
-        yield
-        console.log(stime(this, `.asif: resume [now do planGen]`))
-        // yieldR(planGen).next()
-        let planGen = planner.lookahead(state1, other, nPlys, (state2: State) => {
+        let result: IteratorResult<any, State>, planGen = planner.lookahead(state1, other, nPlys, (state2: State) => {
           console.log(stime(this, `.asifPlayerMove: lookahead`), { move1: move.Aname, state1: copyOf(state1), move2: state2.move.Aname, state2: copyOf(state2) })
           if (-state2.bestValue < state1.bestValue) {
             state1.bestValue = -state2.bestValue // MIN
             state1.bestHex = hex
           }
         })
-        let result: IteratorResult<any, State>
-        while(result = planGen.next(), console.log(stime(this, `.asif: planGen result=`),result), !result.done) {
-          console.log(stime(this, `.asif: yield planGen`))
-          yield
-          console.log(stime(this, `.asif: resume -> planGen`))
-        }
-        console.log(stime(this, `.asif: planGen result =`), result.value)
+        if (nPlys < TP.maxPlys)  yield
+        while (result = planGen.next(), !result.done) yield
       }
       //console.log(stime(this, `.asifPlayerMove: undoInf=`), gamePlay.undoInfluence)
       gamePlay.history.shift()
       myWin = win         // record 'win' at top of stack. (overwriting other wins...)
-      return {return: move.Aname}
+      return { Aname: move.Aname, bv: state1?.bestValue }
       // hex.clearColor()
       // getCaptures will: undoInfluence.close().pop(), undoRecs.close().pop(); this.captured === move.captures
     }
     //yieldR(this.getCaptures(hex, stoneColor, asifPlayerMove())).next()
     let asifGen = asifPlayerMove()
     let result: IteratorResult<any, Hex[]>, capGen = this.getCaptures(hex, stoneColor, asifGen)
-    while (result = capGen.next(), 
-      console.log(stime(this, `.evalMoveInDepth: result(getCaptures) =`), result), !result.done) {
-      console.log(stime(this, `.evalMoveInDepth: yield`))
-      yield
-      console.log(stime(this, `.evalMoveInDepth: resume -> getCaptures`))
-    }
+    while (result = capGen.next(), !result.done) yield
     let stateR = false || this.evalState(stoneColor, move, myWin)     // zero order value after playing hex on hexMap
     stateR.hex = hex
     if (bestState.bestValue < stateR.bestValue) {
@@ -275,7 +265,7 @@ export class Planner {
     }
     return stateR // return for evalSomeMoves: moves.set(hex, stateR); later stateR will be supplied as state1
   }
-  *getCaptures(hex: Hex, color: StoneColor, func?: YieldR<object>) {
+  *getCaptures(hex: Hex, color: StoneColor, genR?: YieldR<object>) {
     let gamePlay = this.gamePlay
     let pcaps = gamePlay.captured; gamePlay.captured = []
     let undo0 = gamePlay.undoRecs, undoInf = gamePlay.undoInfluence
@@ -285,16 +275,11 @@ export class Planner {
     gamePlay.assertInfluence(hex, color) // may invoke captureStone() -> undoRec(Stone & capMark)
     // capture may *remove* some inf & InfMarks!
     let suicide = hex.isAttack(otherColor(color)), rv = suicide ? undefined : gamePlay.captured
-    if (func) {
-      //yieldR(func).next()
+    if (genR) {
       let result: IteratorResult<void, object>
-      while (result = func.next(), console.log(stime(this, `.getCaptures: result(asif) =`), result), !result.done) {
-        console.log(stime(this, `.getCaptures: yield`))
-        yield
-        console.log(stime(this, `.getCaptures: resume -> asif`))
-      }
-      let rv = result.value
-      console.log(stime(this, `.getCaptures: rv =`), rv)
+      while (result = genR.next(), !result.done) yield
+      let { bv, moveName } = (result.value as { bv, moveName })
+      if (!!bv) console.log(stime(this, `.getCaptures: move =`), moveName, bv, rv ? rv : 'suicide')
     }
     gamePlay.undoInfluence.closeUndo().pop()
     gamePlay.undoRecs.closeUndo().pop()    // like undoStones(); SHOULD replace captured Stones/Colors
@@ -330,10 +315,8 @@ export class Planner {
     for (let hex of hexGenA) {
       //let state = yieldR(this.evalMoveInDepth(hex, stoneColor, TP.maxPlys, state0, undefined)).next() // get zeroth-order value of hex on hexMap
       let evalGen = this.evalMoveInDepth(hex, stoneColor, TP.maxPlys, state0, undefined)
-      let result
-      while (result = evalGen.next(), !result.done) {
-        yield
-      }
+      let result: IteratorResult<void, State>
+      while (result = evalGen.next(), !result.done) yield
       let state = result.value
       state0.moves.set(hex, state)
     }
@@ -421,6 +404,10 @@ class HexGen {
   // we *could* copy the hexMap state and keep it in the move tree
   // Q: is it more expensise to do/influence/capture/undo OR copy-hexMap?
   // Can we make a hexMap & Hex[] without Shapes/Graphics?
+
+  // TODO: look for responses to (new?) threats: my hexes that are now under threat 
+  // (which were not threatened in previous ply) even if they are in outer district!
+  // conversely, check for attack moves to finish-off threats that I have against otherPlayer.
 
   // assert: history[0] is valid (because first move has been done)
   constructor (private gamePlay: GamePlay0) {}

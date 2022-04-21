@@ -146,7 +146,7 @@ export class Table extends EventDispatcher  {
     mapCont[S.Aname] = "mapCont"
     this.scaleCont.addChild(mapCont)
 
-    this.hexMap.addToCont(mapCont).initInfluence()
+    this.hexMap.addToCont(mapCont, this).initInfluence()
     this.hexMap.makeAllDistricts(TP.mHexes, TP.nHexes) // typically: 3,3 or 2,4
 
     let hexRect = this.hexMap.hexCont.getBounds()

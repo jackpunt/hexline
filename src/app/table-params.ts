@@ -28,7 +28,8 @@ export class TP {
     TP.nMinControl  = (nh <= 1) ? 1 : nh + 1 // [1, 1, 3, 4, 5, ...]
     TP.nDiffControl = (nh <= 1) ? 1 : nh - 1 // [0, 0, 1, 2, 3, ...]
   }
-  /** an odd number: 1, 7, 19, 37, 61, 97, ... */
+  /** number of hexes in a metaHex of order n; number of districts(n=TP.mHexes)
+   * @return an odd number: 1, 7, 19, 37, 61, 97, ... */
   static ftHexes(n: number): number { return (n <= 1) ? n : 6 * (n-1) + TP.ftHexes(n - 1) }
 
   /** exclude whole Extension sets */
