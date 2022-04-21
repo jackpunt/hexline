@@ -307,7 +307,8 @@ export class GamePlay0 {
     this.undoInfluence = new Undo().enableUndo()
     this.undoRecs = new Undo().enableUndo()
     this.curHex = hex                // immune from capture; later check suicide
-    this.assertInfluence(hex, color) // may invoke captureStone() -> undoRec(Stone & capMark)
+    // addUndoRec(removeStone), assertInfluence -> captureStone() -> undoRec(addStone & capMark)
+    this.addStone(hex, color)
     // capture may *remove* some inf & InfMarks!
     let suicide = hex.isAttack(otherColor(color)), rv = suicide ? undefined : this.captured
     //console.log({undo: this.undoInfluence.concat([]), capt: this.captured.concat([]) })
@@ -316,11 +317,6 @@ export class GamePlay0 {
     this.undoInfluence.closeUndo().pop()
     this.undoRecs.closeUndo().pop()    // like undoStones(); SHOULD replace captured Stones/Colors
     // TODO: addStone(hex) above, and do this always.
-    if (!!hex.stoneColor) {            // if: func() {hex.setStone}; esp if undo(capture) -> addStone(hex)
-      this.undoRecs.isUndoing = true
-      this.removeStone(hex)            // remove without an undoRec!
-      this.undoRecs.isUndoing = false
-    }
     this.undoRecs = undo0; this.undoInfluence = undoInf
     this.undoCapMarks(this.captured); // undoCapture
     this.captured = pcaps
@@ -406,6 +402,16 @@ export class GamePlay extends GamePlay0 {
     }    
   }
 
+  override removeStone(hex: Hex2): void {
+    let sid = hex.stoneIdText.text
+    this.addUndoRec(this, `${hex.Aname}.setStoneId(${sid})`, () => hex.setStoneId(sid))
+    super.removeStone(hex)
+  }
+  override addStone(hex: Hex2, stoneColor: "black" | "white"): void {
+    super.addStone(hex, stoneColor) // but it gets the wrong sid
+    let sid = hex.stoneIdText.text
+      this.undoRecs.addUndoRec(hex, `${hex.Aname}.setStoneIdText(${sid})`, () => { hex.setStoneId(sid) })
+  }
   override captureStone(nhex: Hex): void {
     super.captureStone(nhex)
     nhex.markCapture()
