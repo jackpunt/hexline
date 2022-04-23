@@ -2,7 +2,7 @@ import { Container, DisplayObject, Graphics, Shape, Text } from "createjs-module
 import { C, F, Obj, RC, S, Undo } from "@thegraid/createjs-lib";
 import { HexAxis, HexDir, H, InfDir } from "./hex-intfs";
 import { Stone, Table } from "./table";
-import { otherColor, StoneColor, stoneColor0, stoneColor1, stoneColors, TP } from "./table-params";
+import { otherColor, StoneColor, stoneColor0, stoneColorRecord, stoneColors, TP } from "./table-params";
 
 export const S_Resign = 'Hex@Resign'
 export const S_Skip = 'Hex@skip'
@@ -54,7 +54,7 @@ class CapMark extends Shape {
 
 }
 
-/** to recognize this class in hexUnderPoint */
+/** to recognize this class in hexUnderPoint and obtain the contained Hex. */
 class HexCont extends Container {
   constructor(public hex: Hex2) {
     super()
@@ -67,15 +67,14 @@ class HexCont extends Container {
  * (although an InfMark contains a graphics)
  */
 export class Hex {
-  constructor(map: HexMap, row?: number, col?: number, name?: string) {
-    this.setName(name)
+  constructor(map: HexMap, row?: number, col?: number, name = `Hex@[${row},${col}]`) {
+    this.Aname = name
     this.map = map
     this.row = row
     this.col = col
-    this.inf = Obj.fromEntries(stoneColors.map(c => [c, {}]))
     this.links = {}
   }
-  Aname: string
+  readonly Aname: string
   /** accessor so Hex2 can override-advise */
   _district: number // district ID
   get district() { return this._district }
@@ -85,17 +84,18 @@ export class Hex {
   readonly map: HexMap;  // Note: this.parent == this.map.hexCont [cached]
   readonly row: number
   readonly col: number
-  inf: { [Key in StoneColor]: INF }
+  readonly inf = stoneColorRecord<INF>({},{})
+  /** Link to neighbor in each H.dirs direction [NE, E, SE, SW, W, NW] */
+  readonly links: LINKS = {}
 
-  /** color of the Stone or undefined */
+  /** color of current Stone on this Hex (or undefined) */
   stoneColor: StoneColor;
 
-  /** true if hex is unplayable (& empty) because it was captured by previous Move. */
-  isCaptured: boolean // capMark OR map.history[0].includes(this)
-  /** Link to neighbor in each H.dirs direction [NE, E, SE, SW, W, NW] */
-  links: LINKS
+  /** override to set CapMark */
+  markCapture() {  }
+  /** override to clear CapMark */
+  unmarkCapture() {  }
 
-  setName(aname: string): this { this.Aname = aname; return this }
   /** set hex.stoneColor and push HSC on allStones */
   setColor(color: StoneColor) {
     if (!color) return this.clearColor() // color that was cleared
@@ -113,8 +113,6 @@ export class Hex {
     return color
   }
 
-  markCapture() { this.isCaptured = true }
-  unmarkCapture() { this.isCaptured = false }
   /**
    * Is this Hex [already] influenced by color/dn? [for skipAndSet()]
    * @param color StoneColor
@@ -158,7 +156,7 @@ export class Hex {
 
   /** create empty inf for each color & InfDir */
   clearInf() {
-    this.inf = Obj.fromEntries(stoneColors.map(c => [c, {}]))
+    Object.keys(this.inf).forEach((c: StoneColor) => this.inf[c] = {})
   }
 
   /** @return true if Hex is doubly influenced by color */
@@ -182,7 +180,7 @@ export class Hex {
   }  
 }
 /** One Hex cell in the game, shown as a polyStar Shape */
-export class Hex2 extends Hex {//Container {
+export class Hex2 extends Hex {
   static borderColor = 'saddlebrown'
 
   // cont holds hexShape(color), rcText, distText, capMark
@@ -214,8 +212,8 @@ export class Hex2 extends Hex {//Container {
   }
 
   /** Hex2 cell with graphics; shown as a polyStar Shape of radius @ (XY=0,0) */
-  constructor(color: string, radius: number, map: HexMap, row?: number, col?: number) {
-    super(map, row, col);
+  constructor(color: string, radius: number, map: HexMap, row?: number, col?: number, name?: string) {
+    super(map, row, col, name);
     this.radius = radius
   
     this.setHexColor(color)
@@ -229,7 +227,7 @@ export class Hex2 extends Hex {//Container {
     this.cont.setBounds(-w/2, -h/2, w, h)
 
     let rc = `${row},${col}`, yc = -25
-    this.Aname = this.hexShape.name = `Hex@[${rc}]`
+    this.hexShape.name = this.Aname
 
     let rct = this.rcText = new Text(rc, F.fontSpec(26)); // radius/2 ?
     rct.textAlign = 'center'; rct.y = yc // based on fontSize? & radius
@@ -289,7 +287,7 @@ export class Hex2 extends Hex {//Container {
 
   setStoneId(id: number | string) {
     let sid = typeof id === 'number' ? `${id}` : id
-    this.stoneIdText.text = this.map.table ? sid : ''
+    this.stoneIdText.text = this.stoneIdText ? sid : ''
     this.stoneIdText.color = otherColor(this.stone.color)
     let cont: Container = this.map.stoneCont
     this.cont.parent.localToLocal(this.x, this.y, cont, this.stoneIdText)
@@ -307,7 +305,6 @@ export class Hex2 extends Hex {//Container {
       let cont: Container = this.map.stoneCont
       this.cont.parent.localToLocal(this.x, this.y, cont, stone)
       cont.addChild(stone)
-      this.map.table && this.setStoneId(this.map.table.gamePlay.turnNumber) // default value
       this.map.update()
     } // else this.clearColor() has been called
     return stoneColor
@@ -359,7 +356,6 @@ export class HexMap extends Array<Array<Hex>> {
   radius: number = TP.hexRad
   height: number = this.radius * 1.5;
   width: number = this.radius * Math.sqrt(3);
-  table: Table;          // if this is main Map for table (via)
   mapCont: Container     // if using Hex2
   hexCont: Container     // hex shapes on bottom
   stoneCont: Container   // Stone in middle
@@ -401,15 +397,12 @@ export class HexMap extends Array<Array<Hex>> {
     this.width = radius * 1.5
     CapMark.capSize = this.width/2
     this.mark = this.makeMark(radius, radius/2.5)
-    this.skipHex = new Hex(this)
-    this.skipHex.Aname = S_Skip
-    this.resignHex = new Hex(this)
-    this.resignHex.Aname = S_Resign
+    this.skipHex = new Hex(this, undefined, undefined, S_Skip)
+    this.resignHex = new Hex(this, undefined, undefined, S_Resign)
     if (!!mapCont) this.addToCont(mapCont, undefined)
   }
   addToCont(mapCont: Container, table?: Table): this {
     this.mapCont = mapCont
-    this.table = table
     this.hexCont = new Container()     // hex shapes on bottom
     this.stoneCont = new Container()   // Stone in middle
     this.markCont = new Container()    // showMark under Stones
@@ -437,7 +430,7 @@ export class HexMap extends Array<Array<Hex>> {
     let color = this.distColor[dc]
     // If we have an on-screen Container, then use Hex2: (addToCont *before* makeAllDistricts)
     let hex = !!this.hexCont ? new Hex2(color, this.radius, this, row, col) : new Hex(this, row, col)
-    hex.district = district
+    hex.district = district // and set Hex2.districtText
     if (!this[row]) {
       this[row] = new Array<Hex>()
       if (this.minRow === undefined || row < this.minRow) this.minRow = row
@@ -478,7 +471,7 @@ export class HexMap extends Array<Array<Hex>> {
     return rv
   }
   showMark(hex?: Hex) {
-    if (!hex || hex.Aname == S_Skip || hex.Aname == S_Resign) {
+    if (!hex || hex.Aname === S_Skip || hex.Aname === S_Resign) {
       this.mark.visible = false
     } else if (hex instanceof Hex2) {
       this.mark.x = hex.x
@@ -524,7 +517,7 @@ export class HexMap extends Array<Array<Hex>> {
    * If on the line, then the top (last drawn) Hex.
    * @param x in local coordinates of this HexMap.cont
    * @param y 
-   * @returns the Hex under mouse or null, if not a Hex (background)
+   * @returns the Hex under mouse or false, if not a Hex (background)
    */
   hexUnderPoint(x: number, y: number): Hex2 {
     let obj = this.hexCont.getObjectUnderPoint(x, y, 1) // 0=all, 1=mouse-enabled (Hex, not Stone)

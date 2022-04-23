@@ -4,10 +4,10 @@ import { GamePlay, Player } from "./game-play";
 import { Hex, Hex2, HexMap, } from "./hex";
 import { HexEvent } from "./hex-event";
 import { StatsPanel } from "./stats";
-import { TP, StoneColor, otherColor, stoneColor0, stoneColor1 } from "./table-params";
+import { TP, StoneColor, otherColor, stoneColor0, stoneColor1, stoneColorRecord } from "./table-params";
 
 type XYWH = {x: number, y: number, w: number, h: number} // like a Rectangle
-type HEX_STATUS = { found: boolean, sui: boolean, caps: Hex[] }
+type HEX_STATUS = { found: boolean, legal?: boolean, caps?: Hex[], sui?: boolean }
 const S_stagemousemove = 'stagemousemove'
 
 /**
@@ -75,7 +75,7 @@ export class Table extends EventDispatcher  {
     this.undoText.x = -52; this.undoText.textAlign = "center"
     this.redoText.x = 52; this.redoText.textAlign = "center"
     this.winText.x = 0; this.winText.textAlign = "center"
-    let undoC = this.undoCont
+    let undoC = this.undoCont // holds the undo buttons.
     undoC.addChild(this.skipShape)
     undoC.addChild(this.undoShape)
     undoC.addChild(this.redoShape)
@@ -159,7 +159,7 @@ export class Table extends EventDispatcher  {
     mapCont.x = bgr.x + (bgr.w) / 2
     mapCont.y = bgr.y + (bgr.h) / 2
 
-    this.nextHex = new Hex2("grey", Stone.radius, this.hexMap).setName('nextHex')
+    this.nextHex = new Hex2("grey", Stone.radius, this.hexMap, undefined, undefined, 'nextHex')
     this.nextHex.cont.scaleX = this.nextHex.cont.scaleY = 2
     this.nextHex.x = minx + 2 * wide; this.nextHex.y = miny + 2.0 * high;
     // tweak when hexMap is tiny:
@@ -247,10 +247,11 @@ export class Table extends EventDispatcher  {
     this.dragger.stopDrag()
   }
 
-  hexStatus: { stoneColor0?: Map<Hex, HEX_STATUS>, stoneColor1?: Map<Hex, HEX_STATUS> }
-  getHexStatus(hex: Hex, color: StoneColor) {
+  /** cache legalMove: sui & captures */
+  hexStatus: Record<StoneColor, Map<Hex, HEX_STATUS>>
+  getHexStatus(hex: Hex, color: StoneColor): HEX_STATUS {
     let status = this.hexStatus[color].get(hex)
-    return status ? { found: true, sui: status.sui, caps: status.caps } : { found: false }
+    return status ? { found: true, legal: status.legal, caps: status.caps, sui: status.sui } : { found: false }
   }
   
   dragFunc(stone: Stone, ctx: DragInfo): void {
@@ -262,25 +263,23 @@ export class Table extends EventDispatcher  {
       this.dragShift = shift
       this.dropTarget = this.nextHex
       this.dragHex = this.nextHex   // indicate DRAG in progress
-      this.hexStatus = { }
-      this.hexStatus[stoneColor0] = new Map<Hex, HEX_STATUS>()
-      this.hexStatus[stoneColor1] = new Map<Hex, HEX_STATUS>()
+      this.hexStatus = stoneColorRecord<Map<Hex, HEX_STATUS>>(new Map(), new Map())
     }
+    if (shift != this.dragShift) stone.paint(shift ? color : undefined) // otherColor or orig color
     if (!hex) return
     if (shift == this.dragShift && hex == this.dragHex) return    // nothing new
-    if (shift != this.dragShift) stone.paint(shift ? color : undefined) // otherColor or orig color
     this.dragShift = shift
     this.dragHex = hex
     this.unmarkViewCaptured() // a new Hex/target, remove prior capture marks
-    if (!this.gamePlay.isLegalMove(hex, color, (h,c)=>true)) // bypass getCaptures
-      return nonTarget(hex) 
 
-    let { found, sui, caps } = this.getHexStatus(hex, color) // see if sui&caps is cached
+    let { found, legal, caps, sui } = this.getHexStatus(hex, color) // see if sui&caps is cached
     if (!found) {
-      caps = this.gamePlay.getCaptures(hex, color) // set captured and undoCapture
-      sui = !caps
-      this.hexStatus[color].set(hex, { found: true, sui, caps })
+      legal = this.gamePlay.isLegalMove(hex, color, (h,c)=>true) // bypass getCaptures
+      caps = legal && this.gamePlay.getCaptures(hex, color) // set captured and undoCapture
+      sui = legal && !caps
+      this.hexStatus[color].set(hex, { found: true, legal, caps, sui })
     }
+    if (!legal) return nonTarget(hex)
     if (!!sui) return nonTarget(hex)
     if (!!caps) this.markViewCaptured(caps)
     if (!!shift) {
