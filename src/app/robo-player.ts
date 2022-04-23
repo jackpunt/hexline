@@ -20,11 +20,12 @@ type MOVES = Map<Hex, State> // move.hex, move.stone, move.board, move.board.cap
  * play (each of maxBreadth) hexes, [lookahead], eval at leaf state, 
  * propagate back [with min/max & pruning], keep bestState, bestHex
  */
-type State = { move: Move, color: StoneColor, value: number, id: number, moves?: MOVES, bestHex?: Hex, bestValue?: number } 
+type State = { move: Move, color: StoneColor, value: number, id: number, moves?: MOVES, bestValue?: number } 
 var sid = 0  // serial number to help analyze state migration
- function newState(move: Move, color: StoneColor, value: number, bestHex?: Hex, moves?: MOVES): State {
-  return { move, color, value, id: ++sid, moves, bestHex, bestValue: value }
+ function newState(move: Move, color: StoneColor, value: number, moves?: MOVES): State {
+  return { move, color, value, id: ++sid, moves, bestValue: value }
 }
+/** utility for logging an non-mutating copy for State */
  function copyOf(s0: State): State {
    let s1 = Obj.objectFromEntries(s0)
    s1.value && (s1.value = M.decimalRound(s1.value, 3))
@@ -86,11 +87,11 @@ export class Planner {
 
   skipState(color: StoneColor, v0 = Number.NEGATIVE_INFINITY): State {
     let hex = this.gamePlay.hexMap.skipHex, move = new Move(hex, color) 
-    return newState(move, color, v0, hex)
+    return newState(move, color, v0)
   }
   resignState(color: StoneColor, v0 = Number.NEGATIVE_INFINITY): State {
     let hex = this.gamePlay.hexMap.resignHex, move = new Move(hex, color) 
-    return newState(move, color, v0, hex)
+    return newState(move, color, v0)
   }
 
   /** 
@@ -124,7 +125,7 @@ export class Planner {
     let state0 = this.evalState(stone.color), sid0 = sid, tn = gamePlay.original.turnNumber
 
     let dispatchMove = (state: State) => {
-      let hex = state.bestHex
+      let hex = state.move.hex
       console.log(stime(this, `.makeMove: MOVE#${tn} = ${state.move.Aname} state=`), copyOf(state))
       if (table) {
         // robo-player uses gamePlayC, so doesn't maintain Stone.stoneId, fix them here:
@@ -139,7 +140,7 @@ export class Planner {
     let firstMove = () => {
       let lastDist = TP.ftHexes(TP.mHexes) - 1
       let hex = gamePlay.hexMap.district[lastDist][0]
-      dispatchMove(newState(new Move(hex, stone.color), stone.color, 0, hex))
+      dispatchMove(newState(new Move(hex, stone.color), stone.color, 0))
     }
     if (gamePlay.history.length < 1) return firstMove()
     allowEventLoop(this.lookahead(state0, stone.color, 0), (state: State) => dispatchMove(state))
@@ -171,10 +172,11 @@ export class Planner {
     let breadth = 0, bestState = this.skipState(stoneColor) // to be updated ASAP
     for (let [hex, state1a] of moveAry) {
       if (++breadth > TP.maxBreadth) break            // 0-based++, so C-c can terminate loop
-      if (state1a.value < bestState.bestValue && breadth > 2 ) break // lookahead would at best lower state value *????*
+      if (state1a.value < bestState.bestValue) break // lookahead would at best lower state value *????*
       let evalGen = this.evalMoveInDepth(hex, stoneColor, nPlys+1, bestState, state1a)
       let result: IteratorResult<void, State>
       while (result = evalGen.next(), !result.done) yield
+      bestState = result.value
     }
     console.groupEnd()
     if (TP.yield) yield  // voluntary yield to allow event loop (& graphics paint)
@@ -182,7 +184,7 @@ export class Planner {
     console.log(stime(this, `.lookahead: evalAry =`),
       moveAry.map(([h, s]) => [s.move.Aname, M.decimalRound(s.value, 3), M.decimalRound(s.bestValue, 3),
         (h == bestState.move.hex) ? '*': '']))
-    let bestHex = bestState.bestHex, bestValue = M.decimalRound(bestState.bestValue, 3), Aname = bestHex.Aname
+    let bestValue = M.decimalRound(bestState.bestValue, 3), bestHex = bestState.move.hex, Aname = bestHex.Aname
     console.log(stime(this, `.lookahead:`), nPlys, stoneColor, { Aname, bestHex, bestValue, sps, dsid, dms, bestState: copyOf(bestState) })
     done && done(bestState)
     return bestState // or resign? or skip?
@@ -224,7 +226,7 @@ export class Planner {
           console.log(stime(this, `.evalAfterMove: lookahead`), { move1: move.Aname, state1: copyOf(state1), move2: state2.move.Aname, state2: copyOf(state2) })
           if (-state2.bestValue < state1.bestValue) {
             state1.bestValue = -state2.bestValue // MIN
-            state1.bestHex = hex
+            //state1.bestHex = hex
           }
         })
         while (result = planGen.next(), !result.done) yield // propagate recursive yield
@@ -238,13 +240,12 @@ export class Planner {
     let evalAfterGen = evalAfterMove()
     let result: IteratorResult<any, Hex[]>, capGen = this.getCaptures(hex, stoneColor, evalAfterGen)
     while (result = capGen.next(), !result.done) yield
-    let stateR = false || this.evalState(stoneColor, move, myWin) // zero order value after playing hex on hexMap
+
+    let stateR = state1 || this.evalState(stoneColor, move, myWin) // zero order value after playing hex on hexMap
     if (bestState.bestValue < stateR.bestValue) {
-      bestState.move = move                     // (hex, stoneColor, gamePlay.captured)
-      bestState.bestValue = stateR.bestValue
-      bestState.bestHex = hex   // <==== best way to leave state0
+      bestState = stateR        // stateR.move.hex == bestHex!
     }
-    return stateR // return for evalSomeMoves: moves.set(hex, stateR); later stateR will be supplied as state1
+    return bestState // return for evalSomeMoves: moves.set(hex, stateR); later stateR will be supplied as state1
   }
   /** place color on hex, find captures & suicide; run genR; undo it all.
    * leaving gamePlay in original state.
