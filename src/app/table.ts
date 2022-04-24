@@ -159,7 +159,7 @@ export class Table extends EventDispatcher  {
     mapCont.x = bgr.x + (bgr.w) / 2
     mapCont.y = bgr.y + (bgr.h) / 2
 
-    this.nextHex = new Hex2("grey", Stone.radius, this.hexMap, undefined, undefined, 'nextHex')
+    this.nextHex = new Hex2(Stone.radius, this.hexMap, undefined, undefined, 'nextHex')
     this.nextHex.cont.scaleX = this.nextHex.cont.scaleY = 2
     this.nextHex.x = minx + 2 * wide; this.nextHex.y = miny + 2.0 * high;
     // tweak when hexMap is tiny:
