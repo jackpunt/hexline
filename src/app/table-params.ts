@@ -10,7 +10,7 @@ export function stoneColorRecord<T>(b: T = null, w: T = null): Record<StoneColor
 export class TP {
   static yield = true
   static maxPlys = 4     // for robo-player lookahead
-  static maxBreadth = 7  // for robo-player lookahead
+  static maxBreadth = 11 // for robo-player lookahead
   static Black_White = stoneColorRecord('BLACK', 'WHITE')
   static Blue_Red = stoneColorRecord('BLUE', 'RED')
   static colorScheme: Record<StoneColor, string> = TP.Black_White

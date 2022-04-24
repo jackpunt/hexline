@@ -305,7 +305,6 @@ export class Hex2 extends Hex {
       let cont: Container = this.map.stoneCont
       this.cont.parent.localToLocal(this.x, this.y, cont, stone)
       cont.addChild(stone)
-      this.map.update()
     } // else this.clearColor() has been called
     return stoneColor
   }
@@ -314,7 +313,6 @@ export class Hex2 extends Hex {
     this.clearStoneId()
     this.stone?.parent?.removeChild(this.stone)
     this.stone = undefined
-    this.map.update()
     return super.clearColor()
   }
 

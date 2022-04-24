@@ -378,8 +378,10 @@ export class GamePlay extends GamePlay0 {
   // Make ONE robo-move by curPlayer (more move if auto-move sets player.useRobo = true)
   makeMove() {
     if (TP.maxBreadth == -1) { TP.maxPlys = this.maxPlys; TP.maxBreadth = this.maxPlys }
-    console.log(stime(this, `.makeMove: ${this.curPlayer.color} useRobo=`), this.curPlayer.useRobo)
-    this.curPlayer.makeMove(this.table.nextHex.stone, true) // make one robo move
+    let running = this.curPlayer.planner.running
+    console.log(stime(this, `.makeMove: ${this.curPlayer.color} useRobo=`), this.curPlayer.useRobo, `running=${running}` )
+    if (!running)
+      this.curPlayer.makeMove(this.table.nextHex.stone, true) // make one robo move
   }
   autoMove(useRobo: boolean = false) {
     let op = this.otherPlayer(this.curPlayer)
@@ -394,7 +396,6 @@ export class GamePlay extends GamePlay0 {
     console.groupCollapsed(`${stime(this)}:undoIt-${undoNdx}`)
     console.log(stime(this, `.undoStones: undoRec[${undoNdx}] =`), popRec);
     super.undoStones()
-    this.hexMap.update();
     console.log(stime(this, `.undoIt: after[${undoNdx}]`), { Stones: [].concat(this.hexMap.allStones), undo: this.undoRecs });
     console.groupEnd()   // "undoIt-ndx"
   }
@@ -417,7 +418,11 @@ export class GamePlay extends GamePlay0 {
       this.hexMap.showMark(move0.hex) // unless Skip or Resign...
     }    
   }
-
+  override removeStone(hex: Hex2): void {
+    let sid = hex.stoneIdText.text
+    this.addUndoRec(this, `${hex.Aname}.setStoneId(${sid})`, () => hex.setStoneId(sid))
+    super.removeStone(hex)
+  }
   override addStone(hex: Hex2, stoneColor: "black" | "white"): void {
     super.addStone(hex, stoneColor)
     hex.setStoneId(this.history.length)

@@ -113,7 +113,7 @@ export class Table extends EventDispatcher  {
       })
     let toggleText = (evt: MouseEvent, vis?: boolean) => { 
       if (!toggle) return (toggle = true, undefined) // skip one 'click' when pressup/dropfunc
-      this.hexMap.forEachHex<Hex2>(hex => hex.showText(vis)); this.hexMap.update() 
+      this.hexMap.forEachHex<Hex2>(hex => hex.showText(vis))
       this.hexMap.hexCont.updateCache()
       this.hexMap.update()
     }
@@ -182,7 +182,7 @@ export class Table extends EventDispatcher  {
 
     this.on(S.add, this.gamePlay.addStoneEvent, this.gamePlay)[S.Aname] = "addStone"
     this.on(S.remove, this.gamePlay.removeStoneEvent, this.gamePlay)[S.Aname] = "removeStone"
-    this.stage.update()
+    this.hexMap.update()
   }
   logCurPlayer(curPlayer) {
     const history = this.gamePlay.history
