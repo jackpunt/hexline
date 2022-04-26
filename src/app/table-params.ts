@@ -7,6 +7,7 @@ export const stoneColor1 = stoneColors[1]
 export type StoneColor = typeof stoneColors[number]
 export function otherColor(color: StoneColor): StoneColor { return color === 'black' ? 'white' : 'black' }
 export function stoneColorRecord<T>(b: T = null, w: T = null): Record<StoneColor, T> { return { 'black': b, 'white': w } };
+export function stoneColorRecordF<T>(f: (sc: StoneColor) => T) { return stoneColorRecord(f('black'), f('white')) }
 export class TP {
   static yield = true
   static maxPlys = 4     // for robo-player lookahead

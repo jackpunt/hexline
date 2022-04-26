@@ -431,8 +431,8 @@ export class GamePlay extends GamePlay0 {
     }    
   }
   override removeStone(hex: Hex2): void {
-    let sid = hex.stoneIdText.text
-    this.addUndoRec(this, `${hex.Aname}.setStoneId(${sid})`, () => hex.setStoneId(sid))
+    let stoneId = hex.stoneIdText.text
+    this.addUndoRec(this, `${hex.Aname}.setStoneId(${stoneId})`, () => hex.setStoneId(stoneId))
     super.removeStone(hex)
   }
   override addStone(hex: Hex2, stoneColor: "black" | "white"): void {
