@@ -33,12 +33,12 @@ export class Stone extends Shape {
   paint2(color: string) {
     this.paint1(color)
     this.graphics.c().f(C.BLACK).dc(0, 0, this.radius/2) // put a hole in it!
-    this.updateCache("destination-out")
+    this.updateCache("destination-out") // clear center of Stone!
   }
   paint1(color: string) {
     let rad = this.radius
     this.graphics.c().f(color).dc(0, 0, rad)
-    this.cache(-rad, -rad, 2*rad, 2*rad)
+    this.cache(-rad, -rad, 2*rad, 2*rad) // Stone
   }
 }
 /** layout display components, setup callbacks to GamePlay */
@@ -114,8 +114,8 @@ export class Table extends EventDispatcher  {
     let toggleText = (evt: MouseEvent, vis?: boolean) => { 
       if (!toggle) return (toggle = true, undefined) // skip one 'click' when pressup/dropfunc
       this.hexMap.forEachHex<Hex2>(hex => hex.showText(vis))
-      this.hexMap.hexCont.updateCache()
-      this.hexMap.update()
+      this.hexMap.hexCont.updateCache()  // when toggleText: hexInspector
+      this.hexMap.update()               // after toggleText & updateCache()
     }
     qShape.on(S.click, toggleText, this) // toggle visible
   }
@@ -168,7 +168,6 @@ export class Table extends EventDispatcher  {
     this.nextHex.x = Math.round(this.nextHex.x); this.nextHex.y = Math.round(this.nextHex.y)
     this.undoCont.x = this.nextHex.x
     this.undoCont.y = this.nextHex.y + 100
-    this.hexMap.hexCont.addChild(this.nextHex.cont)  // single Hex to hold a Stone to play
     this.hexMap.markCont.addChild(this.undoCont)
 
     this.bgRect = this.setBackground(this.scaleCont, bgr) // bounded by bgr
@@ -182,7 +181,7 @@ export class Table extends EventDispatcher  {
 
     this.on(S.add, this.gamePlay.addStoneEvent, this.gamePlay)[S.Aname] = "addStone"
     this.on(S.remove, this.gamePlay.removeStoneEvent, this.gamePlay)[S.Aname] = "removeStone"
-    this.hexMap.update()
+    this.hexMap.update()      // after layoutTable()
   }
   logCurPlayer(curPlayer) {
     const history = this.gamePlay.history
@@ -212,7 +211,7 @@ export class Table extends EventDispatcher  {
     stone[S.Aname] = `nextHex:${this.gamePlay.turnNumber}`
     this.dragger.makeDragable(stone, this, this.dragFunc, this.dropFunc)
     this.dragger.clickToDrag(stone)
-    this.hexMap.update()
+    this.hexMap.update()   // after putButtonOnPlayer
     player.makeMove(stone) // provoke to robo-player: respond with addStoneEvent;
   }
 

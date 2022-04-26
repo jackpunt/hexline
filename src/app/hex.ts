@@ -213,6 +213,7 @@ export class Hex2 extends Hex {
   /** Hex2 cell with graphics; shown as a polyStar Shape of radius @ (XY=0,0) */
   constructor(radius: number, map: HexMap, row?: number, col?: number, name?: string) {
     super(map, row, col, name);
+    map.hexCont.addChild(this.cont)
     this.radius = radius
   
     this.setHexColor("grey")  // until setHexColor(by district)
@@ -434,7 +435,6 @@ export class HexMap extends Array<Array<Hex>> {
     if (this.minCol === undefined || col < this.minCol) this.minCol = col
     if (this.maxCol === undefined || col > this.maxCol) this.maxCol = col
     this[row][col] = hex   // addHex to this Array<Array<Hex>>
-    if (hex instanceof Hex2) this.hexCont.addChild(hex.cont)
     this.link(hex)   // link to existing neighbors
     return hex
   }

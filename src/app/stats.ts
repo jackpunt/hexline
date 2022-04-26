@@ -1,7 +1,7 @@
 // Game win: a Player controls 4 of 7 Districts
 // Control: Stone on >= 7 Hexes && Player.nHexes(district) - otherPlayer.nHexes(district) >= 3
 
-import { Board, GamePlay, Player } from "./game-play";
+import { Board, GamePlay, Move, Player } from "./game-play";
 import { Hex, Hex2, HexMap } from "./hex";
 import { Stone, Table } from "./table";
 import { otherColor, StoneColor, stoneColor0, stoneColor1, stoneColorRecord, stoneColors, TP } from "./table-params";
@@ -32,7 +32,7 @@ export class GameStats {
   readonly hexMap: HexMap
   readonly allPlayers: Player[]
   readonly pStats: Record<StoneColor, PlayerStats> = stoneColorRecord()
-  readonly inControl:  StoneColor[] = Array(TP.ftHexes(TP.mHexes)) // (nStones[color] - nStones[oc] >= TP.diffControl) -> [district]=color
+  readonly inControl: StoneColor[] = Array(TP.ftHexes(TP.mHexes)) // (nStones[color] - nStones[oc] >= TP.diffControl) -> [district]=color
   score(color: StoneColor): number {
     return this.inControl.filter(ic => ic == color).length
   }
@@ -84,7 +84,7 @@ export class GameStats {
     })
   }
   /** compute pstats, return StoneColor of winner (or undefined) */
-  update(): StoneColor {
+  update(move0?: Move): StoneColor {
     this.zeroCounters()
     let distLen = this.inControl.length; // = TP.ftHexes(TP.mHexes) -  1
     this.hexMap.forEachHex((hex) => this.incCounters(hex)) // set nStones, dStones, etc
@@ -101,23 +101,36 @@ export class GameStats {
         }
       })
     }
-  return win
+    win = this.gameOver(move0?.board, win)
+    return win
   }  
+  /** victory, resigned, stalemate */
+  gameOver(board: Board, win: StoneColor): StoneColor { 
+    let scores = stoneColors.map(pc => this.score(pc))
+    let nstones = stoneColors.map(pc => this.pStats[pc].nStones)
+    // win = scores[stoneColor0] >= TP.nVictory ? stoneColor0
+    //     : scores[stoneColor1] >= TP.nVictory ? stoneColor1 : undefined
+    return win ? win : !board ? undefined
+      : board.resigned ? otherColor(board.resigned)
+        : (board.repCount < 3) ? undefined
+          : ((scores[0] == scores[1] ? (nstones[0] <= nstones[1] ? stoneColor1 : stoneColor0)
+            : ((scores[0] > scores[1]) ? stoneColor0 : stoneColor1)))
+  }
 
   // Mixin to compute weighted summaryStat over pStats
   wVector: number[] = []
   setupStatVector() {
     let distLen = this.inControl.length
-    let dStoneM = new Array<number>(distLen).fill(1, 0, distLen)
-    let s0M = 1.3, dMaxM = 1, dist0M = 1, nStoneM = 1.1, nInfM = .3, nThreatM = .2, nAttackM = .5, nAdjM = .1
-    this.wVector = dStoneM.concat([s0M, dMaxM, dist0M, nStoneM, nInfM, nThreatM, nAttackM, nAdjM])
+    let dStonesM = new Array<number>(distLen).fill(1, 0, distLen)
+    dStonesM[0] = 1.1
+    let scoreM = 1.3, dMaxM = 1, nStonesM = 1.1, nInfM = .3, nThreatsM = .2, nAttacksM = .5, nAdjM = .1
+    this.wVector = dStonesM.concat([scoreM, dMaxM, nStonesM, nInfM, nThreatsM, nAttacksM, nAdjM])
   }
   statVector(color: StoneColor): number[] {
     let pstat = this.pStat(color)
     let score = this.score(color)
-    let nDist0 = pstat.dStones[0]
     let { dStones, dMax, nStones, nInf, nThreats, nAttacks, nAdj } = pstat
-    return dStones.concat(score, dMax, nDist0, nStones, nInf, nThreats, nAttacks, nAdj)
+    return dStones.concat(score, dMax, nStones, nInf, nThreats, nAttacks, nAdj)
   }
   mulVector(v0: number[], v1: number[]): number[] { // v0 = dotProd(v0, v1)
     for (let i in v0 ) v0[i] *= v1[i]
@@ -165,33 +178,30 @@ export class TableStats extends GameStats {
     repText.visible = (n >= 0)
   }
   /** update all the stats 
-   * @board if supplied, check for win/resign/stalemate
+   * @move0 if supplied, check move0.board for resign/stalemate
    */
-  override update(): StoneColor {
-    const win = super.update()
-    let move0 = this.gamePlay.history[0], board = move0 && move0.board
+  override update(move0?: Move): StoneColor {
+    const win = super.update(move0)
+    let board = move0?.board
     if (!!this.table) {
       !!board && this.showBoardRep(board.repCount)
       this.table.statsPanel.update()
       this.showControl(this.table)
-      this.hexMap.update()
     }
-    if (!!board && this.gameOver(board, win)) {
-      let pc = move0.stoneColor, pcr = TP.colorScheme[pc], pStats = this.pStat(pc)
+    if (win) {
+      let pc = win, pcr = TP.colorScheme[pc], pStats = this.pStat(pc)
       let opc = otherColor(pc), opcr = TP.colorScheme[opc], opStats = this.pStat(opc)
-      if (!!win) return this.showWin(board, win, `WINS! ${opcr} loses`)
-      if (board.resigned) return this.showWin(board, opc, `WINS: ${pcr} RESIGNS`)
-      if (board.repCount == 3) return this.showWin(board, pc, `-- ${opcr} STALEMATE: ns(${pStats.nStones} -- ${opStats.nStones})`)
+      if (board.resigned) return this.showWin(board, pc, `${opcr} RESIGNS`)
+      if (board.repCount == 3) return this.showWin(board, pc, `STALEMATE: ns(${pStats.nStones} -- ${opStats.nStones})`)
+      return this.showWin(board, pc, `${opcr} loses`)
     }
     return win
   }
-  gameOver(board: Board, win: StoneColor): boolean {
-    return (!!win || !!board.resigned || board.repCount == 3) // win, lose, draw...
-  }
+
   showWin(board: Board, win: StoneColor, text: string): StoneColor {
     this.table.showRedoUndoCount()
     let lose = otherColor(win), winS = this.score(win), loseS = this.score(lose)
-    let winr = TP.colorScheme[win], msg = `${winr} ${text}! ${winS} -- ${loseS}`
+    let winr = TP.colorScheme[win], msg = `${winr} WINS: ${text} ${winS} -- ${loseS}`
     console.log(stime(this, `.showWin:`), msg)
     this.table.winText.text = msg
     this.gamePlay.autoMove(false)

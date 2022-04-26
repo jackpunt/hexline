@@ -74,7 +74,7 @@ export class GameSetup {
     gui.makeParamSpec("mHexes", [2, 3, 4])
     gui.makeParamSpec("nHexes", [1, 2, 3, 4, 5, 6])
     gui.makeParamSpec("maxPlys", [1, 2, 3, 4, 5, 6, 7, 8])
-    gui.makeParamSpec("maxBreadth", [1, 3, 5, 7, 11, 15, 20])
+    gui.makeParamSpec("maxBreadth", [1, 3, 5, 7, 9, 11, 15, 20])
     //gui.makeParamSpec("moveDwell", [300, 600])
     gui.makeParamSpec("colorScheme", ['Black_White   ', '  Blue_Red  '])
     gui.spec("Start").onChange = (item: ParamItem) => { if (item.value == "yes") this.restart.call(this) }

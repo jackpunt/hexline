@@ -99,7 +99,6 @@ export class GamePlay0 {
   undoCore(move: Move) {
       this.undoStones()             // remove last Stone, replace captures
       this.undoCapMarks(move.captured)
-      this.gStats.update()          // reset stats: inControl & score; check for 'win'
   }
   undoMove(undoTurn: boolean = true) {
     let move: Move = this.history.shift() // remove last Move
@@ -114,6 +113,7 @@ export class GamePlay0 {
       if (!!move0) {
         move0.board.setRepCount(this.history) // undo: decrement repCount; because: shift()
       }
+      this.gStats.update(move0)          // reset stats: inControl & score & repCount check for 'win'
     }
   }
 
@@ -173,7 +173,7 @@ export class GamePlay0 {
     this.undoInfluence.flushUndo() // <=== no going back! [skipAndSet] maybe just closeUndo() ??
 
     this.setBoardAndRepCount(move) // set/reduce repCount to actual value 
-    let win = this.gStats.update() // showRepCount(), showWin()
+    let win = this.gStats.update(move) // check for WIN: showRepCount(), showWin()
     return win
   }
   
@@ -330,11 +330,23 @@ export class GamePlay0 {
     console.log(stime(this, str), dss, line.map(fn))
   }
 }
+
+/** GamePlayC is clone of original (which may have been GamePlay) downcast to GamePlay0 */
 export class GamePlayC extends GamePlay0 {
   readonly original: GamePlay0
   constructor (original: GamePlay0) {
     super(original)
     this.original = original
+  }
+}
+
+/** GamePlayD is compatible 'copy' with original, but does not share components */
+export class GamePlayD extends GamePlay0 {
+  readonly original: GamePlay0
+  constructor (original: GamePlay0) {
+    super()
+    this.original = original
+    
   }
 }
 
@@ -552,7 +564,7 @@ class BoardRegister extends Map<string, Board> {
       board = bNew
     }
     move.board = board
-    board.setRepCount(history)
+    board.setRepCount(history)    // count how many times canonical board appears in history
     return board
   }
 }
