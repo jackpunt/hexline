@@ -1,5 +1,5 @@
 import { Container, DisplayObject, Graphics, Shape, Text } from "createjs-module";
-import { C, F, Obj, RC, S, Undo } from "@thegraid/createjs-lib";
+import { C, F, Obj, RC, S, stime, Undo } from "@thegraid/createjs-lib";
 import { HexAxis, HexDir, H, InfDir } from "./hex-intfs";
 import { Stone, Table } from "./table";
 import { otherColor, StoneColor, stoneColor0, stoneColorRecord, stoneColors, TP } from "./table-params";
@@ -11,9 +11,9 @@ export const S_Skip = 'Hex@skip'
 // Note: graphics.drawPolyStar(x,y,radius, sides, pointSize, angle) will do a regular polygon
 
 type LINKS = { [key in InfDir]?: Hex }
-type INF   = { [key in InfDir]?: InfMark }
-type ToAxis= {[key in InfDir] : HexAxis}
-const dnToAxis: ToAxis = { NW: 'SE', W: 'E', SW: 'NE', NE: 'NE', E: 'E', SE: 'SE' }
+type INF   = { [key in InfDir]?: number }
+type INFM   = { [key in HexAxis]?: InfMark }
+type ToAxis = { [key in InfDir]: HexAxis }
 type HSC = { hex: Hex, color: StoneColor, Aname?: string }
 
 class InfMark extends Shape {
@@ -36,13 +36,13 @@ class InfMark extends Shape {
     InfMark.gInf(InfMark.gE1, c1, w, -wo, r)
     InfMark.gInf(InfMark.gE0, c0, w, wo, r)
   }
-  /** @param ds assert Influence in direction */
-  constructor(color: StoneColor, ds: HexAxis, dn?: InfDir) {
-    let g: Graphics = (color === stoneColor0) ? InfMark.gE0 : InfMark.gE1
-    super(g)
+  /** @param ds show Influence on Axis */
+  constructor(color: StoneColor, ds: HexAxis, x: number, y: number) {
+    super((color === stoneColor0) ? InfMark.gE0 : InfMark.gE1)
     this.mouseEnabled = false
     this.rotation = H.dirRot[ds]
-    this[S.Aname] = `Inf[${color},${ds},${dn}-${this.id}]`  // for debug, not production
+    this.x = x; this.y = y
+    this[S.Aname] = `Inf[${color},${ds},${this.id}]`  // for debug, not production
   }
 }
 class CapMark extends Shape {
@@ -76,6 +76,9 @@ export class Hex {
     this.links = {}
   }
   readonly Aname: string
+  /** color of current Stone on this Hex (or undefined) */
+  stoneColor: StoneColor = undefined;
+
   /** accessor so Hex2 can override-advise */
   _district: number // district ID
   get district() { return this._district }
@@ -88,9 +91,6 @@ export class Hex {
   readonly inf = stoneColorRecord<INF>({},{})
   /** Link to neighbor in each H.dirs direction [NE, E, SE, SW, W, NW] */
   readonly links: LINKS = {}
-
-  /** color of current Stone on this Hex (or undefined) */
-  stoneColor: StoneColor;
 
   /** override to set CapMark */
   markCapture() {  }
@@ -120,56 +120,68 @@ export class Hex {
    * @param dn dir of Influence: ds | revDir[ds]
    * @returns true if Hex is StoneColor or has InfMark(color, dn)
    */
-  isInf(color: StoneColor, dn: InfDir): boolean {
-    return (this.stoneColor == color) || !!this.getInf(color, dn)
-  }
-  getInf(color: StoneColor, dn: InfDir): InfMark {
-    return this.inf[color][dn]
+  isInf(color: StoneColor, dn: InfDir) { return this.inf[color][dn] > 0}
+  getInf(color: StoneColor, dn: InfDir) { return this.inf[color][dn] || 0 }
+  // incInf(color: StoneColor, dn: InfDir) { return this.inf[color][dn] = (this.inf[color][dn] || 0) + 1 }
+  // decInf(color: StoneColor, dn: InfDir) { return this.inf[color][dn] = (this.inf[color][dn] || 0) - 1 }
+  setInf(color: StoneColor, dn: InfDir, inf: number) { return this.inf[color][dn] = inf }
+
+  /** 
+   * @param inc is influence *passed-in* to Hex; hex get [inc or inc+1]; *next* gets [inc or inc-1]
+   */
+  propagateIncr(color: StoneColor, dn: InfDir, inc: number, test?: (hex: Hex) => void) {
+    let inf = this.stoneColor === color ? inc + 1 : inc // inc >= 0, inf > 0
+    this.setInf(color, dn, inf)
+    let nxt = this.stoneColor === color ? inf : inf - 1
+    if (nxt > 0) this.links[dn]?.propagateIncr(color, dn, nxt, test)
+    test && test(this)
   }
   /**
-   * set temp = dn OR set temp = undefined if (temp != dn)
-   * @param ds one of S.Dir3 (major axis)
-   * @param color 
-   * @returns InfMark (if a *new* InfMark is set, else undefined)
+   * Pass on based on *orig/current* inf, not the new/decremented inf.
+   * @param inc is influence *passed-in* from prev Hex; *this* gets inc; pass-on [inc or inc-1]
    */
-  setInf(color: StoneColor, dn: InfDir, ds: HexAxis = dnToAxis[dn], undo?: Undo): InfMark {
-    let infMark: InfMark
-    if (!!this.getInf(color, dn)) return undefined
-    infMark = new InfMark(color, ds, dn)
-    this.inf[color][dn] = infMark
-    undo && undo.addUndoRec(this, `delInf(${this},${color},${dn})`, () => { this.delInf(color, dn, false) })
-    return infMark
-  }
-  /**
-   * @param dn generally the primary axis
-   * @param color 
-   * @param rev if true also remove reverse dir
-   */
-  delInf(color: StoneColor, dn: InfDir, rev = true, undo?: Undo): InfMark {
-    if (rev) this.delInf(color, H.dirRev[dn], false, undo)
-    let infMark = this.getInf(color, dn)
-    if (!!infMark) {
-      delete this.inf[color][dn]
-      undo?.addUndoRec(this, `setInf(${this},${dn},${color})`, () => { this.setInf(color, dn) })
-    }
-    return infMark
+  //  v   
+  // *1 *2 2 1
+  //  0 *1 1 0
+  // 
+  //  v   
+  // *1 *2 2 1 *1
+  //  0 *1 1 0
+  // 
+
+  //     v
+  // *1 *2 *3 3 2 1
+  // *1  1 *1 1 0 0
+  // pd(inc=1) -> inf=2; infn=1; nxt=0;
+  // pd(inc=0) -> inf=*3, infn=1; nxt=1;
+  // pd(inc=1) -> inf=3; infn=1; nxt=0;
+  // pd(inc=0) -> inf=2; infn=0; nxt=0;
+  // pd(inc=0) -> inf=1; infn=0; nxt=0;
+  propagateDecr(color: StoneColor, dn: InfDir, inc: number, test?: (hex: Hex) => void) {
+    let inf = this.getInf(color, dn)
+    let infn = this.stoneColor === color ? inc + 1 : inc
+    this.setInf(color, dn, infn)
+    let nxt = this.stoneColor === color ? infn : Math.max(0, infn - 1)
+    if (inf > 0) this.links[dn]?.propagateDecr(color, dn, nxt, test) // pass-on a smaller number
+    test && test(this)
   }
 
   /** create empty INF for each color */
   clearInf() { stoneColors.forEach(c => this.inf[c] = {}) }
 
-  /** @return true if Hex is doubly influenced by color */
+  /** @return true if Hex is influenced on 2 or more Axies of color */
   isAttack(color: StoneColor): boolean {
-    let attacks = new Set<HexAxis>(), infs = this.inf[color] as InfMark[]
+    let attacks = new Set<HexAxis>(), infs = this.inf[color]
     Object.entries(infs).forEach(([dn, inf]) => {
-      let axis: HexAxis = dnToAxis[dn]
-      attacks.add(axis)
+      if (inf > 0) attacks.add(H.dnToAxis[dn])
     });
     return attacks.size >= 2 
   }
   /** @return true if Hex has a Stone (of other color), and is attacked */
-  isCapture(color: StoneColor): boolean {
-    return !!this.stoneColor && (this.stoneColor !== color) && this.isAttack(color)
+  isCapture(color: StoneColor, hex?: Hex): boolean {
+    let isCap = !!this.stoneColor && (this.stoneColor !== color) && this.isAttack(color)
+    isCap && console.log(stime(this, `.isCapture:`), { color, hex: hex.Aname, Aname: this.Aname, hexi: this, isCap })
+    return isCap
   }
   /** return last Hex on axis in given direction */
   lastHex(ds: InfDir): Hex {
@@ -206,6 +218,7 @@ export class Hex2 extends Hex {
   rcText: Text      // shown on this.cont
   stone: Stone      // shown on this.map.stoneCont
   stoneIdText: Text     // shown on this.map.markCont
+  infm: Record<StoneColor,INFM> = stoneColorRecord({},{})
   override toString() {
     return `Hex[${this.row},${this.col}]`
   }
@@ -242,47 +255,42 @@ export class Hex2 extends Hex {
   showText(vis = !this.rcText.visible) {
     this.rcText.visible = this.distText.visible = vis
   }
-  override setInf(color: StoneColor, dn: InfDir, ds: HexAxis = dnToAxis[dn], undo?: Undo): InfMark {
-    let infMark = super.setInf(color, dn, ds, undo)
-    // show infMark on map.infCont (unless revMark already showing)
-    let revMark = this.getInf(color, H.dirRev[dn])
-    if (!revMark || !revMark.parent) {
-      // place first (of dn|rev[dn]) InfMark on HexMap:
-      //this.parent.localToLocal(this.x, this.y, this.map.infCont, infMark)
-      infMark.x = this.x; infMark.y = this.y // ASSERT: hexCont aligned with infCont; on mapCont
-      this.map.infCont.addChild(infMark)
+  override setInf(color: StoneColor, dn: InfDir, inf: number): number {
+    super.setInf(color, dn, inf)
+    this.showInf(color, dn, (this.stoneColor !== color && (inf > 0 || this.isInf(color, H.dirRev[dn]))))
+    return inf
+  }
+  showInf(color: StoneColor, dn: InfDir, show = true) {
+    if (show) {
+      let ds: HexAxis = H.dnToAxis[dn]     // infm only on [ds]
+      if (this.stoneColor !== color && !this.infm[color][ds]) {
+        this.infm[color][ds] = new InfMark(color, ds, this.x, this.y)
+      }
+      this.map.infCont.addChild(this.infm[color][ds])
+    } else {
+      let infMark = this.infm[color][H.dnToAxis[dn]]
+      infMark?.parent?.removeChild(infMark)
     }
-    return infMark
   }
   override clearInf(): void {
     stoneColors.forEach(color => {
-      for (let mark of Object.values(this.inf[color])) 
-        mark.parent && mark.parent.removeChild(mark)
+      for (let mark of Object.values(this.infm[color])) 
+        mark?.parent?.removeChild(mark)
     })
     super.clearInf()
-  }
-
-  override delInf(color: StoneColor, dn: InfDir, rev = true, undo?: Undo): InfMark {
-    let infMark = super.delInf(color, dn, rev, undo)
-    if (!!infMark) {
-      if (!!infMark.parent) infMark.parent.removeChild(infMark)
-      let revMark = this.getInf(color, H.dirRev[dn])
-      if (!!revMark) this.map.infCont.addChild(revMark)
-    }
-    return infMark
   }
 
   /** make and show a CapMark on this Hex2 */
   override markCapture() {
     super.markCapture()
-    if (this.capMark !== undefined) return // only 1 CapMark per Hex
-    this.capMark = this.map.markCont.addChild(new CapMark(this))
+    if (this.capMark === undefined) { this.capMark = this.map.markCont.addChild(new CapMark(this)) }
+    console.log(stime(this, `.markCapture:`), { Aname: this.Aname, hex: this })
+    this.capMark.visible = true
   }
   override unmarkCapture() {
     super.unmarkCapture()
-    if (this.capMark === undefined) return
-    this.capMark.parent.removeChild(this.capMark)
-    this.capMark = undefined
+    console.log(stime(this, `.unmarkCapture:`), { Aname: this.Aname, hex: this })
+    this.capMark && (this.capMark.visible = false) 
   }
 
   setStoneId(id: number | string) {
@@ -614,6 +622,35 @@ export class HexMap extends Array<Array<Hex>> {
       rc = this.nextRowCol(hex, dir)
     }
     return rc
+  }
+
+  copyLinksAndDistricts(gamePlay: GamePlay0) {
+    let oldMap = gamePlay.hexMap
+    oldMap.forEachHex((hex: Hex) => {
+      this.addHex(hex.row, hex.col, hex.district)
+      if (hex instanceof Hex2) hex.setHexColor(hex.distColor)
+    })
+
+  }
+  /**
+   * clear Stones & influence, add Stones, assertInfluence
+   * @param gamePlay 
+   */
+   syncToGame(gamePlay: GamePlay0) {
+    let oldMap = gamePlay.hexMap
+    // doing hex.clearColor() en masse:
+    this.allStones.splice(0, this.allStones.length) // clear allStones, so filter goes faster...
+    this.forEachHex(hex => {
+      hex.clearColor()                              // remove Stone & color
+      hex.clearInf()                                // remove all influence
+    })
+
+    //oldMap.forEachHex(oldHex => {})
+    oldMap.allStones.forEach(hsc => {
+      let oldHex = hsc.hex, row = oldHex.row, col = oldHex.col
+      let hex = this[row][col] || this.addHex(row, col, oldHex.district)
+      hex.setColor(oldHex.stoneColor)
+    })
   }
 
 }

@@ -75,7 +75,7 @@ export class Table extends EventDispatcher  {
     this.undoText.x = -52; this.undoText.textAlign = "center"
     this.redoText.x = 52; this.redoText.textAlign = "center"
     this.winText.x = 0; this.winText.textAlign = "center"
-    let undoC = this.undoCont // holds the undo buttons.
+    let undoC = this.undoCont; undoC.name = "undo buttons" // holds the undo buttons.
     undoC.addChild(this.skipShape)
     undoC.addChild(this.undoShape)
     undoC.addChild(this.redoShape)
@@ -109,7 +109,9 @@ export class Table extends EventDispatcher  {
         let info = { hex, stone: hex.stoneColor, InfName }
         info[`Inf[${stoneColor0}]`] = hex.inf[stoneColor0]
         info[`Inf[${stoneColor1}]`] = hex.inf[stoneColor1]
-        console.log(hex.Aname, info)
+        info[`Infm[${stoneColor0}]`] = hex.infm[stoneColor0]
+        info[`Infm[${stoneColor1}]`] = hex.infm[stoneColor1]
+        console.log(`HexInspector:`, hex.Aname, info)
       })
     let toggleText = (evt: MouseEvent, vis?: boolean) => { 
       if (!toggle) return (toggle = true, undefined) // skip one 'click' when pressup/dropfunc
@@ -273,7 +275,7 @@ export class Table extends EventDispatcher  {
 
     let { found, legal, caps, sui } = this.getHexStatus(hex, color) // see if sui&caps is cached
     if (!found) {
-      legal = this.gamePlay.isLegalMove(hex, color, (h,c)=>true) // bypass getCaptures
+      legal = this.gamePlay.isLegalMove(hex, color, () => true) // bypass getCaptures
       caps = legal && this.gamePlay.getCaptures(hex, color) // set captured and undoCapture
       sui = legal && !caps
       this.hexStatus[color].set(hex, { found: true, legal, caps, sui })
