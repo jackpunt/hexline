@@ -119,7 +119,6 @@ export class GamePlay0 {
 
   /** unmarkCapture (& capMarks if Hex2), reset current capture to history[0] */
   undoCapMarks(captured: Hex[]) {
-    console.log(stime(this,`.undoCapMarks0:`), { captured: captured.concat([]), move0_captured: this.history[0]?.captured.concat([])})
     captured.forEach(hex => hex.unmarkCapture())
     this.history[0]?.captured.forEach(hex => hex.markCapture())
   }
@@ -207,8 +206,8 @@ export class GamePlay0 {
     this.addStone(hex, color)        // stone on hexMap, no Move on history
     let suicide = hex.isAttack(otherColor(color)), rv = suicide ? undefined : this.captured
     this.undoRecs.closeUndo().pop()    // SHOULD replace captured Stones/Colors & undo/redo Influence
-    this.undoCapMarks(this.captured); // undoCapture... undo.pop() *should* have done this?
     this.history.shift()
+    this.undoCapMarks(this.captured); // undoCapture... undo.pop() *should* have done this?
     this.captured = this.history[0]?.captured || []
     return rv
   }
@@ -247,7 +246,7 @@ export class GamePlay extends GamePlay0 {
     this.table = table
     this.gStats = new TableStats(this, table) // AFTER allPlayers are defined so can set pStats
     KeyBinder.keyBinder.setKey('M-z', { thisArg: this, func: this.undoMove })
-    KeyBinder.keyBinder.setKey('q', { thisArg: this, func: this.undoMove })
+    KeyBinder.keyBinder.setKey('b', { thisArg: this, func: this.undoMove })
     KeyBinder.keyBinder.setKey('r', { thisArg: this, func: this.redoMove })
     KeyBinder.keyBinder.setKey('t', { thisArg: this, func: this.skipMove }) // next Turn
     KeyBinder.keyBinder.setKey('M-K', { thisArg: this, func: this.resignMove })// S-M-k

@@ -227,58 +227,44 @@ export class Planner {
   *evalMoveInDepth(hex: Hex, stoneColor: StoneColor, nPlys: number = TP.maxPlys, bestState?: State, state1?: State) {
     if (nPlys < TP.maxPlys || !state1) {
       let planner = this, gamePlay = this.gamePlay, move: Move, other = otherColor(stoneColor)
-      this.placeStone(hex, stoneColor)
+      this.placeStone(hex, stoneColor) // addStone
       move = gamePlay.history[0]
-      //let suicide = hex.isAttack(other), rv = suicide ? undefined : gamePlay.captured
+      let suicide = hex.isAttack(other), rv = suicide ? undefined : gamePlay.captured
+      // setup board for gStats.update(); as if having made a Move(hex, stoneColor)
+      // captured already set by outer getCapture; w/undoRecs to [re-] addStone!
+      let win: StoneColor
+      //move = gamePlay.history[0]                           // getCaptures pushed a move(hex, stoneColor)
+      if (state1) {
+        win = planner.stateWin(state1)
+        state1.move = move                // <===  !!!  (with current captures)
+      } else {
+        win = gamePlay.gStats.update()                      // calc stats & score for VP win
+        state1 = planner.evalState(stoneColor, move)        // set initial value (& bestValue)
 
-      /** 
-       * With stoneColor on hex: find move, record board, compute gStats->value.
-       * then remove stone (and getCaptures will undo the rest)
-       * 
-       * plugin func for gamePlay.getCaptures(hex, color) 
-       */
-      //function* evalAfterMove(): YieldR<object> {
-        //const hex = gamePlay.curHex      // same as outer hex!?
-        // setup board for gStats.update(); as if having made a Move(hex, stoneColor)
-        // captured already set by outer getCapture; w/undoRecs to [re-] addStone!
-        let win: StoneColor
-        //move = gamePlay.history[0]                           // getCaptures pushed a move(hex, stoneColor)
-        if (state1) {
-          win = planner.stateWin(state1)
-          state1.move = move                // <===  !!!  (with current captures)
-        } else {
-          win = gamePlay.gStats.update()                      // calc stats & score for VP win
-          state1 = planner.evalState(stoneColor, move)        // set initial value (& bestValue)
-
-          let board = gamePlay.setBoardAndRepCount(move)      // set/reduce repCount to actual value 
-          win = gamePlay.gStats.gameOver(board, win)          // check for resign, stalemate
-          planner.winState(state1, win)                       // adjust value if win/lose
-        }
-        if (!win) {
-          // move into jeopardy [without capturing] is generally bad: (but *maybe* the stone is untakable...)
-          // get a better assessment (& likely lower the ranking of this move)
-          let fj = (move.captured.length == 0 && Object.values(move.hex.inf[other]).find(inf => inf>0)) && (nPlys < TP.maxPlys + 2)
-          if (nPlys < TP.maxPlys ||
-            (fj && (console.log(stime(this, `.fj-deeper`), nPlys, move.Aname, state1.bestValue), true))) { // extend depth if state1.fj
-            move['eval'] = fj ? '-' : '+'
-            // Depth-First search: find move from state1 to bestHex
-            let result: IteratorResult<any, State>
-            let planGen = planner.lookahead(state1, other, nPlys + (fj ? 1 : 0), (fj ? Math.max(0, TP.maxBreadth - 6) : 0), 
+        let board = gamePlay.setBoardAndRepCount(move)      // set/reduce repCount to actual value 
+        win = gamePlay.gStats.gameOver(board, win)          // check for resign, stalemate
+        planner.winState(state1, win)                       // adjust value if win/lose
+      }
+      if (!win) {
+        // move into jeopardy [without capturing] is generally bad: (but *maybe* the stone is untakable...)
+        // get a better assessment (& likely lower the ranking of this move)
+        let fj = (move.captured.length == 0 && Object.values(move.hex.inf[other]).find(inf => inf > 0)) && (nPlys < TP.maxPlys + 2)
+        if (nPlys < TP.maxPlys ||
+          (fj && (console.log(stime(this, `.fj: look-deeper`), nPlys, move.Aname, state1.bestValue), true))) { // extend depth if state1.fj
+          move['eval'] = fj ? '-' : '+'
+          // Depth-First search: find move from state1 to bestHex
+          let result: IteratorResult<any, State>
+          let planGen = planner.lookahead(state1, other, nPlys + (fj ? 1 : 0), (fj ? Math.max(0, TP.maxBreadth - 6) : 0),
             (state2: State) => {
               console.log(stime(this, `.evalAfterMove: lookahead`), { move1: move.Aname, state1: copyOf(state1), move2: state2.move.Aname, state2: copyOf(state2) })
               state1.bestValue = -state2.bestValue // MIN
             })
-            while (result = planGen.next(), !result.done) yield // propagate recursive yield
-          }
+          while (result = planGen.next(), !result.done) yield // propagate recursive yield
         }
-      //  return { moveName: move.Aname, bv: state1?.bestValue }
-        // getCaptures will: undoInfluence.close().pop(), undoRecs.close().pop(); this.captured === move.captures
-      //}
-      this.unplaceStone()
-      // let result: IteratorResult<any, Hex[]>, evalAfterGen = evalAfterMove() 
-      // let capGen = this.getCaptures(hex, stoneColor, evalAfterGen)
-      // while (result = capGen.next(), !result.done) yield
-      // captures = result.value; // === move.captures
+      }
+      // let bv = state1?.bestValue
+      // console.log(stime(this, `.evalMoveInDepth: move =`), move.Aname, M.decimalRound(bv, 3), 'caps=', rv ? rv : 'suicide')
+      this.unplaceStone(move)
     }
 
     if (!bestState) return state1
@@ -293,44 +279,16 @@ export class Planner {
     gamePlay.undoRecs = new Undo().enableUndo()
     gamePlay.addStone(hex, color)        // may invoke captureStone() -> undoRec(Stone & capMark)
   }
-  unplaceStone() {
+  unplaceStone(move: Move) {
     let gamePlay = this.gamePlay
     gamePlay.undoRecs.closeUndo().pop()    // like undoStones(); SHOULD replace captured Stones/Colors
     gamePlay.undoRecs = gamePlay.undoStack.pop(); 
     gamePlay.history.shift()
-    gamePlay.undoCapMarks(gamePlay.captured); // undoCapture
+    gamePlay.undoCapMarks(move.captured); // undoCapture
     gamePlay.captured = gamePlay.history[0]?.captured || []
         
   }
 
-  /** place color on hex, find captures & suicide; run genR; undo it all.
-   * leaving gamePlay in original state.
-   */
-  *getCaptures(hex: Hex, color: StoneColor, genR?: YieldR<object>) {
-    let gamePlay = this.gamePlay
-    let pcaps = gamePlay.captured; 
-    gamePlay.captured = []    //let move = new Move(hex, color, gamePlay.captured )
-    let move0 = new Move(hex, color, gamePlay.captured)
-    gamePlay.history.unshift(move0)
-    gamePlay.undoStack.push(gamePlay.undoRecs)
-    gamePlay.undoRecs = new Undo().enableUndo()
-    gamePlay.addStone(hex, color)        // isCapture(hexi, hex) -> captureStone(hexi) -> undoRec(Stone & capMark)
-    console.log(stime(this, `.getCaptures:`), { captures: gamePlay.captured.concat([]), Aname: move0.Aname, mcaps: move0.captured.concat([]) })
-    // capture may *remove* some inf & InfMarks!
-    let suicide = hex.isAttack(otherColor(color)), rv = suicide ? undefined : gamePlay.captured
-    if (genR) {
-      let result: IteratorResult<void, object>
-      while (result = genR.next(), !result.done) yield
-      let { bv, moveName } = (result.value as { bv: number, moveName: string })
-      if (bv !== undefined) console.log(stime(this, `.getCaptures: move =`), moveName, M.decimalRound(bv,3), 'caps=', rv ? rv : 'suicide')
-    }
-    gamePlay.undoRecs.closeUndo().pop()    // like undoStones(); SHOULD replace captured Stones/Colors
-    gamePlay.undoRecs = gamePlay.undoStack.pop(); 
-    gamePlay.history.shift()               // replace move0
-    gamePlay.undoCapMarks(move0.captured); // undoCapMarks & remark history[0].captured
-    gamePlay.captured = gamePlay.history[0]?.captured || []
-    return rv
-  }
   /** 
    * Initialize state0 with hex & bestHex = skipHex(-Infinity)
    * 
