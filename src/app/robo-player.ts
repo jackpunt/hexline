@@ -227,9 +227,8 @@ export class Planner {
   *evalMoveInDepth(hex: Hex, stoneColor: StoneColor, nPlys: number = TP.maxPlys, bestState?: State, state1?: State) {
     if (nPlys < TP.maxPlys || !state1) {
       let planner = this, gamePlay = this.gamePlay, move: Move, other = otherColor(stoneColor)
-      this.placeStone(hex, stoneColor) // addStone
+      this.placeStone(hex, stoneColor) // new Move(hex, color) -> addStone
       move = gamePlay.history[0]
-      let suicide = hex.isAttack(other), rv = suicide ? undefined : gamePlay.captured
       // setup board for gStats.update(); as if having made a Move(hex, stoneColor)
       // captured already set by outer getCapture; w/undoRecs to [re-] addStone!
       let win: StoneColor
@@ -365,13 +364,12 @@ class HexGen {
     for (let d of this.districts) yield* this.allHexInDistrict(d)
   }
 
-  *checkHex(hexary: Iterable<Hex>, 
-    pred?: (hex: Hex, color: StoneColor) => boolean) {
-    for (let nHex of hexary) {
+  *checkHex(hexIter: Iterable<Hex>) {
+    for (let nHex of hexIter) {
       if (this.hexes.has(nHex)) continue
-      if (!pred) this.hexes.add(nHex)
-      if (!this.gamePlay.isLegalMove(nHex, this.color, pred)) continue
       this.hexes.add(nHex)
+      // discarding captured[] !! we don't have a Move to stuff then into...
+      if (!this.gamePlay.isLegalMove(nHex, this.color)) continue
       yield nHex                // new move && not suicide
     }
   }

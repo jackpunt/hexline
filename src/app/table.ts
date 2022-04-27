@@ -7,7 +7,7 @@ import { StatsPanel } from "./stats";
 import { TP, StoneColor, otherColor, stoneColor0, stoneColor1, stoneColorRecord } from "./table-params";
 
 type XYWH = {x: number, y: number, w: number, h: number} // like a Rectangle
-type HEX_STATUS = { found: boolean, legal?: boolean, caps?: Hex[], sui?: boolean }
+type HEX_STATUS = Hex[] | false
 const S_stagemousemove = 'stagemousemove'
 
 /**
@@ -251,39 +251,35 @@ export class Table extends EventDispatcher  {
   /** cache legalMove: sui & captures */
   hexStatus: Record<StoneColor, Map<Hex, HEX_STATUS>>
   getHexStatus(hex: Hex, color: StoneColor): HEX_STATUS {
-    let status = this.hexStatus[color].get(hex)
-    return status ? { found: true, legal: status.legal, caps: status.caps, sui: status.sui } : { found: false }
+    return this.hexStatus[color].get(hex)
   }
   
   dragFunc(stone: Stone, ctx: DragInfo): void {
     const hex = this.hexUnderObj(stone)
-    const shift = ctx.event.nativeEvent ? ctx.event.nativeEvent.shiftKey : false
-    const color = shift ? otherColor(stone.color) : stone.color
+    const shiftKey = ctx.event.nativeEvent ? ctx.event.nativeEvent.shiftKey : false
+    const color = shiftKey ? otherColor(stone.color) : stone.color
     const nonTarget = (hex: Hex) => { this.dropTarget = this.nextHex }
     if (ctx.first) {
-      this.dragShift = shift
+      this.dragShift = shiftKey
       this.dropTarget = this.nextHex
       this.dragHex = this.nextHex   // indicate DRAG in progress
       this.hexStatus = stoneColorRecord<Map<Hex, HEX_STATUS>>(new Map(), new Map())
     }
-    if (shift != this.dragShift) stone.paint(shift ? color : undefined) // otherColor or orig color
+    if (shiftKey != this.dragShift) stone.paint(shiftKey ? color : undefined) // otherColor or orig color
     if (!hex) return
-    if (shift == this.dragShift && hex == this.dragHex) return    // nothing new
-    this.dragShift = shift
+    if (shiftKey == this.dragShift && hex == this.dragHex) return    // nothing new
+    this.dragShift = shiftKey
     this.dragHex = hex
     this.unmarkViewCaptured() // a new Hex/target, remove prior capture marks
 
-    let { found, legal, caps, sui } = this.getHexStatus(hex, color) // see if sui&caps is cached
-    if (!found) {
-      legal = this.gamePlay.isLegalMove(hex, color, () => true) // bypass getCaptures
-      caps = legal && this.gamePlay.getCaptures(hex, color) // set captured and undoCapture
-      sui = legal && !caps
-      this.hexStatus[color].set(hex, { found: true, legal, caps, sui })
+    let caps = this.getHexStatus(hex, color) // see if sui&caps is cached
+    if (caps === undefined) {
+      caps = this.gamePlay.isLegalMove(hex, color)  // includes getCaptures()
+      this.hexStatus[color].set(hex, caps || false) // false indicates found, but not legal
     }
-    if (!legal) return nonTarget(hex)
-    if (!!sui) return nonTarget(hex)
-    if (!!caps) this.markViewCaptured(caps)
-    if (!!shift) {
+    if (caps === false) return nonTarget(hex)
+    this.markViewCaptured(caps)
+    if (shiftKey) {
       nonTarget(hex)
       this.hexMap.showMark(hex)  // just showMark(hex)
     } else {

@@ -178,17 +178,18 @@ export class GamePlay0 {
     this.removeStone(nhex)   // decrInfluence(nhex, nhex.color)
   }
 
-  /** caller can enhance pred, but should/must include call to getCaptures for suicide prevention. */
-  isLegalMove(nHex: Hex, color: StoneColor,
-    pred: (hex: Hex, color: StoneColor) => boolean = (hex, color) => !!this.getCaptures(hex, color)) {
-    if (nHex.stoneColor !== undefined) return false
-    let move0 = this.history[0]  // getCaptures may not push the latest Move...
+  /**
+   * @returns a Hex[] (of captured Hexes) if move is Legal, else return undefined
+   */
+  isLegalMove(nHex: Hex, color: StoneColor): Hex[] {
+    if (nHex.stoneColor !== undefined) return undefined
+    let move0 = this.history[0]  // getCaptures may not push the latest Move... ???
     let isCaptured = move0 && (move0.stoneColor != color) && move0.captured.includes(nHex)
     // true if nHex is unplayable because it was captured by other player's previous Move
-    if (isCaptured) return false
+    if (isCaptured) return undefined
     let pstats = this.gStats.pStat(color)
-    if (nHex.district == 0 && pstats.dMax <= pstats.dStones[0]) return false
-    return pred(nHex, color) // and [generally] this.captured is set
+    if (nHex.district == 0 && pstats.dMax <= pstats.dStones[0]) return undefined
+    return this.getCaptures(nHex, color) // and [generally] this.captured is set
   }
 
   /**

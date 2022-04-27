@@ -179,9 +179,7 @@ export class Hex {
   }
   /** @return true if Hex has a Stone (of other color), and is attacked */
   isCapture(color: StoneColor, hex?: Hex): boolean {
-    let isCap = !!this.stoneColor && (this.stoneColor !== color) && this.isAttack(color)
-    isCap && console.log(stime(this, `.isCapture:`), { color, hex: hex.Aname, Aname: this.Aname, hexi: this, isCap })
-    return isCap
+    return !!this.stoneColor && (this.stoneColor !== color) && this.isAttack(color)
   }
   /** return last Hex on axis in given direction */
   lastHex(ds: InfDir): Hex {
