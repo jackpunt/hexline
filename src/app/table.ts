@@ -274,8 +274,8 @@ export class Table extends EventDispatcher  {
 
     let caps = this.getHexStatus(hex, color) // see if sui&caps is cached
     if (caps === undefined) {
-      caps = this.gamePlay.isLegalMove(hex, color)  // includes getCaptures()
-      this.hexStatus[color].set(hex, caps || false) // false indicates found, but not legal
+      caps = this.gamePlay.isLegalMove(hex, color) || false  // includes getCaptures()
+      this.hexStatus[color].set(hex, caps)                   // false indicates found, but not legal
     }
     if (caps === false) return nonTarget(hex)
     this.markViewCaptured(caps)

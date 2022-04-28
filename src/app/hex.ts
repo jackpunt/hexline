@@ -282,12 +282,10 @@ export class Hex2 extends Hex {
   override markCapture() {
     super.markCapture()
     if (this.capMark === undefined) { this.capMark = this.map.markCont.addChild(new CapMark(this)) }
-    console.log(stime(this, `.markCapture:`), { Aname: this.Aname, hex: this })
     this.capMark.visible = true
   }
   override unmarkCapture() {
     super.unmarkCapture()
-    console.log(stime(this, `.unmarkCapture:`), { Aname: this.Aname, hex: this })
     this.capMark && (this.capMark.visible = false) 
   }
 

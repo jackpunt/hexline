@@ -174,7 +174,9 @@ export class GamePlay0 {
   }
 
   captureStone(nhex: Hex) {
-    this.captured.push(nhex) // captureStone(nhex) ==> this.history[0].captured.push(nhex)
+    //this.captured.push(nhex) // captureStone(nhex) ==> 
+    if (this.captured !== this.history[0]?.captured) console.log(stime(this, `.captureStone:`), this.captured.concat([]), this.history[0]?.captured.concat([]))
+    this.history[0].captured.push(nhex)
     this.removeStone(nhex)   // decrInfluence(nhex, nhex.color)
   }
 
@@ -205,10 +207,10 @@ export class GamePlay0 {
     this.undoRecs.closeUndo().enableUndo()
     // addUndoRec(removeStone), incrInfluence [& undoInf] -> captureStone() -> undoRec(addStone & capMark)
     this.addStone(hex, color)        // stone on hexMap, no Move on history
-    let suicide = hex.isAttack(otherColor(color)), rv = suicide ? undefined : this.captured
+    let suicide = hex.isAttack(otherColor(color)), rv = suicide ? undefined : move0.captured
     this.undoRecs.closeUndo().pop()    // SHOULD replace captured Stones/Colors & undo/redo Influence
     this.history.shift()
-    this.undoCapMarks(this.captured); // undoCapture... undo.pop() *should* have done this?
+    this.undoCapMarks(move0.captured); // undoCapture... undo.pop() *should* have done this?
     this.captured = this.history[0]?.captured || []
     return rv
   }
@@ -351,7 +353,6 @@ export class GamePlay extends GamePlay0 {
   /** also showMark for next redo: history[0].hex */
   override undoCapMarks(captured: Hex[]): void {
     super.undoCapMarks(captured)
-    console.log(stime(this,`.undoCapMarks:`), {move0: this.history[0], captured})
     if (this.history[0]) this.hexMap.showMark(this.history[0].hex)
   }
 

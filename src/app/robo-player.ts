@@ -142,10 +142,11 @@ export class Planner {
     //console.log(stime(this, `.makeMove: stone=`), stone)
     gamePlay.gStats.update()
 
-    let sid0 = sid, tn = gamePlay.original.turnNumber
+    let sid0 = sid, ms0 = Date.now()-1, tn = gamePlay.original.turnNumber
     let dispatchMove = (state: State) => {
       let hex = state.move.hex
-      console.log(stime(this, `.makeMove: MOVE#${tn} = ${state.move.Aname} state=`), copyOf(state), `dsid: ${sid - sid0}`)
+      let dsid = sid - sid0, dms = Date.now() - ms0, sps = M.decimalRound(1000 * dsid / dms, 0)
+      console.log(stime(this, `.makeMove: MOVE#${tn} = ${state.move.Aname}`), `state=`, copyOf(state), {sps, dms, dsid})
       if (table) {
         // robo-player uses gamePlayC, so doesn't maintain Stone.stoneId, fix them here:
         table.gamePlay.history.forEach((moveR, ndx, history) => {
@@ -159,7 +160,7 @@ export class Planner {
       }
     }
     let firstMove = () => {
-      sid = 0
+      sid = sid0 = 0
       let lastDist = TP.ftHexes(TP.mHexes) - 1
       let hex = gamePlay.hexMap.district[lastDist][0]
       dispatchMove(newState(new Move(hex, stone.color), stone.color, 0))
@@ -205,12 +206,14 @@ export class Planner {
       throw err
     }
     if (TP.yield) yield  // voluntary yield to allow event loop (& graphics paint)
-    let dsid = sid - sid0, dms = Date.now() - ms0, sps = M.decimalRound(1000 * dsid / dms, 0)
-    console.log(stime(this, `.lookahead: evalAry =`),
-      moveAry.map(([h, s]) => [s.move['eval'] || '', s.move.Aname, s.id, M.decimalRound(s.value, 3), M.decimalRound(s.bestValue, 3),
-      (h == bestState.move.hex) ? '*' : '']))
-    let bestValue = M.decimalRound(bestState.bestValue, 3), bestHex = bestState.move.hex, Aname = bestHex.Aname
-    console.log(stime(this, `.lookahead:`), nPlys, stoneColor, { Aname, bestHex, bestValue, sps, dsid, dms, bestState: copyOf(bestState), sid })
+    if (TP.log) {
+      let dsid = sid - sid0, dms = Date.now() - ms0, sps = M.decimalRound(1000 * dsid / dms, 0)
+      console.log(stime(this, `.lookahead: evalAry =`),
+        moveAry.map(([h, s]) => [s.move, s.move['eval'] || '', s.move.Aname, s.id, M.decimalRound(s.value, 3), M.decimalRound(s.bestValue, 3),
+        (h == bestState.move.hex) ? '*' : '']))
+      let bestValue = M.decimalRound(bestState.bestValue, 3), bestHex = bestState.move.hex, Aname = bestHex.Aname
+      console.log(stime(this, `.lookahead:`), nPlys, stoneColor, { Aname, bestHex, bestValue, sps, dsid, dms, bestState: copyOf(bestState), sid })
+    }
     done && done(bestState)
     return bestState // or resign? or skip?
   }
