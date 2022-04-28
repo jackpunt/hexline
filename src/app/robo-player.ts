@@ -190,7 +190,7 @@ export class Planner {
    */
   *lookahead(state0: State, stoneColor: StoneColor, nPlys: number, b0 = 0, done?: (bestState: State) => void) {
     let tn = this.gamePlay.history.length
-    console.groupCollapsed(`${stime(this,`.lookahead`)}-${nPlys}/${TP.maxPlys} after ${otherColor(stoneColor)}#${tn}->${this.gamePlay.history[0].hex.Aname} ${stoneColor}#${tn+1}->`)
+    console.groupCollapsed(`${stime(this,`.lookahead`)}-${nPlys}/${TP.maxPlys} after ${TP.colorScheme[otherColor(stoneColor)]}#${tn}->${this.gamePlay.history[0].hex.Aname} ${TP.colorScheme[stoneColor]}#${tn+1}->`)
     let sid0 = sid, ms0 = Date.now() // current state id
     // ASSERT: no lookahead & no voluntary yield:
     let moveAry = this.evalAndSortMoves(state0, stoneColor, nPlys) // generate first approx of possible moves
