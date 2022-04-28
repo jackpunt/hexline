@@ -1,17 +1,17 @@
 import { C } from "@thegraid/createjs-lib";
 
-export const stoneColors = ['black', 'white'] as const
+export const stoneColors = [0, 1] as const
 export const stoneColor0 = stoneColors[0]
 export const stoneColor1 = stoneColors[1]
 //type stoneColorTuple = typeof stoneColors
 export type StoneColor = typeof stoneColors[number]
-export function otherColor(color: StoneColor): StoneColor { return color === 'black' ? 'white' : 'black' }
-export function stoneColorRecord<T>(b: T = null, w: T = null): Record<StoneColor, T> { return { 'black': b, 'white': w } };
-export function stoneColorRecordF<T>(f: (sc: StoneColor) => T) { return stoneColorRecord(f('black'), f('white')) }
+export function otherColor(color: StoneColor): StoneColor { return color === 0 ? 1 : 0 }
+export function stoneColorRecord<T>(b: T = null, w: T = null): Record<StoneColor, T> { return { 0: b, 1: w } };
+export function stoneColorRecordF<T>(f: (sc: StoneColor) => T) { return stoneColorRecord(f(0), f(1)) }
 export class TP {
   static yield = true
   static maxPlys = 4     // for robo-player lookahead
-  static maxBreadth = 11 // for robo-player lookahead
+  static maxBreadth = 7  // for robo-player lookahead
   static Black_White = stoneColorRecord('BLACK', 'WHITE')
   static Blue_Red = stoneColorRecord('BLUE', 'RED')
   static colorScheme: Record<StoneColor, string> = TP.Black_White

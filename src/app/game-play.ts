@@ -1,4 +1,4 @@
-import { HexAxis, H, InfDir } from "./hex-intfs";
+import { HexAxis, H, } from "./hex-intfs";
 import { Hex, Hex2, HexMap, S_Resign } from "./hex";
 import { HexEvent } from "./hex-event";
 import { S, stime, Undo, KeyBinder } from "@thegraid/createjs-lib";
@@ -155,7 +155,7 @@ export class GamePlay0 {
   isLegalMove(hex: Hex, color: StoneColor): Hex[] {
     if (hex.stoneColor !== undefined) return undefined
     let move0 = this.history[0]
-    let isCaptured = move0 && (move0.stoneColor != color) && move0.captured.includes(hex)
+    let isCaptured = move0 && (move0.stoneColor !== color) && move0.captured.includes(hex)
     // true if nHex is unplayable because it was captured by other player's previous Move
     if (isCaptured) return undefined
     let pstats = this.gStats.pStat(color)
@@ -165,11 +165,11 @@ export class GamePlay0 {
     this.history.unshift(move)
     this.undoRecs.closeUndo().enableUndo()
     // addUndoRec(removeStone), incrInfluence [& undoInf] -> captureStone() -> undoRec(addStone & capMark)
-    this.addStone(hex, color)          // stone on hexMap
+    this.addStone(hex, color)     // stone on hexMap
     let suicide = hex.isAttack(otherColor(color)), rv = suicide ? undefined : move.captured
     this.undoRecs.closeUndo().pop()    // replace captured Stones/Colors & undo/redo Influence
     this.history.shift()
-    this.undoCapMarks(move.captured); // remove capMarks on move, re-assert capMarks on move0
+    this.undoCapMarks(move.captured);  // remove capMarks on move, re-assert capMarks on move0
     return rv
   }
 }
@@ -234,15 +234,15 @@ export class GamePlay extends GamePlay0 {
   makeMove() {
     if (TP.maxBreadth == -1) { TP.maxPlys = this.maxPlys; TP.maxBreadth = this.maxPlys }
     let running = this.curPlayer.planner.running
-    console.log(stime(this, `.makeMove: ${this.curPlayer.color} useRobo=`), this.curPlayer.useRobo, `running=${running}` )
+    console.log(stime(this, `.makeMove: ${this.curPlayer.colorn} useRobo=`), this.curPlayer.useRobo, `running=${running}` )
     if (!running)
       this.curPlayer.makeMove(this.table.nextHex.stone, true) // make one robo move
   }
   autoMove(useRobo: boolean = false) {
     let op = this.otherPlayer(this.curPlayer)
     this.curPlayer.useRobo = op.useRobo = useRobo // if toggle then useRobo = !useRobo
-    console.log(stime(this, `.autoMove: ${this.curPlayer.color}.useRobo=`), this.curPlayer.useRobo)
-    console.log(stime(this, `.autoMove: ${op.color}.useRobo=`), op.useRobo)
+    console.log(stime(this, `.autoMove: ${this.curPlayer.colorn}.useRobo=`), this.curPlayer.useRobo)
+    console.log(stime(this, `.autoMove: ${op.colorn}.useRobo=`), op.useRobo)
   }
   /** undo last undo block: with logging collapsed & hexMap.update() */
   undoStones() {
@@ -292,12 +292,10 @@ export class GamePlay extends GamePlay0 {
     let stoneId = hex.stoneIdText.text, color = hex.stoneColor
     this.addUndoRec(this, `${hex.Aname}.setStoneId(${stoneId})`, () => hex.setStoneId(stoneId))
     super.removeStone(hex)
-    H.axis.forEach(ds => hex.showInf(color, ds, hex.isInf(color, ds) || hex.isInf(color, H.dirRev[ds])))
     return
   }
   override addStone(hex: Hex2, stoneColor: StoneColor): void {
     super.addStone(hex, stoneColor)
-    H.axis.forEach(ds => hex.showInf(stoneColor, ds, false))
     hex.setStoneId(this.history.length)
   }
   override captureStone(nhex: Hex): void {
@@ -318,21 +316,21 @@ export class GamePlay extends GamePlay0 {
     this.table.stopDragging() // drop on nextHex (no Move)
     this.addStoneEvent(new HexEvent(S.add, this.hexMap.resignHex, this.table.nextHex.stoneColor)) // move Stone to table.resignHex
   }
-  override doPlayerSkip() {
+  override doPlayerSkip(hex: Hex, stoneColor: StoneColor) {
     // undo-skip: clear other Player's Stone from this.table.nextHex
     this.addUndoRec(this.table, 'clearNextHex', () => this.table.nextHex.clearColor()) // undo-skip
   }
-  override doPlayerResign(hex: Hex, stoneColor: "black" | "white"): void {
+  override doPlayerResign(hex: Hex, stoneColor: StoneColor): void {
     this.addUndoRec(this.table, 'clearNextHex', () => this.table.nextHex.clearColor()) // undo-resign
   }
   /** remove captured Stones, from placing Stone on Hex */
   override doPlayerMove(hex: Hex, color: StoneColor): StoneColor {
     let win = super.doPlayerMove(hex, color) // skipAndSet -> captureStone -> mark new Captures
     this.hexMap.update()
-    if (!!win) {
+    if (win !== undefined) {
       // addStoneEvent will NOT invoke this.setNextPlayer()
       super.setNextPlayer()
-      this.table.logCurPlayer(true) // log for next move, but do not PutButtonOnPlayer(curPlayer)
+      this.table.logCurPlayer(this.curPlayer) // log for next move, but do not PutButtonOnPlayer(curPlayer)
     }
     return win
   }
@@ -358,7 +356,7 @@ export class GamePlay extends GamePlay0 {
     // extract the StoneColor, ignore the Stone (thank you for your service!)
     hev.stone?.parent?.removeChild(hev.stone)    // remove nxtStone
     let win = this.doPlayerMove(hev.hex, hev.stoneColor)
-    if (!win) this.setNextPlayer()
+    if (win === undefined) this.setNextPlayer()
     else this.endCurPlayer()
   }
   removeStoneEvent(hev: HexEvent) {
@@ -373,18 +371,18 @@ export class Move {
   readonly stoneColor: StoneColor
   readonly captured: Hex[] = [];
   board: Board
-  constructor(hex: Hex, color: StoneColor, captured: Hex[] = []) {
-    this.Aname = this.toString(hex, color) // for debugger..
+  constructor(hex: Hex, stoneColor: StoneColor, captured: Hex[] = []) {
+    this.Aname = this.toString(hex, stoneColor) // for debugger..
     this.hex = hex
-    this.stoneColor = color
+    this.stoneColor = stoneColor
     this.captured = captured
   }
-  toString(hex = this.hex, color = this.stoneColor): string {
+  toString(hex = this.hex, stoneColor = this.stoneColor): string {
     let name = hex.Aname // Hex@[r,c] OR Hex@Skip OR hex@Resign
-    return `${color}${name.substring(3)}`
+    return `${TP.colorScheme[stoneColor]}${name.substring(3)}`
   }
   bString(): string {
-    let pid = stoneColors.indexOf(this.stoneColor)
+    let pid = stoneColors.indexOf(this.stoneColor) // when StoneColor is [0|1] simplify this!
     return `${pid}${this.hex.Aname.substring(3)}`
   }
 }
@@ -401,11 +399,12 @@ export class Player implements Mover {
   gamePlay: GamePlay0
   planner: Planner
   useRobo: boolean = false
+  get colorn() {return TP.colorScheme[this.color]}
  
   constructor(index: number, color: StoneColor, gamePlay: GamePlay0) {
     this.index = index
     this.color = color
-    this.name = `Player${index}-${color}`
+    this.name = `Player${index}-${this.colorn}`
     this.gamePlay = gamePlay
     this.planner = new Planner(gamePlay)
   }

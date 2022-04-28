@@ -2,7 +2,7 @@ import { Container, DisplayObject, Graphics, Shape, Text } from "createjs-module
 import { C, F, Obj, RC, S, stime, Undo } from "@thegraid/createjs-lib";
 import { HexAxis, HexDir, H, InfDir } from "./hex-intfs";
 import { Stone, Table } from "./table";
-import { otherColor, StoneColor, stoneColor0, stoneColorRecord, stoneColors, TP } from "./table-params";
+import { otherColor, StoneColor, stoneColor0, stoneColor1, stoneColorRecord, stoneColors, TP } from "./table-params";
 import { GamePlay0 } from "./game-play";
 
 export const S_Resign = 'Hex@Resign'
@@ -28,8 +28,8 @@ class InfMark extends Shape {
     InfMark.gE0 = new Graphics()
     InfMark.gE1 = new Graphics()
     let r = Stone.height - 1, w = 5, wo = w / 2
-    let c0 = TP.colorScheme['black']
-    let c1 = TP.colorScheme['white']
+    let c0 = TP.colorScheme[stoneColor0]
+    let c1 = TP.colorScheme[stoneColor1]
     if (C.dist(c1, "white") < 10) {
       InfMark.gInf(InfMark.gE1, 'lightgrey', w + 2, -wo, r)
     }
@@ -42,7 +42,7 @@ class InfMark extends Shape {
     this.mouseEnabled = false
     this.rotation = H.dirRot[ds]
     this.x = x; this.y = y
-    this[S.Aname] = `Inf[${color},${ds},${this.id}]`  // for debug, not production
+    this[S.Aname] = `Inf[${TP.colorScheme[color]},${ds},${this.id}]`  // for debug, not production
   }
 }
 class CapMark extends Shape {
@@ -98,16 +98,16 @@ export class Hex {
   unmarkCapture() {  }
 
   /** set hex.stoneColor and push HSC on allStones */
-  setColor(color: StoneColor) {
-    if (!color) return this.clearColor() // color that was cleared
-    this.stoneColor = color
-    let hsc = { Aname: this.Aname, hex: this, color }
+  setColor(stoneColor: StoneColor) {
+    if (stoneColor === undefined) return this.clearColor() // color that was cleared
+    this.stoneColor = stoneColor
+    let hsc = { Aname: this.Aname, hex: this, color: stoneColor }
     this.row !== undefined && this.map?.allStones.push(hsc) // no push: Aname == nextHex
-    return color  // color that was set
+    return stoneColor  // color that was set
   }
   clearColor() {
     let color = this.stoneColor
-    if (!!color && !!this.map) {
+    if (color !== undefined && !!this.map) {
       this.map.allStones = this.map.allStones.filter(hsc => hsc.hex !== this)
     }
     this.stoneColor = undefined
@@ -122,8 +122,6 @@ export class Hex {
    */
   isInf(color: StoneColor, dn: InfDir) { return this.inf[color][dn] > 0}
   getInf(color: StoneColor, dn: InfDir) { return this.inf[color][dn] || 0 }
-  // incInf(color: StoneColor, dn: InfDir) { return this.inf[color][dn] = (this.inf[color][dn] || 0) + 1 }
-  // decInf(color: StoneColor, dn: InfDir) { return this.inf[color][dn] = (this.inf[color][dn] || 0) - 1 }
   setInf(color: StoneColor, dn: InfDir, inf: number) { return this.inf[color][dn] = inf }
 
   /** 
@@ -179,7 +177,7 @@ export class Hex {
   }
   /** @return true if Hex has a Stone (of other color), and is attacked */
   isCapture(color: StoneColor, hex?: Hex): boolean {
-    return !!this.stoneColor && (this.stoneColor !== color) && this.isAttack(color)
+    return (this.stoneColor !== undefined) && (this.stoneColor !== color) && this.isAttack(color)
   }
   /** return last Hex on axis in given direction */
   lastHex(ds: InfDir): Hex {
@@ -259,14 +257,11 @@ export class Hex2 extends Hex {
     return inf
   }
   showInf(color: StoneColor, dn: InfDir, show = true) {
+    let ds: HexAxis = H.dnToAxis[dn], infMark = this.infm[color][ds]  // infm only on [ds]
     if (show) {
-      let ds: HexAxis = H.dnToAxis[dn]     // infm only on [ds]
-      if (this.stoneColor !== color && !this.infm[color][ds]) {
-        this.infm[color][ds] = new InfMark(color, ds, this.x, this.y)
-      }
-      this.map.infCont.addChild(this.infm[color][ds])
+      if (!infMark) infMark = this.infm[color][ds] = new InfMark(color, ds, this.x, this.y)
+      this.map.infCont.addChild(infMark)
     } else {
-      let infMark = this.infm[color][H.dnToAxis[dn]]
       infMark?.parent?.removeChild(infMark)
     }
   }
@@ -292,7 +287,7 @@ export class Hex2 extends Hex {
   setStoneId(id: number | string) {
     let sid = typeof id === 'number' ? `${id}` : id
     this.stoneIdText.text = this.stoneIdText ? sid : ''
-    this.stoneIdText.color = otherColor(this.stone.color)
+    this.stoneIdText.color = TP.Black_White[otherColor(this.stone.color)]
     let cont: Container = this.map.stoneCont
     this.cont.parent.localToLocal(this.x, this.y, cont, this.stoneIdText)
     cont.addChild(this.stoneIdText)
@@ -303,7 +298,7 @@ export class Hex2 extends Hex {
   /** make a Stone on this Hex2 (from addStone(color)) */
   override setColor(stoneColor: StoneColor): StoneColor {
     super.setColor(stoneColor)
-    if (stoneColor) {
+    if (stoneColor !== undefined) {
       let stone = this.stone = new Stone(stoneColor)
       stone[S.Aname] = `[${this.row},${this.col}]`
       let cont: Container = this.map.stoneCont

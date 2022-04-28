@@ -2,7 +2,7 @@ import { M, Obj, S, stime, Undo } from "@thegraid/createjs-lib";
 import { GamePlay0, GamePlayC, Move, Mover, Player } from "./game-play";
 import { Hex, Hex2 } from "./hex";
 import { HexEvent } from "./hex-event";
-import { allowEventLoop, H, YieldR } from "./hex-intfs";
+import { allowEventLoop, H, } from "./hex-intfs";
 import { Stone, Table } from "./table";
 import { otherColor, StoneColor, stoneColorRecord, stoneColorRecordF, TP } from "./table-params";
 
@@ -125,7 +125,7 @@ export class Planner {
     return newState(move, color, value ) // moves is undefined
   }
   winState(state: State, win: StoneColor): StoneColor {
-    if (win) state.bestValue = (win == state.move.stoneColor) ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY
+    if (win !== undefined) state.bestValue = (win === state.move.stoneColor) ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY
     return win
   }
   stateWin(state: State) {
@@ -166,8 +166,13 @@ export class Planner {
       dispatchMove(newState(new Move(hex, stone.color), stone.color, 0))
     }
     if (gamePlay.history.length < 1) return firstMove()
+    // try get previously evaluated State & MOVES:
     let move0 = gamePlay.history[0], hex0 = move0.hex    // other Player's last move
-    let state0 = this.prevState?.moves?.get(hex0) || this.evalState(stone.color) // try get previously evaluate State
+    // cheat: see if other Planner has State & MOVES:
+    let op = this.gamePlay.original.otherPlayer()
+    let state0 = op.planner?.prevState// this.gamePlay.otherPlayer().planner?.prevState
+    // righteous: from our own previous analysis:
+    if (!state0) state0 = this.prevState?.moves?.get(hex0) || this.evalState(stone.color)
     allowEventLoop(this.lookahead(state0, stone.color, 0), (state: State) => dispatchMove(state))
   }
   /** 
@@ -247,7 +252,7 @@ export class Planner {
         win = gamePlay.gStats.gameOver(board, win)          // check for resign, stalemate
         planner.winState(state1, win)                       // adjust value if win/lose
       }
-      if (!win) {
+      if (win !== undefined) {
         // move into jeopardy [without capturing] is generally bad: (but *maybe* the stone is untakable...)
         // get a better assessment (& likely lower the ranking of this move)
         let fj = (move.captured.length == 0 && Object.values(move.hex.inf[other]).find(inf => inf > 0)) && (nPlys < TP.maxPlys + 2)

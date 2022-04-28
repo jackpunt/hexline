@@ -185,7 +185,7 @@ export class Table extends EventDispatcher  {
     this.on(S.remove, this.gamePlay.removeStoneEvent, this.gamePlay)[S.Aname] = "removeStone"
     this.hexMap.update()      // after layoutTable()
   }
-  logCurPlayer(curPlayer) {
+  logCurPlayer(curPlayer: Player) {
     const history = this.gamePlay.history
     const tn = this.gamePlay.turnNumber
     const lm = history[0]

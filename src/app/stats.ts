@@ -60,7 +60,7 @@ export class GameStats {
   incCounters(hex: Hex) {
     // count Stones of color (& in District)
     let hColor = hex.stoneColor
-    if (!!hColor) {
+    if (hColor !== undefined) {
       let district = hex.district, pstats = this.pStats[hColor]
       pstats.nStones += 1
       let dStones = pstats.dStones[district] = (pstats.dStones[district] || 0) + 1
@@ -76,7 +76,7 @@ export class GameStats {
       if (infColor > 0) {
         pstats.nInf++
         if (infColor > 1) pstats.nAttacks++
-        if (!!hColor && hColor != pColor) {
+        if (hColor !== undefined && hColor !== pColor) {
           pstats.nThreats++
           pstats.hThreats.push(hex)
         }
@@ -110,7 +110,7 @@ export class GameStats {
     let nstones = stoneColors.map(pc => this.pStats[pc].nStones)
     // win = scores[stoneColor0] >= TP.nVictory ? stoneColor0
     //     : scores[stoneColor1] >= TP.nVictory ? stoneColor1 : undefined
-    return win ? win : !board ? undefined
+    return (win !== undefined) ? win : !board ? undefined
       : board.resigned ? otherColor(board.resigned)
         : (board.repCount < 3) ? undefined
           : ((scores[0] == scores[1] ? (nstones[0] <= nstones[1] ? stoneColor1 : stoneColor0)
@@ -188,7 +188,7 @@ export class TableStats extends GameStats {
       this.table.statsPanel.update()
       this.showControl(this.table)
     }
-    if (win) {
+    if (win !== undefined) {
       let pc = win, pcr = TP.colorScheme[pc], pStats = this.pStat(pc)
       let opc = otherColor(pc), opcr = TP.colorScheme[opc], opStats = this.pStat(opc)
       if (board.resigned) return this.showWin(board, pc, `${opcr} RESIGNS`)
@@ -253,7 +253,7 @@ export class TableStats extends GameStats {
     else
       hex.cont.localToLocal(7, -10, hex.map.infCont, dsText) // rotation from (0,-12)
     dsText.text = (n0 == 0 && n1 == 0) ? `` : `${n0}:${n1}`
-    dsText.color = (!hex.stone?.color || C.dist(TP.colorScheme[hex.stone.color], C.WHITE)<100) ? C.BLACK : C.WHITE
+    dsText.color = (hex.stone?.color === undefined || C.dist(TP.colorScheme[hex.stone.color], C.WHITE)<100) ? C.BLACK : C.WHITE
   }
 }
 /**
