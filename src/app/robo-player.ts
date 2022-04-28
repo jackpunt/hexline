@@ -272,23 +272,21 @@ export class Planner {
     if (!bestState) return state1
     return (state1.bestValue > bestState.bestValue) ? state1 : bestState // for lookahead: best of states so far
   }
+  readonly undoStack: Undo[] = []  // stack of Undo array-objects
   /** make Move, unshift, addStone -> captured  */
   placeStone(hex: Hex, color: StoneColor) {
     let gamePlay = this.gamePlay, move0 = new Move(hex, color, [])
-    gamePlay.captured = move0.captured
+    this.undoStack.push(gamePlay.undoRecs) // until we have immutable/write-on-modify HexMap...
     gamePlay.history.unshift(move0)
-    gamePlay.undoStack.push(gamePlay.undoRecs)
     gamePlay.undoRecs = new Undo().enableUndo()
     gamePlay.addStone(hex, color)        // may invoke captureStone() -> undoRec(Stone & capMark)
   }
   unplaceStone(move: Move) {
     let gamePlay = this.gamePlay
     gamePlay.undoRecs.closeUndo().pop()    // like undoStones(); SHOULD replace captured Stones/Colors
-    gamePlay.undoRecs = gamePlay.undoStack.pop(); 
     gamePlay.history.shift()
     gamePlay.undoCapMarks(move.captured); // undoCapture
-    gamePlay.captured = gamePlay.history[0]?.captured || []
-        
+    gamePlay.undoRecs = this.undoStack.pop(); 
   }
 
   /** 

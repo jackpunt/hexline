@@ -37,14 +37,7 @@ export class GamePlay0 {
   readonly allBoards = new BoardRegister()
   readonly allPlayers: Player[];
 
-  /** Transient: set by GamePlay: captureStone <- skipAndSet <- assertInfluenceDir <-assertInfluence <- addStone */
-  captured: Hex[] = []
-  //undoInfluence: Undo = new Undo() // used by getCaptures()
-
-  turnNumber: number = 0
-  get roundNumber() {return Math.floor((this.turnNumber - 1) / this.allPlayers.length) + 1 }
-
-  get numPlayers(): number { return this.allPlayers.length; }
+  turnNumber: number = 0    // strongly related to history.length
 
   curPlayer: Player;
   getPlayer(color: StoneColor): Player {
@@ -66,27 +59,7 @@ export class GamePlay0 {
   setBoardAndRepCount(move: Move) {
     return this.allBoards.addBoard(move, this.history)
   }
-  // /**
-  //  * clear Stones & influence, add Stones, assertInfluence
-  //  * @param board 
-  //  */
-  // recalcBoard(board: HSC[]) {
-  //   let axisDone: AxisDone = {} // indexed by axis: Set<H.axis>
-  //   // doing hex.clearColor() en masse:
-  //   this.hexMap.allStones.splice(0, this.hexMap.allStones.length)
-  //   this.hexMap.forEachHex(hex => { 
-  //     hex instanceof Hex2 && (hex.stone = undefined);
-  //     hex.clearInf() }) // QQQ: this.setStone(undefined) ??
-  //   board.forEach(hsc => {
-  //     hsc.hex.setColor(hsc.color)
-  //   })
-  //   // scan each Line once to assert influence
-  //   board.forEach(hsc => {
-  //     this.assertInfluence(hsc.hex, hsc.color, false, axisDone) // TODO: NEEDS WORK567890
-  //   })
-  // }
 
-  readonly undoStack: Undo[] = []  // stack of Undo array-objects
   undoRecs: Undo = new Undo().enableUndo();
   addUndoRec(obj: Object, name: string, value: any | Function = obj[name]) { 
     this.undoRecs.addUndoRec(obj, name, value); 
@@ -130,7 +103,7 @@ export class GamePlay0 {
   doPlayerMove(hex: Hex, stoneColor: StoneColor): StoneColor {
     this.unmarkOldCaptures()   // this player no longer constrained
 
-    let move = new Move(hex, stoneColor, []); this.captured = move.captured
+    let move = new Move(hex, stoneColor, [])
     this.history.unshift(move) // record Move in History[0] (including Skip & Resign)
     if (hex == this.hexMap.skipHex) {
       this.doPlayerSkip(hex, stoneColor)
@@ -142,9 +115,6 @@ export class GamePlay0 {
     }
 
     this.undoRecs.closeUndo()
-    //console.log(stime(this, `.doPlayerMove: undoInfluence=`), this.undoInfluence) // confirm: EMPTY
-    //this.undoInfluence.flushUndo() // <=== no going back! [skipAndSet] maybe just closeUndo() ??
-
     this.setBoardAndRepCount(move) // set/reduce repCount to actual value 
     let win = this.gStats.update(move) // check for WIN: showRepCount(), showWin()
     return win
@@ -174,49 +144,33 @@ export class GamePlay0 {
   }
 
   captureStone(nhex: Hex) {
-    //this.captured.push(nhex) // captureStone(nhex) ==> 
-    if (this.captured !== this.history[0]?.captured) console.log(stime(this, `.captureStone:`), this.captured.concat([]), this.history[0]?.captured.concat([]))
-    this.history[0].captured.push(nhex)
+    this.history[0].captured.push(nhex)      // mark as unplayable for next turn
     this.removeStone(nhex)   // decrInfluence(nhex, nhex.color)
   }
 
   /**
+   * See if proposed Move is legal; one of many potential Moves we likely won't make or explore.
    * @returns a Hex[] (of captured Hexes) if move is Legal, else return undefined
    */
-  isLegalMove(nHex: Hex, color: StoneColor): Hex[] {
-    if (nHex.stoneColor !== undefined) return undefined
-    let move0 = this.history[0]  // getCaptures may not push the latest Move... ???
-    let isCaptured = move0 && (move0.stoneColor != color) && move0.captured.includes(nHex)
+  isLegalMove(hex: Hex, color: StoneColor): Hex[] {
+    if (hex.stoneColor !== undefined) return undefined
+    let move0 = this.history[0]
+    let isCaptured = move0 && (move0.stoneColor != color) && move0.captured.includes(hex)
     // true if nHex is unplayable because it was captured by other player's previous Move
     if (isCaptured) return undefined
     let pstats = this.gStats.pStat(color)
-    if (nHex.district == 0 && pstats.dMax <= pstats.dStones[0]) return undefined
-    return this.getCaptures(nHex, color) // and [generally] this.captured is set
-  }
-
-  /**
-   * called from dragFunc (or robo-player..), before a Move.
-   * addStone & incrInfluence on hex of color [with captures & undos]
-   * see if hex is [still] attacked by otherColor
-   * then undo: replace captures, removeStone, recalc influence
-   * @return captures (this.captured) or undefined if Move is suicide
-   */
-  getCaptures(hex: Hex, color: StoneColor): Hex[] | undefined {
-    let move0 = new Move(hex, color, []); this.captured = move0.captured
-    this.history.unshift(move0)
+    if (hex.district == 0 && pstats.dMax <= pstats.dStones[0]) return undefined
+    // get Captures THEN check Suicide:
+    let move = new Move(hex, color, [])
+    this.history.unshift(move)
     this.undoRecs.closeUndo().enableUndo()
     // addUndoRec(removeStone), incrInfluence [& undoInf] -> captureStone() -> undoRec(addStone & capMark)
-    this.addStone(hex, color)        // stone on hexMap, no Move on history
-    let suicide = hex.isAttack(otherColor(color)), rv = suicide ? undefined : move0.captured
-    this.undoRecs.closeUndo().pop()    // SHOULD replace captured Stones/Colors & undo/redo Influence
+    this.addStone(hex, color)          // stone on hexMap
+    let suicide = hex.isAttack(otherColor(color)), rv = suicide ? undefined : move.captured
+    this.undoRecs.closeUndo().pop()    // replace captured Stones/Colors & undo/redo Influence
     this.history.shift()
-    this.undoCapMarks(move0.captured); // undoCapture... undo.pop() *should* have done this?
-    this.captured = this.history[0]?.captured || []
+    this.undoCapMarks(move.captured); // remove capMarks on move, re-assert capMarks on move0
     return rv
-  }
-  showLine(str: string, line: Hex[], fn = (h: Hex)=>`${h.Aname}-${h.stoneColor}`) {
-    let dss = (line['ds']+' ').substring(0,2)
-    console.log(stime(this, str), dss, line.map(fn))
   }
 }
 
@@ -525,42 +479,4 @@ export class Board {
   getHexMap() {
 
   }
-
-  /**
-   * clear Stones & influence, add Stones, assertInfluence (see also: gamePlay0.recalcBoard)
-   */
-  // makeHexMap(gamePlay: GamePlay0, hexMap?: HexMap) {
-  //   let hsc = this.hexStones, oldMap = hexMap ? undefined : (hexMap = new HexMap())
-  //   let axisDone: AxisDone = {} // indexed by axis: Set<H.axis>
-  //   if (oldMap) {
-  //     // doing hex.clearColor() en masse:
-  //     oldMap.forEachHex(hex => {
-  //       hex.stoneColor = undefined
-  //       hex.clearInf()
-  //       if (hex instanceof Hex2) {
-  //         hex.map.stoneCont.removeChild(hex.stone)   //(hex.stone = undefined); // QQQ:
-  //       }
-  //       hex.stoneColor = undefined
-  //     })
-  //     hsc.forEach(hsc => {
-  //       hsc.hex.setColor(hsc.color)    // set StoneColors on map
-  //     })
-  //   }
-  //   // scan each Line once to assert influence
-  //   hsc.forEach(hsc => {
-  //     gamePlay.assertInfluence(hsc.hex, hsc.color, false, axisDone) // TODO: NEEDS WORK567890
-  //   })
-  // }
-
 }
-// Given a board[list of Hex, each with B/W stone & next=B/W], 
-// generate a list of potential next move (B/W, Hex)
-// for each Move: call makeMove(board, move); staticEval(board, B/W); 
-// makeMove(board, move): Board;
-// --> places the stone, removes any captures, and writes undo records. 
-// --> [Undo could just be a copy of the pre-board]
-// 
-// displayBoard(board) --> clear each Hex, then set each Hex per board;
-// --> mark each line that is threatened by B/W (crossing lines imply attack)
-// --> for each 'attack' spot, see if it is a legal drop spot (if drop would remove 'attack')
-// --> 
