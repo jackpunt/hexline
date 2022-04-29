@@ -1,6 +1,6 @@
 import { Container, Stage } from "createjs-module";
-import { C, Obj, stime, makeStage } from "@thegraid/createjs-lib";
-import { DropdownButton, ParamGUI, ParamItem, ParamOpts, ParamSpec,} from '@thegraid/createjs-lib'
+import { stime, makeStage } from "@thegraid/createjs-lib";
+import { ParamGUI, ParamItem} from '@thegraid/createjs-lib'
 import { GamePlay } from "./game-play";
 import { StatsPanel, TableStats } from "./stats";
 import { Table } from "./table";

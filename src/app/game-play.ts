@@ -1,4 +1,4 @@
-import { HexAxis, H, } from "./hex-intfs";
+import { H, } from "./hex-intfs";
 import { Hex, Hex2, HexMap, S_Resign } from "./hex";
 import { HexEvent } from "./hex-event";
 import { S, stime, Undo, KeyBinder } from "@thegraid/createjs-lib";
@@ -9,7 +9,6 @@ import { Planner } from "./robo-player";
 import { GameSetup } from "./game-setup";
 
 type HSC = { hex: Hex, color: StoneColor }
-type AxisDone = { [key in HexAxis]?: Set<Hex> }
 export class GamePlay0 {
 
   constructor(original?: GamePlay0) {
@@ -370,6 +369,7 @@ export class Move {
   readonly hex: Hex // where to place stone
   readonly stoneColor: StoneColor
   readonly captured: Hex[] = [];
+  eval: string = ''      // for debugger: has this Move been evaluated?
   board: Board
   constructor(hex: Hex, stoneColor: StoneColor, captured: Hex[] = []) {
     this.Aname = this.toString(hex, stoneColor) // for debugger..
@@ -459,8 +459,7 @@ export class Board {
   toString() { return `${this.id}#${this.repCount}` }
   idString(move: Move) {
     let id = this.cString(this.nextPlayerColor, move.captured) + (this.resigned ? move.Aname : '')
-    let nCol = move.hex.map.nCol
-    this.hexStones.sort((a, b) => { return (a.hex.row - b.hex.row) * nCol + (a.hex.col - b.hex.col) });
+    this.hexStones.sort((a, b) => { return a.hex.rc_linear - b.hex.rc_linear }); // ascending row-major
     this.hexStones.forEach(hsc => id += this.bString(hsc)) // in canonical order
     return id
   }

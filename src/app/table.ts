@@ -104,7 +104,7 @@ export class Table extends EventDispatcher  {
         qShape.x = 0; qShape.y = qY // return to regular location
         this.undoCont.addChild(qShape)
         if (!hex) return
-        let InfDisp = this.hexMap.infCont.children.filter(obj => obj.x == hex.x && obj.y == hex.y)
+        let InfDisp = this.hexMap.mapCont.infCont.children.filter(obj => obj.x == hex.x && obj.y == hex.y)
         let InfName = InfDisp.map(i => i[S.Aname])
         let info = { hex, stone: hex.stoneColor, InfName }
         info[`Inf[${stoneColor0}]`] = hex.inf[stoneColor0]
@@ -116,42 +116,41 @@ export class Table extends EventDispatcher  {
     let toggleText = (evt: MouseEvent, vis?: boolean) => { 
       if (!toggle) return (toggle = true, undefined) // skip one 'click' when pressup/dropfunc
       this.hexMap.forEachHex<Hex2>(hex => hex.showText(vis))
-      this.hexMap.hexCont.updateCache()  // when toggleText: hexInspector
+      this.hexMap.mapCont.hexCont.updateCache()  // when toggleText: hexInspector
       this.hexMap.update()               // after toggleText & updateCache()
     }
     qShape.on(S.click, toggleText, this) // toggle visible
   }
   miniMap: HexMap;
   makeMiniMap(parent: Container, x, y) {
-    let cont = new Container(); cont[S.Aname] = 'miniMap'
-    let miniMap = this.miniMap = new HexMap(Stone.radius, cont)
+    let miniMap = this.miniMap = new HexMap(Stone.radius, true)
+    let mapCont = miniMap.mapCont
     let rot = 7, rotC = (30-rot), rotH = (rot - 60)
     if (TP.nHexes == 1) rotC = rotH = 0
     miniMap.makeAllDistricts(TP.mHexes, 1)
     let bgHex = new Shape()
     bgHex.graphics.f(TP.bgColor).dp(0, 0, TP.hexRad*(2*TP.mHexes-1), 6, 0, 60)
-    cont.addChildAt(bgHex, 0)
-    cont.x = x; cont.y = y
-    cont.rotation = rotC
+    mapCont.addChildAt(bgHex, 0)
+    mapCont.x = x; mapCont.y = y
+    mapCont.rotation = rotC
     miniMap.forEachHex<Hex2>(h => {
       h.distText.visible = h.rcText.visible = false; 
       h.cont.rotation = rotH; h.cont.scaleX = h.cont.scaleY = .985
     })
-    parent.addChild(cont)
+    parent.addChild(mapCont)
   }
 
   layoutTable(gamePlay: GamePlay) {
     this.gamePlay = gamePlay
     this.hexMap = gamePlay.hexMap
 
-    let mapCont = new Container();
-    mapCont[S.Aname] = "mapCont"
-    this.scaleCont.addChild(mapCont)
-
-    this.hexMap.addToCont(mapCont, this).initInfluence()
+    this.hexMap.addToCont().initInfluence()
     this.hexMap.makeAllDistricts(TP.mHexes, TP.nHexes) // typically: 3,3 or 2,4
 
-    let hexRect = this.hexMap.hexCont.getBounds()
+    let mapCont = this.hexMap.mapCont;
+    this.scaleCont.addChild(mapCont)
+
+    let hexRect = this.hexMap.mapCont.hexCont.getBounds()
     // background sized for hexMap:
     let high = this.hexMap.height, wide = this.hexMap.width // h=rad*1.5; w=rad*r(3)
     let miny = hexRect.y - high, maxy = hexRect.y + hexRect.height + high
@@ -170,20 +169,19 @@ export class Table extends EventDispatcher  {
     this.nextHex.x = Math.round(this.nextHex.x); this.nextHex.y = Math.round(this.nextHex.y)
     this.undoCont.x = this.nextHex.x
     this.undoCont.y = this.nextHex.y + 100
-    this.hexMap.markCont.addChild(this.undoCont)
+    this.hexMap.mapCont.markCont.addChild(this.undoCont)
 
     this.bgRect = this.setBackground(this.scaleCont, bgr) // bounded by bgr
-    let p00 = this.scaleCont.localToLocal(bgr.x, bgr.y, this.hexMap.hexCont) 
-    let pbr = this.scaleCont.localToLocal(bgr.x+bgr.w, bgr.y+bgr.h, this.hexMap.hexCont)
-    this.hexMap.hexCont.cache(p00.x, p00.y, pbr.x-p00.x, pbr.y-p00.y) // cache hexCont (bounded by bgr)
+    let p00 = this.scaleCont.localToLocal(bgr.x, bgr.y, this.hexMap.mapCont.hexCont) 
+    let pbr = this.scaleCont.localToLocal(bgr.x+bgr.w, bgr.y+bgr.h, this.hexMap.mapCont.hexCont)
+    this.hexMap.mapCont.hexCont.cache(p00.x, p00.y, pbr.x-p00.x, pbr.y-p00.y) // cache hexCont (bounded by bgr)
     this.setupUndoButtons(55, 60, 45, bgr)
 
-    this.gamePlay.setNextPlayer(this.gamePlay.allPlayers[0])   // make a placeable Stone for Player[0]
     this.makeMiniMap(this.scaleCont, -(200+TP.mHexes*TP.hexRad), 600+100*TP.mHexes)
 
     this.on(S.add, this.gamePlay.addStoneEvent, this.gamePlay)[S.Aname] = "addStone"
     this.on(S.remove, this.gamePlay.removeStoneEvent, this.gamePlay)[S.Aname] = "removeStone"
-    this.hexMap.update()      // after layoutTable()
+    this.gamePlay.setNextPlayer(this.gamePlay.allPlayers[0])   // make a placeable Stone for Player[0]
   }
   logCurPlayer(curPlayer: Player) {
     const history = this.gamePlay.history
@@ -218,7 +216,7 @@ export class Table extends EventDispatcher  {
   }
 
   hexUnderObj(dragObj: DisplayObject) {
-    let pt = dragObj.parent.localToLocal(dragObj.x, dragObj.y, this.hexMap.hexCont)
+    let pt = dragObj.parent.localToLocal(dragObj.x, dragObj.y, this.hexMap.mapCont.hexCont)
     return this.hexMap.hexUnderPoint(pt.x, pt.y)
   }
   _dropTarget: Hex2;

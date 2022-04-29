@@ -2,7 +2,7 @@
 // Control: Stone on >= 7 Hexes && Player.nHexes(district) - otherPlayer.nHexes(district) >= 3
 
 import { Board, GamePlay, Move, Player } from "./game-play";
-import { Hex, Hex2, HexMap } from "./hex";
+import { Hex, Hex2, HexM } from "./hex";
 import { Stone, Table } from "./table";
 import { otherColor, StoneColor, stoneColor0, stoneColor1, stoneColorRecord, stoneColors, TP } from "./table-params";
 import { C, F, S, stime } from "@thegraid/createjs-lib";
@@ -29,7 +29,7 @@ export class PlayerStats {
 }
 
 export class GameStats {
-  readonly hexMap: HexMap
+  readonly hexMap: HexM
   readonly allPlayers: Player[]
   readonly pStats: Record<StoneColor, PlayerStats> = stoneColorRecord()
   readonly inControl: StoneColor[] = Array(TP.ftHexes(TP.mHexes)) // (nStones[color] - nStones[oc] >= TP.diffControl) -> [district]=color
@@ -38,7 +38,7 @@ export class GameStats {
   }
 
   /** extract the useful bits for maintaining stats. */
-  constructor(hexMap: HexMap, allPlayers: Player[], 
+  constructor(hexMap: HexM, allPlayers: Player[], 
     pStats: Record<StoneColor, PlayerStats> = stoneColorRecord(new PlayerStats(), new PlayerStats()), 
     inControl: StoneColor[] = Array(TP.ftHexes(TP.mHexes))) {
     this.hexMap = hexMap
@@ -169,8 +169,8 @@ export class TableStats extends GameStats {
       repText = this.boardRep =  new Text('0', F.fontSpec(36), C.YELLOW)
       repText.textAlign = 'center'
       if (!!this.table) {
-        this.table.nextHex.cont.localToLocal(0, -46, this.table.hexMap.stoneCont, repText)
-        this.table.hexMap.stoneCont.addChild(repText)
+        this.table.nextHex.cont.localToLocal(0, -46, this.table.hexMap.mapCont.stoneCont, repText)
+        this.table.hexMap.mapCont.stoneCont.addChild(repText)
       }
     }
     repText.text = `${n}`
@@ -222,12 +222,12 @@ export class TableStats extends GameStats {
   }
   setupDSText(table: Table) {
     // setup dStoneText:
-    let nd = table.gamePlay.hexMap.nDistricts
+    let nd = TP.ftHexes(TP.mHexes)
     for (let district = 0; district< nd; district++){
       let dsText = new Text(``, F.fontSpec(26)); // radius/2 ?
       dsText.textAlign = 'center';
       dsText.color = C.WHITE
-      dsText.rotation = -table.miniMap.hexCont.parent.rotation
+      dsText.rotation = -table.miniMap.mapCont.hexCont.parent.rotation
       this.dStonesText[district] = dsText
     }
   }
@@ -237,7 +237,7 @@ export class TableStats extends GameStats {
       dsText = new Text(``, F.fontSpec(26)); // radius/2 ?
       dsText.textAlign = 'center';
       dsText.color = C.WHITE
-      dsText.rotation = - hex.map.hexCont.parent.rotation
+      dsText.rotation = - hex.map.mapCont.hexCont.parent.rotation
       this.dStonesText[district] = dsText
     }
     return dsText
@@ -247,11 +247,11 @@ export class TableStats extends GameStats {
     let n0 = this.pStat(stoneColor0).dStones[district]
     let n1 = this.pStat(stoneColor1).dStones[district]
     let dsText = this.getDSText(hex)
-    hex.map.infCont.addChild(dsText)
+    hex.map.mapCont.infCont.addChild(dsText)
     if (hex.cont.rotation == 0)
-      hex.cont.localToLocal(0, -12, hex.map.infCont, dsText) // no rotation
+      hex.cont.localToLocal(0, -12, hex.map.mapCont.infCont, dsText) // no rotation
     else
-      hex.cont.localToLocal(7, -10, hex.map.infCont, dsText) // rotation from (0,-12)
+      hex.cont.localToLocal(7, -10, hex.map.mapCont.infCont, dsText) // rotation from (0,-12)
     dsText.text = (n0 == 0 && n1 == 0) ? `` : `${n0}:${n1}`
     dsText.color = (hex.stone?.color === undefined || C.dist(TP.colorScheme[hex.stone.color], C.WHITE)<100) ? C.BLACK : C.WHITE
   }

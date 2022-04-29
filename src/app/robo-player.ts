@@ -214,7 +214,7 @@ export class Planner {
     if (TP.log) {
       let dsid = sid - sid0, dms = Date.now() - ms0, sps = M.decimalRound(1000 * dsid / dms, 0)
       console.log(stime(this, `.lookahead: evalAry =`),
-        moveAry.map(([h, s]) => [s.move, s.move['eval'] || '', s.move.Aname, s.id, M.decimalRound(s.value, 3), M.decimalRound(s.bestValue, 3),
+        moveAry.map(([h, s]) => [s.move, s.move.eval, s.move.Aname, s.id, M.decimalRound(s.value, 3), M.decimalRound(s.bestValue, 3),
         (h == bestState.move.hex) ? '*' : '']))
       let bestValue = M.decimalRound(bestState.bestValue, 3), bestHex = bestState.move.hex, Aname = bestHex.Aname
       console.log(stime(this, `.lookahead:`), nPlys, stoneColor, { Aname, bestHex, bestValue, sps, dsid, dms, bestState: copyOf(bestState), sid })
@@ -229,7 +229,7 @@ export class Planner {
    * @param stoneColor play Stone of this color -> evaluate from this players POV
    * @param nPlys if nPlys < maxPlys then lookahead with other Player.
    * @param bestState is not modified, only bestState.bestValue is consulted
-   * @param state1 Move(hex, color) -> state1; set state1.move['eval'] & state1.bestValue (nPlys)
+   * @param state1 Move(hex, color) -> state1; set state1.move.eval & state1.bestValue (nPlys)
    * @return !!state1  ? (the better of bestState, state1) : newState(move(hex, stoneColor), stoneColor)
    */
   *evalMoveInDepth(hex: Hex, stoneColor: StoneColor, nPlys: number = TP.maxPlys, bestState?: State, state1?: State) {
@@ -252,13 +252,13 @@ export class Planner {
         win = gamePlay.gStats.gameOver(board, win)          // check for resign, stalemate
         planner.winState(state1, win)                       // adjust value if win/lose
       }
-      if (win !== undefined) {
+      if (win === undefined) {
         // move into jeopardy [without capturing] is generally bad: (but *maybe* the stone is untakable...)
         // get a better assessment (& likely lower the ranking of this move)
         let fj = (move.captured.length == 0 && Object.values(move.hex.inf[other]).find(inf => inf > 0)) && (nPlys < TP.maxPlys + 2)
         if (nPlys < TP.maxPlys ||
           (fj && (console.log(stime(this, `.fj: look-deeper`), nPlys, move.Aname, state1.bestValue), true))) { // extend depth if state1.fj
-          move['eval'] = fj ? '-' : '+'
+          move.eval = fj ? '-' : '+'
           // Depth-First search: find move from state1 to bestHex
           let result: IteratorResult<any, State>
           let planGen = planner.lookahead(state1, other, nPlys + (fj ? 1 : 0), (fj ? Math.max(0, TP.maxBreadth - 6) : 0),
