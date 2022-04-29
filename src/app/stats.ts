@@ -3,7 +3,7 @@
 
 import { Board, GamePlay, Move, Player } from "./game-play";
 import { Hex, Hex2, HexM } from "./hex";
-import { Stone, Table } from "./table";
+import { Table } from "./table";
 import { otherColor, StoneColor, stoneColor0, stoneColor1, stoneColorRecord, stoneColors, TP } from "./table-params";
 import { C, F, S, stime } from "@thegraid/createjs-lib";
 import { ParamGUI, ParamItem, ParamLine, ParamType, } from '@thegraid/createjs-lib'

@@ -184,20 +184,20 @@ export class Planner {
    * @param state0 other player has left board in state0 (which we may have foreseen & evaluated)
    * @param stoneColor evaluate from POV of given Player (generally, the next Player to move)
    * @param nPlys typically = 0; counts up to TP.maxPlys; for free-jeopardy it map be bumped higher
-   * @param b0 typically = 0; counts up to TP.maxBreadth; for free-jeopardy it map be bumped higher
+   * @param bmax typically = TP.maxBreadth; for free-jeopardy it may be lower
    * @param done callback function: (bestState: State) => void
    * @return bestState: with move(bestHex) & bestValue [not used by anyone...]
    */
-  *lookahead(state0: State, stoneColor: StoneColor, nPlys: number, b0 = 0, done?: (bestState: State) => void) {
+  *lookahead(state0: State, stoneColor: StoneColor, nPlys: number, bmax = TP.maxBreadth, done?: (bestState: State) => void) {
     let tn = this.gamePlay.history.length
     console.groupCollapsed(`${stime(this,`.lookahead`)}-${nPlys}/${TP.maxPlys} after ${TP.colorScheme[otherColor(stoneColor)]}#${tn}->${this.gamePlay.history[0].hex.Aname} ${TP.colorScheme[stoneColor]}#${tn+1}->`)
     let sid0 = sid, ms0 = Date.now() // current state id
     // ASSERT: no lookahead & no voluntary yield:
     let moveAry = this.evalAndSortMoves(state0, stoneColor, nPlys) // generate first approx of possible moves
-    let breadth = b0, bestState = this.skipState(stoneColor) // to be updated ASAP
+    let breadth = 0, bestState = this.skipState(stoneColor) // to be updated ASAP
     try {
       for (let [hex, state1a] of moveAry) {                   // hex = state1a.move.hex
-        if (++breadth > TP.maxBreadth) break                  // 0-based++, so C-c can terminate loop
+        if (++breadth > bmax || breadth > TP.maxBreadth) break// 0-based++, so C-c can terminate loop
         if (state1a.bestValue + .01 < Math.min(bestState.value, bestState.bestValue)) break
         // drill down: adding stones & influence, calc stats
         let evalGen = this.evalMoveInDepth(hex, stoneColor, nPlys + 1, bestState, state1a)
@@ -261,7 +261,7 @@ export class Planner {
           move.eval = fj ? '-' : '+'
           // Depth-First search: find move from state1 to bestHex
           let result: IteratorResult<any, State>
-          let planGen = planner.lookahead(state1, other, nPlys + (fj ? 1 : 0), (fj ? Math.max(0, TP.maxBreadth - 6) : 0),
+          let planGen = planner.lookahead(state1, other, nPlys + (fj ? 1 : 0), (fj ? Math.min(TP.maxBreadth, 6) : undefined),
             (state2: State) => {
               console.log(stime(this, `.evalAfterMove: lookahead`), { move1: move.Aname, state1: copyOf(state1), move2: state2.move.Aname, state2: copyOf(state2) })
               state1.bestValue = -state2.bestValue // MIN
