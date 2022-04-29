@@ -169,10 +169,9 @@ export class Planner {
     // try get previously evaluated State & MOVES:
     let move0 = gamePlay.history[0], hex0 = move0.hex    // other Player's last move
     // cheat: see if other Planner has State & MOVES:
-    let op = this.gamePlay.original.otherPlayer()
-    let state0 = op.planner?.prevState// this.gamePlay.otherPlayer().planner?.prevState
+    // let op = this.gamePlay.original.otherPlayer()
     // righteous: from our own previous analysis:
-    if (!state0) state0 = this.prevState?.moves?.get(hex0) || this.evalState(stone.color)
+    let state0 = this.prevState?.moves?.get(hex0) || this.evalState(stone.color)
     allowEventLoop(this.lookahead(state0, stone.color, 0), (state: State) => dispatchMove(state))
   }
   /** 
