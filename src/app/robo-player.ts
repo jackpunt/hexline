@@ -1,8 +1,9 @@
 import { M, Obj, S, stime, Undo } from "@thegraid/createjs-lib";
-import { GamePlay0, GamePlayC, Move, Mover, Player } from "./game-play";
-import { Hex, Hex2 } from "./hex";
+import { GamePlay0, GamePlayC, GamePlayD, Move, Mover, Player } from "./game-play";
+import { Hex, Hex2, HexMap, HexMaps, S_Resign, S_Skip } from "./hex";
 import { HexEvent } from "./hex-event";
 import { allowEventLoop, H, } from "./hex-intfs";
+import { GameStats } from "./stats";
 import { Stone, Table } from "./table";
 import { otherColor, StoneColor, stoneColorRecord, stoneColorRecordF, TP } from "./table-params";
 
@@ -71,15 +72,15 @@ class RoboBase implements Mover {
  * Planner: eval-node: makeState, find children, for [each] child: eval-node
  */
 export class Planner {
-  gamePlay: GamePlayC
+  gamePlay: GamePlayD
   weightVecs: Record<StoneColor, number[]>
   running = false
   districtsToCheck = TP.nHexes > 1 ? [0, 1, 2, 3, 4, 5, 6] 
     : (() => { let a = Array<number>(TP.ftHexes(TP.mHexes)).fill(0); a.forEach((v, ndx) => a[ndx] = ndx); return a })()
   prevState: State // previous state
 
-  constructor(gamePlay: GamePlay0) {
-    this.gamePlay = new GamePlayC(gamePlay)  // downgrade to GamePlayC
+  constructor(gamePlay: GamePlay0, player: Player) {
+    this.gamePlay = new GamePlayD(gamePlay, player)  // downgrade to GamePlayC
     // compatible with statVector in stats.ts
     let nDist = TP.ftHexes(TP.mHexes)  // each MetaHex is a District
     let dStoneM0 = new Array<number>(nDist).fill(1, 0, nDist); dStoneM0[0] = 1
@@ -137,41 +138,54 @@ export class Planner {
   /** play this Stone, Player is stone.color */
   makeMove(stone: Stone, table?: Table) {
     this.running = true // TODO: maybe need a catch?
-    let gamePlay = this.gamePlay
-    if (!gamePlay.gStats) gamePlay.gStats = gamePlay.original.gStats.toGameStats()
-    //console.log(stime(this, `.makeMove: stone=`), stone)
-    gamePlay.gStats.update()
+    let gamePlay = this.gamePlay, mainGame = gamePlay.original, hex: Hex
 
-    let sid0 = sid, ms0 = Date.now()-1, tn = gamePlay.original.turnNumber
-    let dispatchMove = (state: State) => {
-      let hex = state.move.hex
-      let dsid = sid - sid0, dms = Date.now() - ms0, sps = M.decimalRound(1000 * dsid / dms, 0)
-      console.log(stime(this, `.makeMove: MOVE#${tn} = ${state.move.Aname}`), `state=`, copyOf(state), {sps, dms, dsid})
-      if (table) {
-        // robo-player uses gamePlayC, so doesn't maintain Stone.stoneId, fix them here:
-        table.gamePlay.history.forEach((moveR, ndx, history) => {
-          let stoneId = ndx + 1, move = history[history.length - stoneId] // label from beginning of game
-          if (move.hex.stoneColor) (move.hex as Hex2).setStoneId(stoneId)
-        })
-        this.prevState = state
-        this.running = false
-        table.hexMap.showMark(hex)
-        table.dispatchEvent(new HexEvent(S.add, hex, stone)) //
-      }
-    }
+    let sid0 = sid, ms0 = Date.now()-1, tn = table.gamePlay.turnNumber
+
     let firstMove = () => {
       sid = sid0 = 0
       let lastDist = TP.ftHexes(TP.mHexes) - 1
       let hex = gamePlay.hexMap.district[lastDist][0]
       dispatchMove(newState(new Move(hex, stone.color), stone.color, 0))
     }
+    let dispatchMove = (state: State) => {
+      let hex = state.move.hex, origMap = gamePlay.original.hexMap
+      let hex0 = hex.ofMap(origMap)
+      gamePlay.history.unshift(state.move) // record *my* move on *my* history.
+      gamePlay.addStone(hex, stone.color)  // record *my* move on *my* hexMap.
+      let dsid = sid - sid0, dms = Date.now() - ms0, sps = M.decimalRound(1000 * dsid / dms, 0)
+      console.log(stime(this, `.makeMove: MOVE#${tn} = ${state.move.Aname}`), `state=`, copyOf(state), {sps, dms, dsid})
+      if (table) {
+        // robo-player uses gamePlayC, so doesn't maintain Stone.stoneId, fix them here:
+        if (this.gamePlay instanceof GamePlayC && false)
+          table.gamePlay.history.forEach((moveR, ndx, history) => {
+            let stoneId = ndx + 1, move = history[history.length - stoneId] // label from beginning of game
+            if (move.hex.stoneColor) (move.hex as Hex2).setStoneId(stoneId)
+          })
+        table.hexMap.showMark(hex0)
+        table.dispatchEvent(new HexEvent(S.add, hex0, stone)) //
+      }
+      this.prevState = state
+      this.running = false
+    }
+    let doMove = (moveg: Move) => {
+      let hexg = moveg.hex, color = moveg.stoneColor
+      hex = hexg.ofMap(gamePlay.hexMap)     // where otherPlayer played
+      let move = new Move(hex, color)
+      gamePlay.history.unshift(move)            // record otherPlayer's Move on my history
+      hex = gamePlay.addStone(hex, color)       // record otherPlayer's Stone on my map
+      // setColor(hex,color); newHSC(hex, color)->map.allStones; incrInfluence; caps -> move
+    }
+    for (let i = mainGame.history.length - 1 - gamePlay.history.length; i >= 0; i--) {
+      doMove(mainGame.history[i]) // 'pop' older move from mainGame, unshift onto gamePlay
+    }
+    let win = gamePlay.gStats.update()
+    // NOW: we are sync'd with mainGame...
     if (gamePlay.history.length < 1) return firstMove()
+
     // try get previously evaluated State & MOVES:
-    let move0 = gamePlay.history[0], hex0 = move0.hex    // other Player's last move
-    // cheat: see if other Planner has State & MOVES:
-    // let op = this.gamePlay.original.otherPlayer()
     // righteous: from our own previous analysis:
-    let state0 = this.prevState?.moves?.get(hex0) || this.evalState(stone.color)
+    let state0 = this.prevState?.moves?.get(hex) || this.evalState(stone.color)
     allowEventLoop(this.lookahead(state0, stone.color, 0), (state: State) => dispatchMove(state))
   }
   /** 

@@ -8,6 +8,7 @@ import { otherColor, StoneColor, stoneColor0, stoneColor1, stoneColorRecord, sto
 import { C, F, S, stime } from "@thegraid/createjs-lib";
 import { ParamGUI, ParamItem, ParamLine, ParamType, } from '@thegraid/createjs-lib'
 import { Text } from "createjs-module";
+import { H } from "./hex-intfs";
 
 export class PlayerStats {
 
@@ -47,9 +48,9 @@ export class GameStats {
     this.inControl = inControl
     this.setupStatVector()           // use default wVector
   }
-  toGameStats() {
+  toGameStats(map = this.hexMap) {
     // remove TableStats methods:
-    return new GameStats(this.hexMap, this.allPlayers, this.pStats, this.inControl)
+    return new GameStats(this.hexMap, this.allPlayers, this.pStats, this.inControl) // share pStats & inControl!
   }
 
   pStat(color: StoneColor): PlayerStats { return this.pStats[color] }
@@ -72,7 +73,8 @@ export class GameStats {
     // count influence, threats, & attacks
     stoneColors.forEach(pColor => {
       let pstats = this.pStats[pColor]
-      let infColor = Object.keys(hex.inf[pColor]).length
+      if (hex.stoneColor == pColor) return // do not count pColor influence on pColor Stones
+      let infColor = H.infDirs.filter(dn => hex.isInf(pColor,dn)).length
       if (infColor > 0) {
         pstats.nInf++
         if (infColor > 1) pstats.nAttacks++

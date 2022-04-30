@@ -122,7 +122,7 @@ export class Table extends EventDispatcher  {
     qShape.on(S.click, toggleText, this) // toggle visible
   }
   miniMap: HexMap;
-  makeMiniMap(parent: Container, x, y) {
+  makeMiniMap(parent: Container, x: number, y: number) {
     let miniMap = this.miniMap = new HexMap(Stone.radius, true)
     let mapCont = miniMap.mapCont
     let rot = 7, rotC = (30-rot), rotH = (rot - 60)
@@ -142,7 +142,7 @@ export class Table extends EventDispatcher  {
 
   layoutTable(gamePlay: GamePlay) {
     this.gamePlay = gamePlay
-    this.hexMap = gamePlay.hexMap
+    this.hexMap = gamePlay.hexMap as HexMap
 
     this.hexMap.addToCont().initInfluence()
     this.hexMap.makeAllDistricts(TP.mHexes, TP.nHexes) // typically: 3,3 or 2,4
@@ -160,7 +160,7 @@ export class Table extends EventDispatcher  {
     mapCont.x = bgr.x + (bgr.w) / 2
     mapCont.y = bgr.y + (bgr.h) / 2
 
-    this.nextHex = new Hex2(Stone.radius, this.hexMap, undefined, undefined, 'nextHex')
+    this.nextHex = new Hex2(this.hexMap, undefined, undefined, 'nextHex')
     this.nextHex.cont.scaleX = this.nextHex.cont.scaleY = 2
     this.nextHex.x = minx + 2 * wide; this.nextHex.y = miny + 2.0 * high;
     // tweak when hexMap is tiny:

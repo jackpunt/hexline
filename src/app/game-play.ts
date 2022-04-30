@@ -1,5 +1,5 @@
 import { H, } from "./hex-intfs";
-import { Hex, Hex2, HexMap, S_Resign } from "./hex";
+import { Hex, Hex2, HexMap, S_Resign, HSC, HexM, HexMaps, HexMapD } from "./hex";
 import { HexEvent } from "./hex-event";
 import { S, stime, Undo, KeyBinder } from "@thegraid/createjs-lib";
 import { GameStats, TableStats } from "./stats";
@@ -8,10 +8,13 @@ import { otherColor, StoneColor, stoneColors, TP} from "./table-params"
 import { Planner } from "./robo-player";
 import { GameSetup } from "./game-setup";
 
-type HSC = { hex: Hex, color: StoneColor }
+interface GamePlayOrig { 
+  hexMap: HexMaps, history: Move[], redoMoves: Move[], 
+  allBoards: BoardRegister, allPlayers: Player[], gStats: GameStats
+}
 export class GamePlay0 {
 
-  constructor(original?: GamePlay0) {
+  constructor(original?: GamePlayOrig) {
     if (original) {
       this.hexMap = original.hexMap
       this.history = original.history
@@ -30,7 +33,7 @@ export class GamePlay0 {
   }
 
   gStats: GameStats
-  readonly hexMap: HexMap = new HexMap()
+  readonly hexMap: HexMaps = new HexMap()
   readonly history: Move[] = []          // sequence of Move that bring board to its state
   readonly redoMoves: Move[] = []
   readonly allBoards = new BoardRegister()
@@ -69,11 +72,12 @@ export class GamePlay0 {
 
   /** addStone to setStone(hex)->hex.setStone(color); assertInfluence & Captured; addUndoRec (no stats) */
   addStone(hex: Hex, stoneColor: StoneColor) {
-    hex.setColor(stoneColor)             // move Stone onto Hex & HexMap [hex.stone = stone]
+    let rv = hex.setColor(stoneColor)             // move Stone onto Hex & HexMap [hex.stone = stone]
     this.incrInfluence(hex, stoneColor)
     if (!this.undoRecs.isUndoing) {
       this.addUndoRec(this, `removeStone(${hex.Aname}:${stoneColor})`, () => this.removeStone(hex)) // remove for undo
     }
+    return rv
   }
   /** 
    * remove Move/HSC from map
@@ -110,7 +114,10 @@ export class GamePlay0 {
       this.doPlayerResign(hex, stoneColor) // addBoard will detect
     } else {
       this.addStone(hex, stoneColor) // add Stone and Capture (& removeStone) w/addUndoRec
-      if (hex.isCapture(otherColor(stoneColor))) alert(`illegal move: ${stoneColor} ${hex.Aname}`)
+      if (hex.isCapture(otherColor(stoneColor))) {
+        console.log(stime(this, `.doPlayerMove: suicidal move: ${hex.Aname}`), { hex, stoneColor })
+        alert(`suicidal move: ${stoneColor} ${hex.Aname}`)
+      }
     }
 
     this.undoRecs.closeUndo()
@@ -184,11 +191,29 @@ export class GamePlayC extends GamePlay0 {
 
 /** GamePlayD is compatible 'copy' with original, but does not share components */
 export class GamePlayD extends GamePlay0 {
-  readonly original: GamePlay0
-  constructor (original: GamePlay0) {
-    super()
+  static sid = 0
+  readonly id = GamePlayD.sid++
+  readonly original: GamePlayOrig
+  override hexMap: HexMaps;
+  constructor(original: GamePlayOrig, player: Player) {
+    super({ hexMap: new HexMapD(), history: [], redoMoves: [], 
+      allPlayers: original.allPlayers, allBoards: new BoardRegister(), gStats: undefined })
     this.original = original
-    
+    this.hexMap[S.Aname] = `GamePlayD#${this.id}-${TP.colorScheme[player.color]}`
+    this.importHexes()
+    this.gStats = new GameStats(this.hexMap, this.allPlayers)
+    return
+  }
+  importHexes() {
+    let hexMap = this.hexMap
+    for (let dist of this.original.hexMap.district) {
+      for (let ohex of dist) {
+        let nhex = hexMap.addHex(ohex.row, ohex.col, ohex.district)
+        if (!hexMap.district[ohex.district]) hexMap.district[ohex.district] = []
+        hexMap.district[ohex.district].push(nhex)
+      }
+    }
+    return
   }
 }
 
@@ -293,9 +318,10 @@ export class GamePlay extends GamePlay0 {
     super.removeStone(hex)
     return
   }
-  override addStone(hex: Hex2, stoneColor: StoneColor): void {
-    super.addStone(hex, stoneColor)
+  override addStone(hex: Hex2, stoneColor: StoneColor) {
+    let rv = super.addStone(hex, stoneColor)
     hex.setStoneId(this.history.length)
+    return rv
   }
   override captureStone(nhex: Hex): void {
     super.captureStone(nhex)
@@ -406,7 +432,9 @@ export class Player implements Mover {
     this.color = color
     this.name = `Player${index}-${this.colorn}`
     this.gamePlay = gamePlay
-    this.planner = new Planner(gamePlay)
+  }
+  newGame(gamePlay: GamePlay) {
+    this.planner = new Planner(gamePlay,this)
   }
   makeMove(stone: Stone, useRobo = false) {
     let table = (this.gamePlay instanceof GamePlay) && this.gamePlay.table

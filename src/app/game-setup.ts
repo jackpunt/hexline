@@ -1,10 +1,11 @@
 import { Container, Stage } from "createjs-module";
-import { stime, makeStage } from "@thegraid/createjs-lib";
+import { stime, makeStage, S } from "@thegraid/createjs-lib";
 import { ParamGUI, ParamItem} from '@thegraid/createjs-lib'
 import { GamePlay } from "./game-play";
 import { StatsPanel, TableStats } from "./stats";
 import { Table } from "./table";
 import { TP } from "./table-params";
+import { HexMap } from "./hex";
 
 /** initialize & reset & startup the application. */
 export class GameSetup {
@@ -36,6 +37,7 @@ export class GameSetup {
   startup(gs: GameSetup = this, ext: string[] = []) {
     let table = new Table(this.stage) // EventDispatcher, ScaleCont
     let gamePlay = new GamePlay(table) // hexMap, players, gStats, mouse/keyboard->GamePlay
+    gamePlay.hexMap[S.Aname] = `mainMap`
     let statsx = -300, statsy = 30
     table.layoutTable(gamePlay)           // mutual injection, all the GUI components, fill hexMap
     let statsPanel = this.makeStatsPanel(gamePlay.gStats, table.scaleCont, statsx, statsy)
@@ -43,6 +45,7 @@ export class GameSetup {
     let last = statsPanel.lines[statsPanel.lines.length-1]
     let guiy = statsPanel.y + last.y + last.height + statsPanel.lead * 2  
     this.makeParamGUI(table, table.scaleCont, statsx, guiy) // modify TP.params...
+    gamePlay.forEachPlayer(p => p.newGame(gamePlay))        // make Planner *after* table & gamePlay are setup
   }
   makeStatsPanel(gStats: TableStats, parent: Container, x, y): StatsPanel {
     let noArrow = { arrowColor: 'rgba(0,0,0,0)' }
@@ -83,7 +86,7 @@ export class GameSetup {
     gui.spec("nHexes").onChange = (item: ParamItem) => { nHex(item.value, TP.mHexes) }
     gui.spec("colorScheme").onChange = (item: ParamItem) => {
       TP[item.fieldName] = TP[item.value.trim()] // overwrite setValue
-      table.gamePlay.hexMap.initInfluence(true)
+      (table.gamePlay.hexMap as HexMap).initInfluence(true)
       table.nextHex.stone.paint()
     }
     parent.addChild(gui)

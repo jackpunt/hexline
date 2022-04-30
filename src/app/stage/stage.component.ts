@@ -40,7 +40,7 @@ export class StageComponent implements OnInit {
   }
 
   ngAfterViewInit() {
-    setTimeout(()=>this.ngAfterViewInit2(), 150) //https://bugs.chromium.org/p/chromium/issues/detail?id=1229541
+    setTimeout(()=>this.ngAfterViewInit2(), 250) //https://bugs.chromium.org/p/chromium/issues/detail?id=1229541
   }
   ngAfterViewInit2() {
     let href: string = document.location.href;

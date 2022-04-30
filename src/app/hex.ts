@@ -13,9 +13,10 @@ export const S_Skip = 'Hex@skip'
 type LINKS = { [key in InfDir]?: Hex }
 type INF   = { [key in InfDir]?: number }
 type INFM   = { [key in HexAxis]?: InfMark }
-type ToAxis = { [key in InfDir]: HexAxis }
-type HSC = { hex: Hex, color: StoneColor, Aname?: string }
 
+export type HexMaps = HexMap | HexMapLayer
+export type HSC = { hex: Hex, color: StoneColor, Aname?: string }
+export function newHSC(hex: Hex, color: StoneColor, Aname?: string) { return { Aname, hex, color } }
 class InfMark extends Shape {
   static gE0: Graphics
   static gE1: Graphics
@@ -68,7 +69,7 @@ class HexCont extends Container {
  * (although an InfMark contains a graphics)
  */
 export class Hex {
-  constructor(map: HexM, row?: number, col?: number, name = `Hex@[${row},${col}]`) {
+  constructor(map: HexMaps, row?: number, col?: number, name = `Hex@[${row},${col}]`) {
     this.Aname = name
     this.map = map
     this.row = row
@@ -88,7 +89,7 @@ export class Hex {
   set district(d: number) {
     this._district = d
   }
-  readonly map: HexM;  // Note: this.parent == this.map.hexCont [cached]
+  readonly map: HexMaps;  // Note: this.parent == this.map.hexCont [cached]
   readonly row: number
   readonly col: number
   readonly inf = stoneColorRecord<INF>({},{})
@@ -101,14 +102,15 @@ export class Hex {
   unmarkCapture() {  }
 
   /** set hex.stoneColor and push HSC on allStones */
-  setColor(stoneColor: StoneColor) {
-    if (stoneColor === undefined) return this.clearColor() // color that was cleared
+  setColor(stoneColor: StoneColor): Hex {
     this.stoneColor = stoneColor
-    let hsc = { Aname: this.Aname, hex: this, color: stoneColor }
+    //let hexm = new HexMapLayer(this.map, this, stoneColor)
+    //let hex = hexm.addHex(this)
+    let hsc: HSC = newHSC(this, stoneColor, this.Aname)
     this.row !== undefined && this.map?.allStones.push(hsc) // no push: Aname == nextHex
-    return stoneColor  // color that was set
+    return this
   }
-  clearColor() {
+  clearColor(): StoneColor {
     let color = this.stoneColor, hscAry = this.map.allStones
     if (color !== undefined && this.map !== undefined) {
       // put filtered result back into original array:
@@ -188,7 +190,13 @@ export class Hex {
     let hex: Hex = this, nhex: Hex
     while (!!(nhex = hex.links[ds])) { hex = nhex }
     return hex    
-  }  
+  }
+  /** @return corresonding Hex on other map */
+  ofMap(otherMap: HexMaps): Hex {
+    return (this.Aname === S_Skip) ? otherMap.skipHex
+      : (this.Aname === S_Resign) ? otherMap.resignHex
+        : otherMap[this.row][this.col]
+  }
 }
 /** One Hex cell in the game, shown as a polyStar Shape */
 export class Hex2 extends Hex {
@@ -224,17 +232,17 @@ export class Hex2 extends Hex {
   }
 
   /** Hex2 cell with graphics; shown as a polyStar Shape of radius @ (XY=0,0) */
-  constructor(radius: number, map: HexMap, row?: number, col?: number, name?: string) {
+  constructor(map: HexMaps, row?: number, col?: number, name?: string) {
     super(map, row, col, name);
     map.mapCont.hexCont.addChild(this.cont)
-    this.radius = radius
+    this.radius = Stone.radius
   
     this.setHexColor("grey")  // until setHexColor(by district)
     this.stoneIdText = new Text('', F.fontSpec(26))
     this.stoneIdText.textAlign = 'center'; this.stoneIdText.regY = -20
 
     if (row === undefined || col === undefined) return
-    let w = radius * Math.sqrt(3), h = radius * 1.5
+    let w = this.radius * Math.sqrt(3), h = this.radius * 1.5
     this.x += col * w + Math.abs(row % 2) * w/2
     this.y += row * h
     this.cont.setBounds(-w/2, -h/2, w, h)
@@ -300,8 +308,9 @@ export class Hex2 extends Hex {
     this.stoneIdText?.parent?.removeChild(this.stoneIdText)
   }
   /** make a Stone on this Hex2 (from addStone(color)) */
-  override setColor(stoneColor: StoneColor): StoneColor {
-    super.setColor(stoneColor)
+  // setColor returns a new Hex2 on a new HexMap
+  override setColor(stoneColor: StoneColor): Hex {
+    let hex = super.setColor(stoneColor)
     if (stoneColor !== undefined) {
       let stone = this.stone = new Stone(stoneColor)
       stone[S.Aname] = `[${this.row},${this.col}]`
@@ -309,7 +318,7 @@ export class Hex2 extends Hex {
       this.cont.parent.localToLocal(this.x, this.y, cont, stone)
       cont.addChild(stone)
     } // else this.clearColor() has been called
-    return stoneColor
+    return hex
   }
   /** removeChild(stone) & HSC from map.allStones. */
   override clearColor(): StoneColor {
@@ -349,6 +358,7 @@ export class MapCont extends Container {
   markCont: Container    // showMark over Stones new CapMark [localToLocal]
   infCont: Container     // infMark on the top   Hex2.showInf
 }
+
 export interface HexM {
   readonly allStones: HSC[]       // all the Hex with a Stone/Color
   readonly district: Hex[][]      // all the Hex in a given district
@@ -443,9 +453,9 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
   /** to build this HexMap: create Hex and link it to neighbors. */
   addHex(row: number, col: number, district: number ): Hex {
     // If we have an on-screen Container, then use Hex2: (addToCont *before* makeAllDistricts)
-    let hex = !!this.mapCont.hexCont ? new Hex2(this.radius, this, row, col) : new Hex(this, row, col)
+    let hex = !!this.mapCont.hexCont ? new Hex2(this, row, col) : new Hex(this, row, col)
     hex.district = district // and set Hex2.districtText
-    if (!this[row]) {
+    if (this[row] === undefined) {
       this[row] = new Array<Hex>()
       if (this.minRow === undefined || row < this.minRow) this.minRow = row
     }
@@ -667,15 +677,45 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
   }
 
 }
-// class HexMap2 extends HexMap {
-//   constructor(radius: number = TP.hexRad, mapCont?: Container) {
-//     super(radius, mapCont)
-//   }
-// }
+/** Marker class for HexMap used by GamePlayD */
+export class HexMapD extends HexMap {
+
+}
 
 /** a HexMap that relies on a stack of underlying HexMap... */
-class HexMapOverlay extends HexMap {
-  constructor(map0: HexMap) {
-    super()
+export class HexMapLayer implements HexM {
+  constructor(map0: HexMaps, hex: Hex, stoneColor: StoneColor) {
+    this.base = (map0 instanceof HexMap) ? map0 : map0.base;
+    this.parent = map0
+    this.district = this.base.district
+    this.mapCont = this.base.mapCont
+    this.skipHex = this.base.skipHex
+    this.resignHex = this.base.resignHex
+    this.allStones = this.parent.allStones.concat([newHSC(hex, stoneColor)]) // new copy of allStones
   }
+  base: HexMap
+  parent: HexMaps
+
+  readonly allStones: HSC[];
+  readonly district: Hex[][];
+  readonly mapCont: MapCont;
+  readonly skipHex: Hex;
+  readonly resignHex: Hex;
+
+  rcLinear(row: number, col: number): number { return this.base.rcLinear(row, col) }
+  forEachHex<K extends Hex>(fn: (hex: K) => void): void { return this.base.forEachHex(fn) }
+  update(): void { this.base.update() }
+  showMark(hex: Hex): void { this.base.showMark() }
+
+  addHex(row: number, col: number, district?: number) {
+    return this.addHexHex(this.base[row][col], district)
+  }
+  addHexHex(hex: Hex, district = hex.district): Hex {
+    let nhex = (hex instanceof Hex2)
+      ? new Hex2(this, hex.row, hex.col)
+      : new Hex(this, hex.row, hex.col)
+    nhex.district = district
+    return nhex
+  }
+
 }
