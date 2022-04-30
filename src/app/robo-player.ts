@@ -203,7 +203,7 @@ export class Planner {
    */
   *lookahead(state0: State, stoneColor: StoneColor, nPlys: number, bmax = TP.maxBreadth, done?: (bestState: State) => void) {
     let tn = this.gamePlay.history.length
-    console.groupCollapsed(`${stime(this,`.lookahead`)}-${nPlys}/${TP.maxPlys} after ${TP.colorScheme[otherColor(stoneColor)]}#${tn}->${this.gamePlay.history[0].hex.Aname} ${TP.colorScheme[stoneColor]}#${tn+1}->`)
+    TP.log && console.groupCollapsed(`${stime(this,`.lookahead`)}-${nPlys}/${TP.maxPlys} after ${TP.colorScheme[otherColor(stoneColor)]}#${tn}->${this.gamePlay.history[0].hex.Aname} ${TP.colorScheme[stoneColor]}#${tn+1}->`)
     let sid0 = sid, ms0 = Date.now() // current state id
     // ASSERT: no lookahead & no voluntary yield:
     let moveAry = this.evalAndSortMoves(state0, stoneColor, nPlys) // generate first approx of possible moves
@@ -218,19 +218,19 @@ export class Planner {
         while (result = evalGen.next(), !result.done) yield
         bestState = result.value
       }
-      console.groupEnd()
+      TP.log && console.groupEnd()
     } catch (err) {
-      console.groupEnd()
+      TP.log && console.groupEnd()
       throw err
     }
     if (TP.yield) yield  // voluntary yield to allow event loop (& graphics paint)
-    if (TP.log) {
+    if (TP.log || nPlys == 0) {
       let dsid = sid - sid0, dms = Date.now() - ms0, sps = M.decimalRound(1000 * dsid / dms, 0)
       console.log(stime(this, `.lookahead: evalAry =`),
         moveAry.map(([h, s]) => [s.move, s.move.eval, s.move.Aname, s.id, M.decimalRound(s.value, 3), M.decimalRound(s.bestValue, 3),
         (h == bestState.move.hex) ? '*' : '']))
       let bestValue = M.decimalRound(bestState.bestValue, 3), bestHex = bestState.move.hex, Aname = bestHex.Aname
-      console.log(stime(this, `.lookahead:`), nPlys, stoneColor, { Aname, bestHex, bestValue, sps, dsid, dms, bestState: copyOf(bestState), sid })
+      TP.log && console.log(stime(this, `.lookahead:`), nPlys, stoneColor, { Aname, bestHex, bestValue, sps, dsid, dms, bestState: copyOf(bestState), sid })
     }
     done && done(bestState)
     return bestState // or resign? or skip?
@@ -270,20 +270,18 @@ export class Planner {
         // get a better assessment (& likely lower the ranking of this move)
         let fj = (move.captured.length == 0 && Object.values(move.hex.inf[other]).find(inf => inf > 0)) && (nPlys < TP.maxPlys + 2)
         if (nPlys < TP.maxPlys ||
-          (fj && (console.log(stime(this, `.fj: look-deeper`), nPlys, move.Aname, state1.bestValue), true))) { // extend depth if state1.fj
+          (fj ? (TP.log && (console.log(stime(this, `.fj: look-deeper`), nPlys, move.Aname, state1.bestValue)), true) : false)) { // extend depth if state1.fj
           move.eval = fj ? '-' : '+'
           // Depth-First search: find move from state1 to bestHex
           let result: IteratorResult<any, State>
           let planGen = planner.lookahead(state1, other, nPlys + (fj ? 1 : 0), (fj ? Math.min(TP.maxBreadth, 6) : undefined),
             (state2: State) => {
-              console.log(stime(this, `.evalAfterMove: lookahead`), { move1: move.Aname, state1: copyOf(state1), move2: state2.move.Aname, state2: copyOf(state2) })
+              TP.log && console.log(stime(this, `.evalAfterMove: lookahead`), { move1: move.Aname, state1: copyOf(state1), move2: state2.move.Aname, state2: copyOf(state2) })
               state1.bestValue = -state2.bestValue // MIN
             })
           while (result = planGen.next(), !result.done) yield // propagate recursive yield
         }
       }
-      // let bv = state1?.bestValue
-      // console.log(stime(this, `.evalMoveInDepth: move =`), move.Aname, M.decimalRound(bv, 3), 'caps=', rv ? rv : 'suicide')
       this.unplaceStone(move)
     }
 
@@ -325,7 +323,7 @@ export class Planner {
       let hexGen = new HexGen(gamePlay, this.districtsToCheck).gen(), result: IteratorResult<Hex, void>
       // Find/Gen the legal moves *before* evalMoveInDepth changes gStats/pStats:
       let hexGenA = Array.from(hexGen)
-      console.groupCollapsed(`${stime(this, `.evalAndSortMoves after:`)} ${state0.move.Aname} -> ${hexGenA.length} getCaptures:`)
+      TP.log && console.groupCollapsed(`${stime(this, `.evalAndSortMoves after:`)} ${state0.move.Aname} -> ${hexGenA.length} getCaptures:`)
       for (let hex of hexGenA) {
         let evalGen = this.evalMoveInDepth(hex, stoneColor, Math.max(nPlys, TP.maxPlys))
         let result: IteratorResult<void, State>
@@ -333,7 +331,7 @@ export class Planner {
         let state = result.value
         moves.set(hex, state)
       }
-      console.groupEnd()
+      TP.log && console.groupEnd()
     }
     //console.log(stime(this, `.evalAndSortMoves: state0 out:`), state0.bestHex?.Aname, copyof(state0))
     let moveAry = Array.from(moves.entries()).sort(([ha, sa], [hb, sb]) => sb.bestValue - sa.bestValue) // descending

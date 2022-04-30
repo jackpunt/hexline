@@ -22,7 +22,7 @@ export class TP {
   static nMinControl  = (TP.nHexes <= 1) ? 1 : TP.nHexes + 1 // [1, 1, 3, 4, 5, ...]
   static nDiffControl = (TP.nHexes <= 1) ? 0 : TP.nHexes - 1 // [0, 0, 1, 2, 3, ...]
   static hexRad = 50
-  static log = true
+  static log = false
   /** set victory conditions for (nh, mh) */
   static fnHexes(nh: number, mh: number) {
     TP.mHexes = mh
