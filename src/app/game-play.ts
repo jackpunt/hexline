@@ -215,6 +215,11 @@ export class GamePlayD extends GamePlay0 {
     }
     return
   }
+  importBoards(gamePlay: GamePlayOrig) {
+    this.allBoards.clear()
+    //gamePlay.allBoards.forEach((board: Board, id: string) => this.allBoards.set(id, board))
+    for (let [id, board] of gamePlay.allBoards.entries()) this.allBoards.set(id, board)
+  }
 }
 
 /** implement the game logic */
@@ -271,11 +276,11 @@ export class GamePlay extends GamePlay0 {
   /** undo last undo block: with logging collapsed & hexMap.update() */
   undoStones() {
     let undoNdx = this.undoRecs.length -1;
-    let popRec = (undoNdx >= 0) ? this.undoRecs[undoNdx].concat([]) : [] // copy undoRecs[] so it is stable in log
+    let popRec = (undoNdx >= 0) ? this.undoRecs[undoNdx].concat() : [] // copy undoRecs[] so it is stable in log
     console.groupCollapsed(`${stime(this)}:undoIt-${undoNdx}`)
     console.log(stime(this, `.undoStones: undoRec[${undoNdx}] =`), popRec);
     this.undoRecs.pop(); // remove/replace Stones
-    console.log(stime(this, `.undoIt: after[${undoNdx}]`), { Stones: [].concat(this.hexMap.allStones), undo: this.undoRecs });
+    console.log(stime(this, `.undoIt: after[${undoNdx}]`), { allHSC: this.hexMap.allStones.concat(), undo: this.undoRecs });
     console.groupEnd()   // "undoIt-ndx"
   }
 
@@ -287,6 +292,7 @@ export class GamePlay extends GamePlay0 {
       this.redoMoves.unshift(move)  // redoMoves[0] == move0
       this.undoStones()             // remove last Stone, replace captures
       this.undoCapMarks(move.captured) // unmark
+      this.allBoards.delete(move.board.id)
       if (undoTurn) {
         this.turnNumber -= 2        // will immediately increment to tn+1
         this.setNextPlayer()
@@ -443,6 +449,7 @@ export class Player implements Mover {
   }
 }
 
+/** a uniquifying 'symbol table' of Board.id */
 class BoardRegister extends Map<string, Board> {
   /** as Board as Set */
   addBoard(move: Move, history: Move[]) {
@@ -458,51 +465,45 @@ class BoardRegister extends Map<string, Board> {
   }
 }
 /** Identify state of HexMap by itemizing all the extant Stones 
- * nextPlayerIndex
- * captured: Hex[]
- * hexStones: HSC[]
- * repCount
+ * id: string = Board(nextPlayer.color, captured)resigned?, allStones
+ * resigned: StoneColor
+ * repCount: number
  */
 export class Board {
-  readonly id: string = ""   // to identify hexMap state
-  readonly history: Move[]   // to recreate hexMap state
-  readonly hexStones: HSC[]  // to recreate hexMap state [without sequence info]
-  readonly captured: Hex[]   // captured by current Players's Move
-  readonly nextPlayerColor: StoneColor // cannot play into captured Hexes
-  readonly resigned: StoneColor;   // set to color of Player who resigns to signal end of game.
+  readonly id: string = ""   // Board(nextPlayer,captured[])Resigned?,Stones[]
+  readonly resigned: StoneColor //
   repCount: number = 1;
 
   /**
-   * Record the current state of the game.
+   * Record the current state of the game: {Stones, turn, captures}
    * @param nextPlayerColor identify Player to make next Move (player.color, table.getPlayer(color))
    * @param move Move: resigned & captured: not available for play by next Player
    * @param hexMap supplies board.allStones: HSC[]
    */
   constructor(move: Move) {
-    this.nextPlayerColor = otherColor(move.stoneColor)
-    this.resigned = (move.hex.Aname === S_Resign) ? move.stoneColor : undefined // keyboard: 'M-K'
-    this.hexStones = [].concat(move.hex.map.allStones)
+    this.resigned = (move.hex.Aname === S_Resign) ? move.stoneColor : undefined
     this.id = this.idString(move)
   }
   toString() { return `${this.id}#${this.repCount}` }
   idString(move: Move) {
-    let id = this.cString(this.nextPlayerColor, move.captured) + (this.resigned ? move.Aname : '')
-    this.hexStones.sort((a, b) => { return a.hex.rc_linear - b.hex.rc_linear }); // ascending row-major
-    this.hexStones.forEach(hsc => id += this.bString(hsc)) // in canonical order
+    let id = this.cString(move.stoneColor, move.captured) + (this.resigned ? move.Aname : '')
+    let hexStones = move.hex.map.allStones.concat()
+    hexStones.sort((a, b) => { return a.hex.rc_linear - b.hex.rc_linear }); // ascending row-major
+    hexStones.forEach(hsc => id += this.bString(hsc)) // in canonical order
     return id
   }
   bString(hsc: HSC) { 
-    return `${stoneColors.indexOf(hsc.color)}${hsc.hex.Aname.substring(3)}`
+    return `${hsc.color}${hsc.hex.Aname.substring(3)}` // hsc.color is 0|1  or 'b'|'w'
   }
   cString(color: StoneColor, captured: Hex[]): string {
-    let opc = stoneColors.findIndex(c => (c !== color)), rv = `Board(${opc},` // other player color
-    captured.forEach(hex => rv += hex.Aname.substring(4))
-    return rv+')'
+    let opc = otherColor(color)
+    let caps = ''; captured.forEach(hex => caps += hex.Aname.substring(4))
+    return `Board(${opc},${caps})`
   }
   setRepCount(history: Move[]) {
     this.repCount = history.filter(hmove => hmove.board === this).length
   }
   getHexMap() {
-
+    // TODO: parse board.id to recreate allStones, captures
   }
 }

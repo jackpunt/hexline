@@ -139,6 +139,7 @@ export class Planner {
   makeMove(stone: Stone, table?: Table) {
     this.running = true // TODO: maybe need a catch?
     let gamePlay = this.gamePlay, mainGame = gamePlay.original, hex: Hex
+    gamePlay.importBoards(table.gamePlay) // prune back to the current Boards
 
     let sid0 = sid, ms0 = Date.now()-1, tn = table.gamePlay.turnNumber
 
@@ -149,19 +150,12 @@ export class Planner {
       dispatchMove(newState(new Move(hex, stone.color), stone.color, 0))
     }
     let dispatchMove = (state: State) => {
-      let hex = state.move.hex, origMap = gamePlay.original.hexMap
-      let hex0 = hex.ofMap(origMap)
-      gamePlay.history.unshift(state.move) // record *my* move on *my* history.
-      gamePlay.addStone(hex, stone.color)  // record *my* move on *my* hexMap.
+      doMove(state.move)
       let dsid = sid - sid0, dms = Date.now() - ms0, sps = M.decimalRound(1000 * dsid / dms, 0)
       console.log(stime(this, `.makeMove: MOVE#${tn} = ${state.move.Aname}`), `state=`, copyOf(state), {sps, dms, dsid})
       if (table) {
-        // robo-player uses gamePlayC, so doesn't maintain Stone.stoneId, fix them here:
-        if (this.gamePlay instanceof GamePlayC && false)
-          table.gamePlay.history.forEach((moveR, ndx, history) => {
-            let stoneId = ndx + 1, move = history[history.length - stoneId] // label from beginning of game
-            if (move.hex.stoneColor) (move.hex as Hex2).setStoneId(stoneId)
-          })
+        let origMap = gamePlay.original.hexMap               // table.gamePlay.hexMap
+        let hex0 = state.move.hex.ofMap(origMap)
         table.hexMap.showMark(hex0)
         table.dispatchEvent(new HexEvent(S.add, hex0, stone)) //
       }
@@ -170,14 +164,26 @@ export class Planner {
     }
     let doMove = (moveg: Move) => {
       let hexg = moveg.hex, color = moveg.stoneColor
-      hex = hexg.ofMap(gamePlay.hexMap)     // where otherPlayer played
-      let move = new Move(hex, color)
-      gamePlay.history.unshift(move)            // record otherPlayer's Move on my history
-      hex = gamePlay.addStone(hex, color)       // record otherPlayer's Stone on my map
+      hex = hexg.ofMap(gamePlay.hexMap)         // where Move played (ensure on *my* map)
+      let move = new Move(hex, color)           // moveg: thank you for your service...
+      gamePlay.history.unshift(move)            // record Move on my history
+      hex = gamePlay.addStone(hex, color)       // record Stone on my map
       // setColor(hex,color); newHSC(hex, color)->map.allStones; incrInfluence; caps -> move
+      gamePlay.undoRecs.closeUndo()
     }
-    for (let i = mainGame.history.length - 1 - gamePlay.history.length; i >= 0; i--) {
-      doMove(mainGame.history[i]) // 'pop' older move from mainGame, unshift onto gamePlay
+    let undoMove = () => {
+      this.gamePlay.history.shift()
+      this.gamePlay.undoRecs.pop()
+    }
+    // Note: possible to mess it up; manual undo, undo, undo, newMove, newMove, newMove.
+    // we *really* should verify the identity of each Move on history, and undo to get clean...
+    // OR: have the mainGame-GUI send undo events to each Player!
+    while (gamePlay.history.length > mainGame.history.length) {  // there has been some Undo on the mainGame!
+      undoMove()
+    }
+    while (gamePlay.history.length < mainGame.history.length) {  // apply otherPlayer and/or manual Moves
+      // appy mainGame Moves in proper order:
+      doMove(mainGame.history[mainGame.history.length - gamePlay.history.length - 1])
     }
     let win = gamePlay.gStats.update()
     // NOW: we are sync'd with mainGame...
@@ -232,6 +238,12 @@ export class Planner {
       let bestValue = M.decimalRound(bestState.bestValue, 3), bestHex = bestState.move.hex, Aname = bestHex.Aname
       TP.log && console.log(stime(this, `.lookahead:`), nPlys, stoneColor, { Aname, bestHex, bestValue, sps, dsid, dms, bestState: copyOf(bestState), sid })
     }
+    let bestMoves = bestState.moves
+    for (let [hex, state] of moveAry) { state.moves?.delete(hex); state.moves = undefined }
+    moveAry.splice(0, moveAry.length) // try release memory...
+    if (bestMoves) for (let [hex, state] of bestMoves) { if (state.move.eval != '+') bestMoves.delete(hex)}
+    bestState.moves = bestMoves
+
     done && done(bestState)
     return bestState // or resign? or skip?
   }
@@ -257,11 +269,12 @@ export class Planner {
       if (state1) {
         win = planner.stateWin(state1)
         state1.move = move                // <===  !!!  (with current captures)
+        let board = gamePlay.setBoardAndRepCount(move)      // set/reduce repCount to actual value & set move.board
       } else {
         win = gamePlay.gStats.update()                      // calc stats & score for VP win
         state1 = planner.evalState(stoneColor, move)        // set initial value (& bestValue)
 
-        let board = gamePlay.setBoardAndRepCount(move)      // set/reduce repCount to actual value 
+        let board = gamePlay.setBoardAndRepCount(move)      // set/reduce repCount to actual value & set move.board 
         win = gamePlay.gStats.gameOver(board, win)          // check for resign, stalemate
         planner.winState(state1, win)                       // adjust value if win/lose
       }
@@ -301,6 +314,7 @@ export class Planner {
     let gamePlay = this.gamePlay
     gamePlay.undoRecs.closeUndo().pop()    // like undoStones(); SHOULD replace captured Stones/Colors
     gamePlay.history.shift()
+    gamePlay.allBoards.delete(move.board?.id)
     gamePlay.undoCapMarks(move.captured); // undoCapture
     gamePlay.undoRecs = this.undoStack.pop(); 
   }
