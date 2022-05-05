@@ -27,9 +27,9 @@ export function allowEventLoop<T>(genR: YieldR<T>, done?: (result: T) => void): 
  * 
  * This shows the canonical form of the code.
  * It's not useful to actually *call* this code since it also returns a Generator,
- * and the calling code must then write a while loop to handle the yield-vs-return!
+ * and the calling code must then write a while !gen.next().done loop to handle the yield-vs-return!
  */
-export function* yieldR<T extends object> (genR: YieldR<T>, log?:string) {
+export function* yieldR<T extends object> (genR: YieldR<T>): YieldR<T> {
   let result: IteratorResult<void, T>
   while (result = genR.next(), !result.done) yield
   return result.value

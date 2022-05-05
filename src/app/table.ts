@@ -7,7 +7,7 @@ import { StatsPanel } from "./stats";
 import { TP, StoneColor, otherColor, stoneColor0, stoneColor1, stoneColorRecord } from "./table-params";
 
 type XYWH = {x: number, y: number, w: number, h: number} // like a Rectangle
-type HEX_STATUS = Hex[] | false
+type HEX_STATUS = Hex2[] | false
 const S_stagemousemove = 'stagemousemove'
 
 /**
@@ -181,6 +181,8 @@ export class Table extends EventDispatcher  {
 
     this.on(S.add, this.gamePlay.addStoneEvent, this.gamePlay)[S.Aname] = "addStone"
     this.on(S.remove, this.gamePlay.removeStoneEvent, this.gamePlay)[S.Aname] = "removeStone"
+  }
+  startGame() {
     this.gamePlay.setNextPlayer(this.gamePlay.allPlayers[0])   // make a placeable Stone for Player[0]
   }
   logCurPlayer(curPlayer: Player) {
@@ -206,6 +208,7 @@ export class Table extends EventDispatcher  {
     return curPlayer
   }
   putButtonOnPlayer(player: Player) {
+    this.nextHex.clearColor()
     this.nextHex.setColor(player.color)
     let stone = this.nextHex.stone
     stone[S.Aname] = `nextHex:${this.gamePlay.turnNumber}`
@@ -224,9 +227,9 @@ export class Table extends EventDispatcher  {
   set dropTarget(hex: Hex2) { hex = (hex || this.nextHex); this._dropTarget = hex; this.hexMap.showMark(hex)}
 
   /** would be 'captured' by dropTarget. (like: history[-1].captured) */
-  viewCaptured: Hex[] = []
+  viewCaptured: Hex2[] = []
   /** display captured mark on would be captured Hex(s) */
-  markViewCaptured(captured: Hex[]) {
+  markViewCaptured(captured: Hex2[]) {
     this.viewCaptured = captured
     this.viewCaptured.forEach(hex => hex.markCapture()) // show Mark *above* stoneCont
   }
@@ -248,7 +251,7 @@ export class Table extends EventDispatcher  {
 
   /** cache legalMove: sui & captures */
   hexStatus: Record<StoneColor, Map<Hex, HEX_STATUS>>
-  getHexStatus(hex: Hex, color: StoneColor): HEX_STATUS {
+  getHexStatus(hex: Hex2, color: StoneColor): HEX_STATUS {
     return this.hexStatus[color].get(hex)
   }
   
@@ -264,15 +267,15 @@ export class Table extends EventDispatcher  {
       this.hexStatus = stoneColorRecord<Map<Hex, HEX_STATUS>>(new Map(), new Map())
     }
     if (shiftKey != this.dragShift) stone.paint(shiftKey ? color : undefined) // otherColor or orig color
-    if (!hex) return
     if (shiftKey == this.dragShift && hex == this.dragHex) return    // nothing new
     this.dragShift = shiftKey
     this.dragHex = hex
     this.unmarkViewCaptured() // a new Hex/target, remove prior capture marks
+    if (!hex) return nonTarget(hex)
 
     let caps = this.getHexStatus(hex, color) // see if sui&caps is cached
     if (caps === undefined) {
-      caps = this.gamePlay.isLegalMove(hex, color) || false  // includes getCaptures()
+      caps = this.gamePlay.isLegalMove(hex, color) as Hex2[] || false
       this.hexStatus[color].set(hex, caps)                   // false indicates found, but not legal
     }
     if (caps === false) return nonTarget(hex)

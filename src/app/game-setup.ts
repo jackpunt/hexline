@@ -40,12 +40,14 @@ export class GameSetup {
     gamePlay.hexMap[S.Aname] = `mainMap`
     let statsx = -300, statsy = 30
     table.layoutTable(gamePlay)           // mutual injection, all the GUI components, fill hexMap
+    gamePlay.forEachPlayer(p => p.newGame(gamePlay))        // make Planner *after* table & gamePlay are setup
+
     let statsPanel = this.makeStatsPanel(gamePlay.gStats, table.scaleCont, statsx, statsy)
     table.statsPanel = statsPanel
     let last = statsPanel.lines[statsPanel.lines.length-1]
     let guiy = statsPanel.y + last.y + last.height + statsPanel.lead * 2  
     this.makeParamGUI(table, table.scaleCont, statsx, guiy) // modify TP.params...
-    gamePlay.forEachPlayer(p => p.newGame(gamePlay))        // make Planner *after* table & gamePlay are setup
+    table.startGame()
   }
   makeStatsPanel(gStats: TableStats, parent: Container, x, y): StatsPanel {
     let noArrow = { arrowColor: 'rgba(0,0,0,0)' }
@@ -78,7 +80,7 @@ export class GameSetup {
     gui.makeParamSpec("nHexes", [1, 2, 3, 4, 5, 6])
     gui.makeParamSpec("maxPlys", [1, 2, 3, 4, 5, 6, 7, 8])
     gui.makeParamSpec("maxBreadth", [1, 3, 5, 7, 9, 11, 15, 20])
-    gui.makeParamSpec("log", [true, false])
+    gui.makeParamSpec("log", [0,1,2])
     //gui.makeParamSpec("moveDwell", [300, 600])
     gui.makeParamSpec("colorScheme", ['Black_White   ', '  Blue_Red  '])
     gui.spec("Start").onChange = (item: ParamItem) => { if (item.value == "yes") this.restart.call(this) }

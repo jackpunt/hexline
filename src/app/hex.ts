@@ -1,7 +1,7 @@
 import { Container, DisplayObject, Graphics, Shape, Text } from "createjs-module";
-import { C, F, Obj, RC, S, stime, Undo } from "@thegraid/createjs-lib";
+import { C, F, RC, S, stime } from "@thegraid/createjs-lib";
 import { HexAxis, HexDir, H, InfDir } from "./hex-intfs";
-import { Stone, Table } from "./table";
+import { Stone } from "./table";
 import { otherColor, StoneColor, stoneColor0, stoneColor1, stoneColorRecord, stoneColors, TP } from "./table-params";
 import { GamePlay0 } from "./game-play";
 
@@ -96,18 +96,15 @@ export class Hex {
   /** Link to neighbor in each H.dirs direction [NE, E, SE, SW, W, NW] */
   readonly links: LINKS = {}
 
-  /** override to set CapMark */
-  markCapture() {  }
-  /** override to clear CapMark */
-  unmarkCapture() {  }
-
   /** set hex.stoneColor and push HSC on allStones */
   setColor(stoneColor: StoneColor): Hex {
+    if (this.stoneColor !== undefined) 
+      alert(`hex already occupied ${this.map[S.Aname]}: ${this.stoneColor} -> ${stoneColor}`)
     this.stoneColor = stoneColor
     //let hexm = new HexMapLayer(this.map, this, stoneColor)
     //let hex = hexm.addHex(this)
     let hsc: HSC = newHSC(this, stoneColor, this.Aname)
-    this.row !== undefined && this.map?.allStones.push(hsc) // no push: Aname == nextHex
+    this.map?.allStones.push(hsc) // no push: Aname == nextHex
     return this
   }
   clearColor(): StoneColor {
@@ -173,16 +170,26 @@ export class Hex {
   /** create empty INF for each color */
   clearInf() { stoneColors.forEach(c => this.inf[c] = {}) }
 
+  /** true if hex influence by 1 or more Axies of color */
+  isThreat(color: StoneColor) {
+    return !!Object.values(this.inf[color]).find(inf => (inf > 0))
+  }
+  isAttack2(color: StoneColor) {
+    let attacks = 0, infs = this.inf[color], adds = {}
+    H.axis.forEach(ds => adds[ds] = 0)
+    return !!Object.entries(infs).find(([dn, inf]) =>
+      (inf > 0) && (++adds[H.dnToAxis[dn]] == 1) && (++attacks >= 2)
+    )
+  }
   /** @return true if Hex is influenced on 2 or more Axies of color */
   isAttack(color: StoneColor): boolean {
     let attacks = new Set<HexAxis>(), infs = this.inf[color]
-    Object.entries(infs).forEach(([dn, inf]) => {
-      if (inf > 0) attacks.add(H.dnToAxis[dn])
-    });
-    return attacks.size >= 2 
+    return !!Object.entries(infs).find(([dn, inf]) => 
+      (inf > 0) && (attacks.add(H.dnToAxis[dn]).size >= 2)
+    )
   }
   /** @return true if Hex has a Stone (of other color), and is attacked */
-  isCapture(color: StoneColor, hex?: Hex): boolean {
+  isCapture(color: StoneColor): boolean {
     return (this.stoneColor !== undefined) && (this.stoneColor !== color) && this.isAttack(color)
   }
   /** return last Hex on axis in given direction */
@@ -200,8 +207,6 @@ export class Hex {
 }
 /** One Hex cell in the game, shown as a polyStar Shape */
 export class Hex2 extends Hex {
-  static borderColor = 'saddlebrown'
-
   // cont holds hexShape(color), rcText, distText, capMark
   cont: HexCont = new HexCont(this) // Hex IS-A Hex0, HAS-A Container
 
@@ -286,13 +291,11 @@ export class Hex2 extends Hex {
   }
 
   /** make and show a CapMark on this Hex2 */
-  override markCapture() {
-    super.markCapture()
+   markCapture() {
     if (this.capMark === undefined) { this.capMark = this.map.mapCont.markCont.addChild(new CapMark(this)) }
     this.capMark.visible = true
   }
-  override unmarkCapture() {
-    super.unmarkCapture()
+   unmarkCapture() {
     this.capMark && (this.capMark.visible = false) 
   }
 
@@ -343,7 +346,7 @@ export class Hex2 extends Hex {
   /** makes a colored hex, outlined with bgColor */
   paintHexShape(color: string, ns = new Shape(), rad = this.radius): Shape {
     let tilt = 30
-    ns.graphics.s(Hex2.borderColor).dp(0, 0, rad+1, 6, 0, tilt) // s = beginStroke(color) dp:drawPolyStar
+    ns.graphics.s(TP.borderColor).dp(0, 0, rad+1, 6, 0, tilt) // s = beginStroke(color) dp:drawPolyStar
     ns.graphics.f(color).dp(0, 0, rad, 6, 0, tilt)             // f = beginFill(color)
     //ns.rotation = H.dirRot[H.N]
   return ns
