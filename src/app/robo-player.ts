@@ -164,9 +164,12 @@ export class Planner {
     let gid1 = `${mov0.hex.Aname} ${mov0.board?.id} ${TP.colorScheme[stoneColor]}#${tn}`
     return `${gid0}->${gid1}->`
   }
+  /** time at last yield (or initial makeMove) */
+  ms0: number
   /** play this Stone, Player is stone.color */
   makeMove(stone: Stone, table?: Table) {
     this.running = true // TODO: maybe need a catch?
+    this.ms0 = Date.now()
     let gamePlay = this.gamePlay, mainGame = gamePlay.original, hex: Hex
     gamePlay.importBoards(table.gamePlay) // prune back to the current Boards
 
@@ -283,10 +286,14 @@ export class Planner {
       TP.log > 0 && console.groupEnd()
       throw err
     }
-    
-    if (TP.yield) {
+    let dsid = State.sid - sid0, now = Date.now(), dmc = now - this.ms0, depth = this.depth - this.moveNumber
+    let dms = now - ms0, dmy = -1, sps = M.decimalRound(1000 * dsid / dms, 0)
+    if (TP.yield && dmc > 10) {
       yield  // voluntary yield to allow event loop (& graphics paint)
+      this.ms0 = Date.now()
+      dmy = this.ms0 - now
     }
+    console.log(stime(), `depth=${depth} dmc=${dmc} dmy=${dmy} dsid=${dsid} dms=${dms} sps=${sps}`)
 
     if (TP.log > 0 || this.depth == this.moveNumber) {
       let dsid = State.sid - sid0, dms = Date.now() - ms0, sps = M.decimalRound(1000 * dsid / dms, 0)
@@ -398,7 +405,7 @@ export class Planner {
     let win = gamePlay.gStats.update()                   // calc stats & score for VP win
     let state1 = this.evalState(stoneColor, move, state1a) // set initial value (& bestValue) <=== what we came for!
     state1.fj = (move.captured.length == 0 && move.hex.isThreat(other))
-    let fjCheck = state1.fj && (this.depth < this.moveNumber + 8) // allow limited dogfight analysis
+    let fjCheck = state1.fj && (this.depth < this.moveNumber + TP.maxPlys) // allow limited dogfight analysis
     let board = gamePlay.setBoardAndRepCount(move)       // set/reduce repCount to actual value & set move.board 
     win = gamePlay.gStats.gameOver(board, win)           // check for resign, stalemate
     let ind = state1.fj ? '-' : !move.captured ? '!' : move.captured.length > 0 ? `${move.captured.length}` : ' '
