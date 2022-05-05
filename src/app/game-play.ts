@@ -10,8 +10,9 @@ import { GameSetup } from "./game-setup";
 
 export class Undo0 extends Undo {
   /** push openRec, even if empty or !this.enabled */
-  saveUndo(): this {
+  saveUndo(note?: string): this {
     this.openRec['_enabled'] = this.enabled // marker of save point
+    this.openRec['_note'] = note
     this.push(this.openRec)
     this.openRec = new Array(0) // Array<UndoRec>(0)
     return this
@@ -24,7 +25,7 @@ export class Undo0 extends Undo {
     if (popAll) while (this[this.length-1]['_enabled'] == undefined) this.pop() // popAll
     this.openRec = this.superPop()
     this.enabled = this.openRec['_enabled']
-    delete this.openRec['_enabled'];delete this.openRec['_emid'];delete this.openRec['_ilm'];delete this.openRec['_ems']
+    delete this.openRec['_enabled']; delete this.openRec['_note']
     return this
   }
 }
@@ -175,10 +176,11 @@ export class GamePlay0 {
     this.history[0].captured.push(nhex)      // mark as unplayable for next turn
     this.removeStone(nhex)   // decrInfluence(nhex, nhex.color)
   }
+  /** used for diagnosing undoRecs. */
   logMoveRecs(ident: string, move: Move) {
     TP.log > 1 && console.log(stime(this, ident), { 
       movedepth: this.history.length+1, 
-      hex12_color: this.hexMap[1][2].stoneColor ? this.hexMap[1][2].stoneColor : ' ', 
+      //hex12_color: this.hexMap[1][2].stoneColor ? this.hexMap[1][2].stoneColor : ' ', 
       move, Aname: move? move.Aname : '',
       undoRecs: this.undoRecs.concat(), 
       undoLast: this.undoRecs[this.undoRecs.length-1]?.concat(), 
@@ -195,7 +197,6 @@ export class GamePlay0 {
     let move0 = this.history[0]
     // true if nHex is unplayable because it was captured by other player's previous Move
     // Note if dragShift: (move0.stoneColor === color )
-    this.logMoveRecs(`.isLegalMove0`, move0)
     let hexBlocked = move0 && (move0.stoneColor !== color) && move0.captured.includes(hex)
     if (hexBlocked) return undefined
     let pstats = this.gStats.pStat(color)
@@ -203,20 +204,12 @@ export class GamePlay0 {
     // get Captures THEN check Suicide:
     let move = new Move(hex, color, [])
     this.history.unshift(move)
-    this.logMoveRecs(`.isLegalMove1a`, move)
-    this.undoRecs.saveUndo().enableUndo() // before addStone in isLegalMove
-    this.undoRecs[this.undoRecs.length-1]['_ilm'] = move.Aname
-    this.logMoveRecs(`.isLegalMove1b`, move)
+    this.undoRecs.saveUndo(`iLM`).enableUndo() // before addStone in isLegalMove
     // addUndoRec(removeStone), incrInfluence [& undoInf] -> captureStone() -> undoRec(addStone & capMark)
     this.addStone(hex, color)     // stone on hexMap: exactly 1 undoRec (have have several undo-funcs)
-    this.logMoveRecs(`.isLegalMove2`, move)
-    this.undoRecs.closeUndo()
-    this.logMoveRecs(`.isLegalMove3`, move)
     let suicide = hex.isAttack(otherColor(color)), rv = suicide ? undefined : move.captured
-    this.undoRecs.restoreUndo()
-    //this.undoRecs.closeUndo().restoreUndo()    // replace captured Stones/Colors & undo/redo Influence
+    this.undoRecs.closeUndo().restoreUndo()    // replace captured Stones/Colors & undo/redo Influence
     this.history.shift()
-    this.logMoveRecs(`.isLegalMove4`, move)
     return rv
   }
 }
