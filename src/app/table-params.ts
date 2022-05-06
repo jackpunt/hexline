@@ -10,6 +10,7 @@ export function stoneColorRecord<T>(b: T = null, w: T = null): Record<StoneColor
 export function stoneColorRecordF<T>(f: (sc: StoneColor) => T) { return stoneColorRecord(f(stoneColor0), f(stoneColor1)) }
 export class TP {
   static yield = true
+  static minYield = 20
   static maxPlys = 4     // for robo-player lookahead
   static maxBreadth = 7  // for robo-player lookahead
   static Black_White = stoneColorRecord('BLACK', 'WHITE')

@@ -159,10 +159,10 @@ export class Planner {
   }
   logId(stoneColor: StoneColor, nPlys: number) {
     let tn = this.depth
-    let gid0 = `${nPlys}/${TP.maxPlys} after ${TP.colorScheme[otherColor(stoneColor)]}#${tn-1}`
     let mov0 = this.gamePlay.history[0]
-    let gid1 = `${mov0.hex.Aname} ${mov0.board?.id} ${TP.colorScheme[stoneColor]}#${tn}`
-    return `${gid0}->${gid1}->`
+    let gid0 = `${nPlys}/${TP.maxPlys} after ${mov0.Aname}#${tn-1}`
+    let gid1 = `${mov0.board?.id} ${TP.colorScheme[stoneColor]}#${tn}`
+    return `${gid0}: ${gid1}->`
   }
   /** time at last yield (or initial makeMove) */
   ms0: number
@@ -288,12 +288,13 @@ export class Planner {
     }
     let dsid = State.sid - sid0, now = Date.now(), dmc = now - this.ms0, depth = this.depth - this.moveNumber
     let dms = now - ms0, dmy = -1, sps = M.decimalRound(1000 * dsid / dms, 0)
-    if (TP.yield && dmc > 10) {
+    let ident = this.gamePlay.history[0].Aname
+    if (TP.yield && dmc > TP.minYield) {  // compute at least 10 -- 100 ms
       yield  // voluntary yield to allow event loop (& graphics paint)
       this.ms0 = Date.now()
       dmy = this.ms0 - now
     }
-    console.log(stime(), `depth=${depth} dmc=${dmc} dmy=${dmy} dsid=${dsid} dms=${dms} sps=${sps}`)
+    TP.log > 0 && console.log(stime(this, `.lookaheadDeep timers:`), `depth=${depth} dmc=${dmc} dmy=${dmy} dsid=${dsid} dms=${dms} sps=${sps} sid=${State.sid}`)
 
     if (TP.log > 0 || this.depth == this.moveNumber) {
       let dsid = State.sid - sid0, dms = Date.now() - ms0, sps = M.decimalRound(1000 * dsid / dms, 0)
@@ -445,7 +446,7 @@ export class Planner {
       //console.log(stime(this, `.evalAndSortMoves: state0 in:`), state0.copyOf())
       let hexGen = new HexGen(gamePlay, this.districtsToCheck).gen(), tn = this.depth
       let hexGenA = Array.from(hexGen)//.concat(this.gamePlay.hexMap.skipHex)
-      TP.log > 0 && console.groupCollapsed(`${stime(this, `.evalAndSortMoves after ${state0.move.Aname}#${tn-1}:`)} -> ${TP.colorScheme[stoneColor]}#${tn} evalMoveShallow[${hexGenA.length}]:`)
+      TP.log > 0 && console.groupCollapsed(`${stime(this, `.evalAndSortMoves after ${state0.move.Aname}#${tn-1}`)} -> ${TP.colorScheme[stoneColor]}#${tn} evalMoveShallow[${hexGenA.length}]:`)
       for (let hex of hexGenA) {
         let state = this.evalMoveShallow(hex, stoneColor, 0)
         moves.set(hex, state)
