@@ -1,5 +1,5 @@
 import { H, } from "./hex-intfs";
-import { Hex, Hex2, HexMap, S_Resign, HSC, HexM, HexMaps, HexMapD } from "./hex";
+import { Hex, Hex2, HexMap, S_Resign, HSC, HexMaps, HexMapD } from "./hex";
 import { HexEvent } from "./hex-event";
 import { S, stime, Undo, KeyBinder } from "@thegraid/createjs-lib";
 import { GameStats, TableStats } from "./stats";
@@ -464,7 +464,7 @@ export class Player implements Mover {
     this.gamePlay = gamePlay
   }
   newGame(gamePlay: GamePlay) {
-    this.planner = new Planner(gamePlay, this)
+    this.planner = new Planner(new GamePlayD(gamePlay, this))
   }
   stopMove() {
     this.planner.roboStop = true
