@@ -74,8 +74,7 @@ export class GameSetup {
   }
   makeParamGUI(table: Table, parent: Container, x, y): ParamGUI {
     let gui = new ParamGUI(TP)
-    let enable = false, nHex = (nH, mH) => { TP.fnHexes(nH, mH); enable && gui.selectValue("Start", "yes") }
-    gui.makeParamSpec("Start", [" ", "yes", "no"], { fontSize: 40, fontColor: "red" })
+    let enable = false, nHex = (nH, mH) => { TP.fnHexes(nH, mH); enable && this.restart.call(this) }
     gui.makeParamSpec("mHexes", [2, 3, 4])
     gui.makeParamSpec("nHexes", [1, 2, 3, 4, 5, 6])
     gui.makeParamSpec("maxPlys", [1, 2, 3, 4, 5, 6, 7, 8])
@@ -83,7 +82,6 @@ export class GameSetup {
     gui.makeParamSpec("log", [0,1,2])
     //gui.makeParamSpec("moveDwell", [300, 600])
     gui.makeParamSpec("colorScheme", ['Black_White   ', '  Blue_Red  '])
-    gui.spec("Start").onChange = (item: ParamItem) => { if (item.value == "yes") this.restart.call(this) }
     gui.spec("mHexes").onChange = (item: ParamItem) => { nHex(TP.nHexes, item.value) }
     gui.spec("nHexes").onChange = (item: ParamItem) => { nHex(item.value, TP.mHexes) }
     gui.spec("colorScheme").onChange = (item: ParamItem) => {

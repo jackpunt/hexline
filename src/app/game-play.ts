@@ -273,7 +273,7 @@ export class GamePlay extends GamePlay0 {
     KeyBinder.keyBinder.setKey('Escape', {thisArg: table, func: table.stopDragging}) // Escape
     KeyBinder.keyBinder.setKey('C-s', { thisArg: GameSetup.setup, func: GameSetup.setup.restart })// C-s START
     KeyBinder.keyBinder.setKey('C-c', { thisArg: this, func: this.stopPlayer })// C-c Stop Planner
-    KeyBinder.keyBinder.setKey('m', { thisArg: this, func: this.makeMove })
+    KeyBinder.keyBinder.setKey('m', { thisArg: this, func: this.keyMove })
     KeyBinder.keyBinder.setKey('n', { thisArg: this, func: this.autoMove, argVal: false })
     KeyBinder.keyBinder.setKey('N', { thisArg: this, func: this.autoMove, argVal: true})
     KeyBinder.keyBinder.setKey('y', { thisArg: this, func: () => TP.yield = true })
@@ -293,7 +293,7 @@ export class GamePlay extends GamePlay0 {
     }, 400)
   }
   // Make ONE robo-move by curPlayer (more move if auto-move sets player.useRobo = true)
-  makeMove() {
+  keyMove() {
     let running = this.curPlayer.planner.running
     console.log(stime(this, `.makeMove: ${this.curPlayer.colorn} useRobo=`), this.curPlayer.useRobo, `running=${running}` )
     if (!running) {
@@ -493,7 +493,10 @@ export class Player implements Mover {
   makeMove(stone: Stone, useRobo = false) {
     this.planner.roboStop = false
     let table = (this.gamePlay instanceof GamePlay) && this.gamePlay.table
-    if (useRobo || this.useRobo) this.planner.makeMove(stone, table)
+    if (useRobo || this.useRobo) {
+      // start planner from top of stack:
+      setTimeout(() => this.planner.makeMove(stone, table))
+    }
     return      // robo or GUI will invoke gamePlay.doPlayerMove(...)
   }
 }
