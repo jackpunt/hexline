@@ -8,27 +8,6 @@ import { otherColor, StoneColor, stoneColors, TP} from "./table-params"
 import { Planner } from "./robo-player";
 import { GameSetup } from "./game-setup";
 
-export class Undo0 extends Undo {
-  /** push openRec, even if empty or !this.enabled */
-  saveUndo(note?: string): this {
-    this.openRec['_enabled'] = this.enabled // marker of save point
-    this.openRec['_note'] = note
-    this.push(this.openRec)
-    this.openRec = new Array(0) // Array<UndoRec>(0)
-    return this
-  }
-  superPop() {
-    return this.splice(this.length-1, 1)[0]
-  }
-  /** restore openRec, and this.enabled */
-  restoreUndo(popAll = true): this {
-    if (popAll) while (this[this.length-1]['_enabled'] == undefined) this.pop() // popAll
-    this.openRec = this.superPop()
-    this.enabled = this.openRec['_enabled']
-    delete this.openRec['_enabled']; delete this.openRec['_note']
-    return this
-  }
-}
 export interface GamePlayOrig { 
   hexMap: HexMaps, history: Move[], redoMoves: Move[], 
   allBoards: BoardRegister, allPlayers: Player[], gStats: GameStats
@@ -83,7 +62,7 @@ export class GamePlay0 {
     return this.allBoards.addBoard(move, this.history)
   }
 
-  undoRecs: Undo0 = new Undo0().enableUndo();
+  undoRecs: Undo = new Undo().enableUndo();
   addUndoRec(obj: Object, name: string, value: any | Function = obj[name]) { 
     this.undoRecs.addUndoRec(obj, name, value); 
   }  
