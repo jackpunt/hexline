@@ -86,7 +86,7 @@ export class GameStats {
     })
   }
   /** compute pstats, return StoneColor of winner (or undefined) */
-  update(move0?: Move): StoneColor {
+  updateStats(move0?: Move): StoneColor {
     this.zeroCounters()
     let distLen = this.inControl.length; // = TP.ftHexes(TP.mHexes) -  1
     this.hexMap.forEachHex((hex) => this.incCounters(hex)) // set nStones, dStones, etc
@@ -182,8 +182,8 @@ export class TableStats extends GameStats {
   /** update all the stats 
    * @move0 if supplied, check move0.board for resign/stalemate
    */
-  override update(move0?: Move): StoneColor {
-    const win = super.update(move0)
+  override updateStats(move0?: Move): StoneColor {
+    const win = super.updateStats(move0)
     let board = move0?.board
     if (!!this.table) {
       !!board && this.showBoardRep(board.repCount)

@@ -5,7 +5,7 @@ import { S, stime, Undo, KeyBinder } from "@thegraid/createjs-lib";
 import { GameStats, TableStats } from "./stats";
 import { Stone, Table } from "./table";
 import { otherColor, StoneColor, stoneColors, TP} from "./table-params"
-import { Planner } from "./robo-player";
+import { Planner, State } from "./robo-player";
 import { GameSetup } from "./game-setup";
 
 export interface GamePlayOrig { 
@@ -124,7 +124,7 @@ export class GamePlay0 {
 
     this.undoRecs.closeUndo()      // expect ONE record, although GUI can pop as many as necessary
     this.setBoardAndRepCount(move) // set/reduce repCount to actual value 
-    let win = this.gStats.update(move) // check for WIN: showRepCount(), showWin()
+    let win = this.gStats.updateStats(move) // check for WIN: showRepCount(), showWin()
     return win
   }
   
@@ -171,7 +171,7 @@ export class GamePlay0 {
    * unshift(move); addStone(); isSuicide(); undo(); shift()
    * @returns a Hex[] (of captured Hexes) if move is Legal, else return undefined
    */
-  isLegalMove(hex: Hex, color: StoneColor): Hex[] {
+  isLegalMove(hex: Hex, color: StoneColor, evalFun?: (move: Move) => void): Hex[] {
     if (hex.stoneColor !== undefined) return undefined
     let move0 = this.history[0]
     // true if nHex is unplayable because it was captured by other player's previous Move
@@ -187,6 +187,7 @@ export class GamePlay0 {
     // addUndoRec(removeStone), incrInfluence [& undoInf] -> captureStone() -> undoRec(addStone & capMark)
     this.addStone(hex, color)     // stone on hexMap: exactly 1 undoRec (have have several undo-funcs)
     let suicide = hex.isAttack(otherColor(color)), rv = suicide ? undefined : move.captured
+    if (!suicide && evalFun) evalFun(move)
     this.undoRecs.closeUndo().restoreUndo()    // replace captured Stones/Colors & undo/redo Influence
     this.history.shift()
     return rv
@@ -312,7 +313,7 @@ export class GamePlay extends GamePlay0 {
       if (!!move0) {
         move0.board.setRepCount(this.history) // undo: decrement repCount; because: shift()
       }
-      this.gStats.update(move0)          // reset stats: inControl & score & repCount check for 'win'
+      this.gStats.updateStats(move0)          // reset stats: inControl & score & repCount check for 'win'
     }
     this.showRedoMark()
   }
@@ -425,7 +426,6 @@ export class Move {
   readonly hex: Hex // where to place stone
   readonly stoneColor: StoneColor
   readonly captured: Hex[] = [];
-  eval: number = 0      // for robo-player/debugger: evaluated to turn+depth ==> eval
   board: Board
   constructor(hex: Hex, stoneColor: StoneColor, captured: Hex[] = []) {
     this.Aname = this.toString(hex, stoneColor) // for debugger..
