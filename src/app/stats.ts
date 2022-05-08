@@ -34,6 +34,8 @@ export class GameStats {
   readonly allPlayers: Player[]
   readonly pStats: Record<StoneColor, PlayerStats> = stoneColorRecord()
   readonly inControl: StoneColor[] = Array(TP.ftHexes(TP.mHexes)) // (nStones[color] - nStones[oc] >= TP.diffControl) -> [district]=color
+  winVP: StoneColor = undefined;
+  winAny: StoneColor = undefined;
   score(color: StoneColor): number {
     return this.inControl.filter(ic => ic == color).length
   }
@@ -103,16 +105,15 @@ export class GameStats {
         }
       })
     }
-    win = this.gameOver(move0?.board, win)
-    return win
+    this.winVP = win
+    return this.gameOver(move0?.board)
   }  
   /** victory, resigned, stalemate */
-  gameOver(board: Board, win: StoneColor): StoneColor { 
+  gameOver(board: Board): StoneColor { 
+    let win = this.winVP
     let scores = stoneColors.map(pc => this.score(pc))
     let nstones = stoneColors.map(pc => this.pStats[pc].nStones)
-    // win = scores[stoneColor0] >= TP.nVictory ? stoneColor0
-    //     : scores[stoneColor1] >= TP.nVictory ? stoneColor1 : undefined
-    return (win !== undefined) ? win : !board ? undefined
+    return this.winAny = (win !== undefined) ? win : !board ? undefined
       : board.resigned ? otherColor(board.resigned)
         : (board.repCount < 3) ? undefined
           : ((scores[0] == scores[1] ? (nstones[0] <= nstones[1] ? stoneColor1 : stoneColor0)

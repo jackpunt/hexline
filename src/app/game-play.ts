@@ -178,6 +178,7 @@ export class GamePlay0 {
     // Note if dragShift: (move0.stoneColor === color )
     let hexBlocked = move0 && (move0.stoneColor !== color) && move0.captured.includes(hex)
     if (hexBlocked) return undefined
+    if (!!evalFun) this.gStats.updateStats(move0) // when invoked by robo-planner...
     let pstats = this.gStats.pStat(color)
     if (hex.district == 0 && pstats.dMax <= pstats.dStones[0]) return undefined
     // get Captures THEN check Suicide:
