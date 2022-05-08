@@ -102,7 +102,6 @@ export class Planner {
   evalState2 (move: Move, state1a?: State) {
     let stoneColor = move.stoneColor
     let gamePlay = this.gamePlay
-    gamePlay.gStats.updateStats()                          // calc stats & score for VP win
     let state1 = this.evalState(stoneColor, move, state1a) // set initial value (& eval) <=== what we came for!
     let board = gamePlay.setBoardAndRepCount(move)         // set/reduce repCount to actual value & set move.board 
     let win = gamePlay.gStats.gameOver(board)              // check for resign, stalemate
@@ -115,6 +114,7 @@ export class Planner {
    * @param move  for documentation/debugging: move that brought us to this state
    */
   evalState(color: StoneColor, move = this.gamePlay.history[0], state1?: State): State {
+    this.gamePlay.gStats.updateStats()                      // calc stats & score for VP win
     let weightVec = this.weightVecs[color]
     let other = otherColor(color)
     let s0 = this.gamePlay.gStats.getSummaryStat(color, weightVec)
@@ -132,6 +132,14 @@ export class Planner {
     state1.eval = this.gamePlay.history.length // #of Stones on board (this.depth-1)
     this.maxDepth = Math.max(this.maxDepth, state1.eval)
     return state1
+  }
+  nPlysCheck2(nPlys: number, fjCheck: boolean, ) { return !fjCheck ? nPlys : Math.max(nPlys + (nPlys % 2), 2) }
+  nPlysCheckE(nPlys: number, fjCheck: boolean, ) { return !fjCheck ? nPlys : this.nPlysCheck2(nPlys, fjCheck) + this.gamePlay.original.curPlayer.index }
+  keepBestValue(state0: State, bestState: State) {
+    //if (state0.bestValue >= -bestState.bestValue) {
+      state0.bestValue = -bestState.bestValue
+      state0.eval = bestState.eval
+    //}
   }
   winState(state: State, win: StoneColor): StoneColor {
     if (win !== undefined) state.bestValue = (win === state.color) ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY
@@ -264,8 +272,9 @@ export class Planner {
       TP.log > 0 && console.groupCollapsed(`${stime(this, `.lookaheadDeep`)}-${this.logId(stoneColor, nPlys)}`)
       let sid0 = State.sid, ms0 = Date.now() // current state id
 
-      let [moveAry, bestState] = this.lookaheadInit(state0, stoneColor)  // bestState.bestValue = -state0.
-      if (nPlys == 0) return moveAry[0][1] || bestState
+      let moveAry = this.lookaheadInit(state0, stoneColor)  // bestState.bestValue = -state0.
+      let bestState = moveAry[0][1]
+      if (nPlys == 0) return bestState
       for (let [hex, state1a] of moveAry) {                   // hex = state1a.move.hex
         if (this.moveAryBreak(state1a, --breadth, bestState)) break
         if (nPlys - 1 > 0) {
@@ -278,10 +287,8 @@ export class Planner {
         }
         if (state1a.bestValue > bestState.bestValue) bestState = state1a // MAX
       }
-      if (state0.bestValue > -bestState.bestValue) {
-        state0.bestValue = -bestState.bestValue
-        state0.eval = bestState.eval
-      }
+      this.keepBestValue(state0, bestState)
+
       // timers and voluntary yield:
       let dsid = State.sid - sid0, now = Date.now(), dmc = now - this.ms0, depth = this.depth - this.moveNumber
       let dms = now - ms0, dmy = -1, sps = M.decimalRound(1000 * dsid / dms, 0)
@@ -325,7 +332,7 @@ export class Planner {
         // get a better assessment (& likely lower the ranking of this move)
         let fjCheck = this.fjCheckP(state1) // or just state1.fj??
         if (nPlys > 0 || fjCheck) {
-          let nPlys2 = !fjCheck ? nPlys : Math.max(nPlys + (nPlys % 2), 2) // even number, >= 2
+          let nPlys2 = this.nPlysCheckE(nPlys, fjCheck)
           // DFS-min/max: find opponent's best move against state1.move:
           let result: IteratorResult<any, State>
           let planGen = this.lookaheadDeep(state1, otherColor(stoneColor), nPlys2)
@@ -351,20 +358,18 @@ export class Planner {
    */
   lookaheadShallow(state0: State, stoneColor: StoneColor, nPlys = TP.maxPlys, breadth = TP.maxBreadth) {
     try {
-      TP.log > 0 && console.groupCollapsed(`${stime(this, `.lookaheadShallow`)}-${this.logId(stoneColor, nPlys)}`)
+      TP.log > 0 && console.groupCollapsed(`${stime(this, `.lookaheadShallow${this.fjCheckP(state0)?'-':'+'}`)}:${this.logId(stoneColor, nPlys)}`)
       let sid0 = State.sid, ms0 = Date.now() // current state id
-      let [moveAry, bestState] = this.lookaheadInit(state0, stoneColor) // evalAndSortMoves(), skipState()
-      if (nPlys == 0) return moveAry[0][1] || bestState
-      bestState.bestValue -= 5          // <===   white[2,2] -> black[1,1] to win... [bs.bv=-5]
+      let moveAry = this.lookaheadInit(state0, stoneColor) // evalAndSortMoves(), skipState()
+      let bestState = moveAry[0][1]
+      if (nPlys == 0) return bestState
+      //bestState.bestValue -= 5          // <===   white[2,2] -> black[1,1] to win... [bs.bv=-5]
       for (let [hex, state1a] of moveAry) {                              // hex = state1a.move.hex
         if (this.moveAryBreak(state1a, --breadth, bestState)) break
         this.evalMoveShallow(hex, stoneColor, nPlys - 1, state1a)        // eval move and update state1a
         if (state1a.bestValue > bestState.bestValue) bestState = state1a // MAX
       }
-      if (state0.bestValue > -bestState.bestValue) {
-        state0.bestValue = -bestState.bestValue
-        state0.eval = bestState.eval
-      }
+      this.keepBestValue(state0, bestState)
       this.logAndGC(`lookaheadShallow`, state0, sid0, ms0, moveAry, bestState, nPlys, stoneColor, false)
       TP.log > 0 && console.groupEnd()
       return bestState
@@ -373,11 +378,10 @@ export class Planner {
       throw err
     }
   }
-  lookaheadInit(state0: State, stoneColor: StoneColor): [[Hex, State][], State] {
+  lookaheadInit(state0: State, stoneColor: StoneColor): [Hex, State][] {
     // ASSERT: no lookaheadDeep; maybe lookaheadShallow [for fjCheck]
     let moveAry = this.evalAndSortMoves(state0, stoneColor) // generate first approx of possible moves
-    let bestState = this.skipState(state0); // value -Infinity; move.eval=state0.move.eval [bestValue = -state0.bestValue]
-    return [moveAry, bestState]
+    return moveAry
   }
   moveAryBreak(state1a, breadth, bestState): boolean {
     return this.roboStop || breadth < 0 || (state1a.bestValue + .01) < Math.min(bestState.value, bestState.bestValue)
@@ -424,7 +428,7 @@ export class Planner {
 
     let fjCheck = this.fjCheckP(state1)
     if (win === undefined && (nPlys > 0 || fjCheck)) {
-      let nPlys2 = !fjCheck ? nPlys : Math.max(nPlys + (nPlys % 2), 2) // incr to even number (nPlys2 >= 2)
+      let nPlys2 = this.nPlysCheckE(nPlys, fjCheck)
       let state2 = this.lookaheadShallow(state1, otherColor(stoneColor), nPlys2)
 
       TP.log > 1 && console.log(stime(this, `.evalMoveShallow: nPlys: ${nPlys} after fjCheck`),
@@ -447,33 +451,35 @@ export class Planner {
   evalAndSortMoves(state0: State, stoneColor: StoneColor): [Hex, State][] { // Generator<void, State, unknown>
     const tn = this.depth, other = otherColor(stoneColor)
     const gamePlay = this.gamePlay
+    const moves = state0.moves ? state0.moves : (state0.moves = new MOVES())
+    const evalf = (move: Move) => {
+      // From isLegalMove: move = placeStone(hex, color)
+      let state1 = this.evalState2(move), win = gamePlay.gStats.winAny
+      let fjCheck = this.fjCheckP(state1)
+      if (fjCheck && win === undefined) {
+        this.lookaheadShallow(state1, other, 2) // lower state1.bestValue
+      }
+      moves.set(move.hex, state1)
+    }
     if (state0['agc']) 
       console.log(stime(this, `.evalSortMoves: looking for gc'd moves in state0`), state0.copyOf())
-    const moves = state0.moves ? state0.moves : (state0.moves = new MOVES())
     TP.log > 0 && console.groupCollapsed(`${stime(this, `.evalAndSortMoves after ${state0.move.Aname}#${tn-1}`)} -> ${TP.colorScheme[stoneColor]}#${tn}:`)
-    if (moves.size == 0) {
-      const evalf = (move: Move) => {
-        // From isLegalMove: move = placeStone(hex, color)
-        let state1 = this.evalState2(move), win = this.gamePlay.gStats.winAny
-        let fjCheck = this.fjCheckP(state1)
-        if (fjCheck && win === undefined) {
-          this.lookaheadShallow(state1, other, 2) // lower state1.bestValue
-        }
-        moves.set(move.hex, state1)
-      }
+    let skipState = this.skipState(state0); // value -Infinity; move.eval=state0.move.eval [bestValue = -state0.bestValue]
+    evalf(skipState.move)                   // eval and set into moves
+    if (moves.size >= 0) {                  // for now: recalc ALL moves[hex]->state
       let hexGen = new HexGen(gamePlay, this.districtsToCheck, evalf).gen()
       let hexGenA = Array.from(hexGen) // checkHex invokes evalf(move) on each legalMove
       TP.log > 1 && console.log(stime(this, `.evalAndSortMoves: after ${state0.move?.Aname}#${tn-1}`), {moves: state0.moves, state0: state0.copyOf(), hexGenA})
     } else {
       // log: 'using recycled moves'
-      TP.log > 0 && this.logMoveAry(`evalAndSortMoves(${state0.move?.Aname}#${this.depth}): using recycled moves`, state0, entriesArray(moves))
+      TP.log > 0 && this.logMoveAry(`evalAndSortMoves(${state0.move?.Aname}#${tn}): using recycled moves`, state0, entriesArray(moves))
     }
     if (moves.size == 0) {
-      TP.log > 1 && console.log(stime(this, `.evalAndSortMoves(${state0.move?.Aname}#${this.depth}): moveAry empty, state:`), state0.copyOf())
+      TP.log > 1 && console.log(stime(this, `.evalAndSortMoves(${state0.move?.Aname}#${tn}): moveAry empty, state:`), state0.copyOf())
     }
     TP.log > 0 && console.groupEnd()
     let moveAry = Array.from(moves.entries()).sort(([ha, sa], [hb, sb]) => sb.bestValue - sa.bestValue) // descending
-    TP.log > 1 && this.logMoveAry(`evalAndSortMoves(${state0.move?.Aname}#${this.depth}): original eval`, state0, moveAry)
+    TP.log > 1 && this.logMoveAry(`evalAndSortMoves(${state0.move?.Aname}#${tn}): original eval`, state0, moveAry)
     return moveAry
   }
 }

@@ -181,7 +181,7 @@ export class GamePlay0 {
     let hexBlocked = move0 && (move0.stoneColor !== color) && move0.captured.includes(hex)
     if (hexBlocked) return undefined
     //if (!!evalFun) this.gStats.updateStats(move0) // when invoked by robo-planner...
-    // so that dMax is set before testing hex.district (but this costs ~2K sps)
+    // so that dMax is set before testing hex.district (but this costs ~8K sps)
     // TODONE: track dMax on each addStone/removeStone (vs map.forEachHex)
     let pstats = this.gStats.pStat(color)
     if (hex.district == 0 && pstats.dMax <= pstats.dStones[0]) return undefined
@@ -212,9 +212,9 @@ export class GamePlayC extends GamePlay0 {
 export class GamePlayD extends GamePlay0 {
   static sid = 0
   readonly id = GamePlayD.sid++
-  readonly original: GamePlayOrig
+  readonly original: GamePlay0
   override hexMap: HexMaps;
-  constructor(original: GamePlayOrig, player: Player) {
+  constructor(original: GamePlay0, player: Player) {
     super({ hexMap: new HexMapD(), history: [], redoMoves: [], 
       allPlayers: original.allPlayers, allBoards: new BoardRegister(), gStats: undefined })
     this.original = original
