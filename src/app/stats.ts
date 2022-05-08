@@ -54,6 +54,16 @@ export class GameStats {
     // remove TableStats methods:
     return new GameStats(this.hexMap, this.allPlayers, this.pStats, this.inControl) // share pStats & inControl!
   }
+  afterSetColor(hex: Hex) {
+    let pstat = this.pStat(hex.stoneColor)
+    pstat.dStones[hex.district]++
+    pstat.dMax = Math.max(...pstat.dStones.slice(1))
+  }
+  beforeClearColor(hex: Hex) {
+    let pstat = this.pStat(hex.stoneColor)
+    pstat.dStones[hex.district]--
+    pstat.dMax = Math.max(...pstat.dStones.slice(1))
+  }
 
   pStat(color: StoneColor): PlayerStats { return this.pStats[color] }
   zeroCounters(distLen = this.inControl.length) {

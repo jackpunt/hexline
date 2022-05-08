@@ -75,6 +75,7 @@ export class GamePlay0 {
     let rv = hex
     if (hex.row !== undefined) {            // skipHex || resignHex do not have color or influence.
       rv = hex.setColor(stoneColor)         // move Stone onto Hex & HexMap [hex.stone = stone]
+      this.gStats.afterSetColor(hex)
       this.incrInfluence(hex, stoneColor)
     }
     if (!this.undoRecs.isUndoing) {
@@ -90,6 +91,7 @@ export class GamePlay0 {
    */
   removeStone(hex: Hex) {
     if (hex.row !== undefined) {                 // skipHex and resignHex have no influence
+      this.gStats.beforeClearColor(hex)          // adjust dStones & dMax
       let stoneColor = hex.clearColor()          // Hex2.stone = undefined; remove HSC from allStones
       this.decrInfluence(hex, stoneColor)        // adjust influence from removed Stone
       if (!this.undoRecs.isUndoing) {
@@ -178,7 +180,9 @@ export class GamePlay0 {
     // Note if dragShift: (move0.stoneColor === color )
     let hexBlocked = move0 && (move0.stoneColor !== color) && move0.captured.includes(hex)
     if (hexBlocked) return undefined
-    if (!!evalFun) this.gStats.updateStats(move0) // when invoked by robo-planner...
+    //if (!!evalFun) this.gStats.updateStats(move0) // when invoked by robo-planner...
+    // so that dMax is set before testing hex.district (but this costs ~2K sps)
+    // TODONE: track dMax on each addStone/removeStone (vs map.forEachHex)
     let pstats = this.gStats.pStat(color)
     if (hex.district == 0 && pstats.dMax <= pstats.dStones[0]) return undefined
     // get Captures THEN check Suicide:
