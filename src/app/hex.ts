@@ -144,23 +144,6 @@ export class Hex {
    * Pass on based on *orig/current* inf, not the new/decremented inf.
    * @param inc is influence *passed-in* from prev Hex; *this* gets inc; pass-on [inc or inc-1]
    */
-  //  v   
-  // *1 *2 2 1
-  //  0 *1 1 0
-  // 
-  //  v   
-  // *1 *2 2 1 *1
-  //  0 *1 1 0
-  // 
-
-  //     v
-  // *1 *2 *3 3 2 1
-  // *1  1 *1 1 0 0
-  // pd(inc=1) -> inf=2; infn=1; nxt=0;
-  // pd(inc=0) -> inf=*3, infn=1; nxt=1;
-  // pd(inc=1) -> inf=3; infn=1; nxt=0;
-  // pd(inc=0) -> inf=2; infn=0; nxt=0;
-  // pd(inc=0) -> inf=1; infn=0; nxt=0;
   propagateDecr(color: StoneColor, dn: InfDir, inc: number, test?: (hex: Hex) => void) {
     let inf = this.getInf(color, dn)
     let infn = this.stoneColor === color ? inc + 1 : inc

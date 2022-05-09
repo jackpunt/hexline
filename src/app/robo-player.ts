@@ -41,6 +41,7 @@ export class State {
     return s1
   }
 }
+/** TODO: get es2015 Iterable of Map.entries work... */
 function entriesArray(k: MOVES) {
   let rv: [Hex, State][] = []
   for (let m of k) { rv.push(m) }

@@ -108,8 +108,6 @@ export class GamePlay0 {
 
   /** remove captured Stones, from placing Stone on Hex */
   doPlayerMove(hex: Hex, stoneColor: StoneColor): StoneColor {
-    //this.unmarkOldCaptures()   // this player no longer constrained
-
     let move = new Move(hex, stoneColor, [])
     this.history.unshift(move) // record Move in History[0] (including Skip & Resign)
     if (hex == this.hexMap.skipHex) {
@@ -141,9 +139,7 @@ export class GamePlay0 {
       })
     })
   }
-  //         v
-  // 0 0 *1 *2 *3 3 2 1
-  // 0 0 *1  1 *1 1 0 0
+
   /** after remove Stone from hex: propagate influence in each direction. */
   decrInfluence(hex: Hex, color: StoneColor) {
     H.infDirs.forEach(dn => {
@@ -181,12 +177,8 @@ export class GamePlay0 {
     // Note if dragShift: (move0.stoneColor === color )
     let hexBlocked = move0 && (move0.stoneColor !== color) && move0.captured.includes(hex)
     if (hexBlocked) return undefined
-    //if (!!evalFun) this.gStats.updateStats(move0) // when invoked by robo-planner...
-    // so that dMax is set before testing hex.district (but this costs ~8K sps)
-    // TODONE: track dMax on each addStone/removeStone (vs map.forEachHex)
     let pstats = this.gStats.pStat(color)
     if (hex.district == 0 && pstats.dMax <= pstats.dStones[0]) return undefined
-    // get Captures THEN check Suicide:
     let move = this.doProtoMove(hex, color)
     let suicide = hex.isAttack(otherColor(color)), rv = suicide ? undefined : move.captured
     if (!suicide) {
@@ -196,6 +188,7 @@ export class GamePlay0 {
     this.undoProtoMove()
     return rv
   }
+  // similar to Planner.placeStone/unplaceStone, but with alt color for CapMarks
   doProtoMove(hex: Hex, color: StoneColor) {
     let move = new Move(hex, color, [])
     this.history.unshift(move)
@@ -365,10 +358,6 @@ export class GamePlay extends GamePlay0 {
     nhex.markCapture()
     this.addUndoRec(nhex, `hex.unmarkCapture()`, () => nhex.unmarkCapture())
   }
-  // override undoCapMarks(captured: Hex[]): void {
-  //   super.undoCapMarks(captured)
-  //   if (this.history[0]) this.hexMap.showMark(this.history[0].hex)
-  // }
 
   skipMove() {
     this.table.stopDragging() // drop on nextHex (no Move)
