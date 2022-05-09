@@ -90,4 +90,5 @@ export namespace H {
 
   export const capColor1:   string = "rgba(150,  0,   0, .8)"
   export const capColor2:   string = "rgba(128,  80,  80, .8)"
+  export const suiColor:    string = capColor1
 }

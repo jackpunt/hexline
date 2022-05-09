@@ -95,6 +95,17 @@ export class GameSetup {
     gui.makeLines()
     gui.stage.update()
     enable = true // *after* makeLines has stablilized selectValue
+    this.makeParamGUI2(table, parent, x - 250, y)
+    return gui
+  }
+  makeParamGUI2(table: Table, parent: Container, x, y): ParamGUI {
+    let gui = new ParamGUI(table)
+    gui.makeParamSpec("showInf", [true, false])
+    gui.makeParamSpec("showSui", [true, false])
+    parent.addChild(gui)
+    gui.x = x; gui.y = y
+    gui.makeLines()
+    gui.stage.update()
     return gui
   }
 }

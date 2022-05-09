@@ -259,19 +259,25 @@ export class Hex2 extends Hex {
     this.showInf(color, dn, (this.stoneColor !== color && (inf > 0 || this.isInf(color, H.dirRev[dn]))))
     return inf
   }
+  static infVis = true
   showInf(color: StoneColor, dn: InfDir, show = true) {
     let ds: HexAxis = H.dnToAxis[dn], infMark = this.infm[color][ds]  // infm only on [ds]
     if (show) {
-      if (!infMark) infMark = this.infm[color][ds] = new InfMark(color, ds, this.x, this.y)
-      this.map.mapCont.infCont.addChild(infMark)
+      if (!infMark) {
+        infMark = this.infm[color][ds] = new InfMark(color, ds, this.x, this.y)
+        this.map.mapCont.infCont.addChild(infMark)
+      }
+      infMark.visible = Hex2.infVis
     } else {
-      infMark?.parent?.removeChild(infMark)
+      //infMark?.parent?.removeChild(infMark)
+      infMark && (infMark.visible = false)
     }
   }
   override clearInf(): void {
     stoneColors.forEach(color => {
       for (let mark of Object.values(this.infm[color])) 
-        mark?.parent?.removeChild(mark)
+        //mark?.parent?.removeChild(mark)
+        mark && (mark.visible = false)
     })
     super.clearInf()
   }

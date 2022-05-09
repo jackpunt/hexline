@@ -5,6 +5,7 @@ import { Hex, Hex2, HexMap, } from "./hex";
 import { HexEvent } from "./hex-event";
 import { StatsPanel } from "./stats";
 import { TP, StoneColor, otherColor, stoneColor0, stoneColor1, stoneColorRecord } from "./table-params";
+import { H } from "./hex-intfs";
 
 type XYWH = {x: number, y: number, w: number, h: number} // like a Rectangle
 type HEX_STATUS = Hex2[] | false
@@ -249,44 +250,53 @@ export class Table extends EventDispatcher  {
     target && (this.dropTarget = target)
     this.dragger.stopDrag()
   }
-
-  /** cache legalMove: sui & captures */
-  hexStatus: Record<StoneColor, Map<Hex, HEX_STATUS>>
-  getHexStatus(hex: Hex2, color: StoneColor): HEX_STATUS {
-    return this.hexStatus[color].get(hex)
+  allSuicides: Set<Hex2> = new Set()
+  markAllSuicide(color: StoneColor) {
+    if (!this.showSui) return
+    let capColor = Hex2.capColor
+    Hex2.capColor = H.suiColor
+    this.hexMap.forEachHex((hex: Hex2) => {
+      if (hex.stoneColor !== undefined) return
+      if (this.gamePlay.history[0]?.captured.includes(hex)) return
+      if (this.gamePlay.isLegalMove(hex, color)) return
+      this.allSuicides.add(hex)
+      hex.markCapture()
+    })
+    Hex2.capColor = capColor
   }
-  
+  unmarkAllSuicide() {
+    this.allSuicides.forEach(hex => hex.unmarkCapture())
+    this.allSuicides.clear()
+  }
+
+  showInf = true
+  showSui = true
   dragFunc(stone: Stone, ctx: DragInfo): void {
     const hex = this.hexUnderObj(stone)
     const shiftKey = ctx.event.nativeEvent ? ctx.event.nativeEvent.shiftKey : false
     const color = shiftKey ? otherColor(stone.color) : stone.color
     const nonTarget = (hexn: Hex) => { this.dropTarget = this.nextHex }
     if (ctx.first) {
-      this.dragShift = shiftKey
+      this.dragShift = false
       this.dropTarget = this.nextHex
       this.dragHex = this.nextHex   // indicate DRAG in progress
-      this.hexStatus = stoneColorRecord<Map<Hex, HEX_STATUS>>(new Map(), new Map())
+      this.markAllSuicide(stone.color)
+      Hex2.infVis = this.showInf
     }
-    if (shiftKey != this.dragShift) stone.paint(shiftKey ? color : undefined) // otherColor or orig color
+    if (shiftKey != this.dragShift) {
+      stone.paint(shiftKey ? color : undefined) // otherColor or orig color
+      if (shiftKey) { this.unmarkAllSuicide() } else { this.markAllSuicide(color) }
+    }
     if (shiftKey == this.dragShift && hex == this.dragHex) return    // nothing new
     this.dragShift = shiftKey
 
     // close previous dragHex:
     if (this.protoHex) { this.gamePlay.undoProtoMove(); this.protoHex = undefined }
-    // this.unmarkViewCaptured() // a new Hex/target, remove prior capture marks
 
     this.dragHex = hex
     if (!hex || hex == this.nextHex) return nonTarget(hex)
-
-    // let caps = this.getHexStatus(hex, color) // see if sui&caps is cached
-    // if (caps === undefined && hex != this.nextHex) {
-    //   caps = this.gamePlay.isLegalMove(hex, color) as Hex2[] || false
-    //   this.hexStatus[color].set(hex, caps)                   // false indicates found, but not legal
-    // }
-    // if (caps === false) return nonTarget(hex)
-    // this.markViewCaptured(caps)
-
-    // if isLegalMove then leave protoMove on display
+    if (this.allSuicides.has(hex)) return nonTarget(hex)
+    // if isLegalMove then leave protoMove on display:
     if (this.gamePlay.isLegalMove(hex, color, false)) this.protoHex = hex
     else return nonTarget(hex)
 
@@ -301,7 +311,8 @@ export class Table extends EventDispatcher  {
   dropFunc(stone: Stone = this.nextHex.stone, ctx?: DragInfo) {
     // stone.parent == hexMap.stoneCont; nextHex.stone == stone
     this.dragHex = undefined       // indicate NO DRAG in progress
-    // this.unmarkViewCaptured()      // before doPlayerMove() sets them for real
+    this.unmarkAllSuicide()
+    Hex2.infVis = true
     if (this.protoHex) { this.gamePlay.undoProtoMove(); this.protoHex = undefined }
     stone.paint()
     let target = this.dropTarget 
@@ -336,6 +347,7 @@ export class Table extends EventDispatcher  {
     if (bindKeys) {
       this.bindKeysToScale("a", scaleC, 800, 10)
       KeyBinder.keyBinder.setKey(' ', {thisArg: this, func: this.dragStone})
+      KeyBinder.keyBinder.setKey('S-Space', {thisArg: this, func: this.dragStone})
     }
     return scaleC
   }
