@@ -1,6 +1,7 @@
 import { stime } from "@thegraid/createjs-lib"
 import { EventDispatcher } from "createjs-module"
 import moment = require("moment")
+import { TP } from "./table-params"
 
 /**
 https://stackoverflow.com/questions/71963376/how-to-enable-javascript-eventloop-when-running-nested-recursive-computation/71963377#71963377
@@ -16,10 +17,11 @@ export type YieldR<TReturn> = Generator<void, TReturn, unknown>
  * @param done 
  */
 export function allowEventLoop<T>(genR: YieldR<T>, done?: (result: T) => void): void  {
-  let result = genR.next()
+  let result = TP.yieldMs == 0 ? genR.next() : { done: false, value: undefined }
   if (result.done) done && done(result.value)
-  else setTimeout(() => allowEventLoop(genR, done))
+  else setTimeout(() => allowEventLoop(genR, done), TP.yieldMs)
 }
+export function pauseGenR (ms: number) { TP.yieldMs = ms }
 /** 
  * Return next result from genR. 
  * If genR returns an actual value, return that value

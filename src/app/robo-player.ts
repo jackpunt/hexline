@@ -1,4 +1,4 @@
-import { M, Obj, S, stime } from "@thegraid/createjs-lib";
+import { KeyBinder, M, Obj, S, stime } from "@thegraid/createjs-lib";
 import { GamePlayD, GamePlayOrig, Move } from "./game-play";
 import { Hex } from "./hex";
 import { HexEvent } from "./hex-event";
@@ -98,6 +98,10 @@ export class Planner {
     let scoreM1 = 1.4, dMaxM1 = .9, nStonesM1 = 1.2, nInfM1 = .55, nThreatsM1 = .25, nAttacksM1 = .6, nAdjM1 = .2
     let wv1 = dStoneM1.concat([scoreM1, dMaxM1, nStonesM1, nInfM1, nThreatsM1, nAttacksM1, nAdjM1])
     this.weightVecs = stoneColorRecord(wv0, wv1)
+    KeyBinder.keyBinder.setKey(/1-9/, { thisArg: this, func: (e: string) => { TP.maxBreadth = Number.parseInt(e) } })
+    KeyBinder.keyBinder.setKey('C-p', { thisArg: this, func: () => { TP.yieldMs = 1000 } })
+    KeyBinder.keyBinder.setKey('C-r', { thisArg: this, func: () => { TP.yieldMs = 0 } })
+
   }
   evalState2 (move: Move, state1a?: State) {
     let stoneColor = move.stoneColor
@@ -133,17 +137,12 @@ export class Planner {
     this.maxDepth = Math.max(this.maxDepth, state1.eval)
     return state1
   }
-  nPlysCheck2(nPlys: number, fjCheck: boolean, ) { return !fjCheck ? nPlys : Math.max(nPlys + (nPlys % 2), 2) }
-  nPlysCheckE(nPlys: number, fjCheck: boolean, ) { return !fjCheck ? nPlys : this.nPlysCheck2(nPlys, fjCheck) + this.gamePlay.original.curPlayer.index }
   keepBestValue(state0: State, bestState: State) {
-    //if (state0.bestValue >= -bestState.bestValue) {
-      state0.bestValue = -bestState.bestValue
-      state0.eval = bestState.eval
-    //}
+    state0.bestValue = -bestState.bestValue
+    state0.eval = bestState.eval
   }
   winState(state: State, win: StoneColor): StoneColor {
     if (win !== undefined) state.bestValue = (win === state.color) ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY
-
     return win
   }
   stateWin(state: State) {
@@ -176,7 +175,7 @@ export class Planner {
     this.maxDepth = Number.NEGATIVE_INFINITY
     let gamePlay = this.gamePlay
     gamePlay.importBoards(table.gamePlay) // prune back to the current Boards
-    TP.minYield = 5 * TP.maxPlys
+    TP.minYield = Math.max(20, 5* (TP.maxPlys + TP.maxBreadth - 7)) // 5 * TP.maxPlys // 
 
     let sid0 = State.sid, ms0 = Date.now() - 1, tn = this.moveNumber = table.gamePlay.turnNumber
 
@@ -189,7 +188,8 @@ export class Planner {
     let dispatchMove = (state: State) => {
       this.doMove(state.move) // placeStone on our hexMap & history
       let dsid = State.sid - sid0, dms = Date.now() - ms0, sps = M.decimalRound(1000 * dsid / dms, 0)
-      console.log(stime(this, `.makeMove: MOVE#${tn} = ${state.move.Aname}`), `state=`, state.copyOf(), { sps, dms, dsid, maxD: this.maxDepth })
+      console.log(stime(this, `.makeMove: MOVE#${tn} = ${state.move.Aname}`), `state=`, state.copyOf(), 
+        { sps, dms, dsid: dsid.toLocaleString(), maxD: this.maxDepth })
       if (table) {
         let origMap = table.gamePlay.hexMap
         let hex0 = state.move.hex.ofMap(origMap)
@@ -251,6 +251,39 @@ export class Planner {
     // apply otherPlayer and/or manual Moves; appy mainGame Moves in proper order:
     while (main.length > ours.length) this.doMove(main[main.length - ours.length - 1])
   }
+
+  lookaheadInit(state0: State, stoneColor: StoneColor): [Hex, State][] {
+    // ASSERT: no lookaheadDeep; maybe lookaheadShallow [for fjCheck]
+    let moveAry = this.evalAndSortMoves(state0, stoneColor) // generate first approx of possible moves
+    return moveAry
+  }
+  moveAryBreak(state1a, breadth, bestState): boolean {
+    return this.roboStop || breadth < 0 || (state1a.bestValue + .01) < Math.min(bestState.value, bestState.bestValue)
+  }
+  /** allow limited dogfight analysis */
+  fjCheckP(state1: State) { return state1.fj && (this.depth < this.moveNumber + TP.maxPlys + 1)}
+  nPlysCheck2(nPlys: number, fjCheck: boolean, ) { return !fjCheck ? nPlys : Math.max(nPlys + (nPlys % 2), 2) } // even number > 2
+  nPlysCheckE(nPlys: number, fjCheck: boolean, ) { return !fjCheck ? nPlys : this.nPlysCheck2(nPlys, fjCheck) + 1 - this.gamePlay.original.curPlayer.index }
+
+  logAndGC(ident: string, state0: State, sid0: number, ms0: number, moveAry: [Hex, State][], bestState: State, nPlys: number, stoneColor: string, gc = true) {
+    if (TP.log > 0 || this.depth == this.moveNumber) {
+      let dsid = State.sid - sid0, dms = Date.now() - ms0, sps = M.decimalRound(1000 * dsid / dms, 0)
+      this.logMoveAry(ident, state0, moveAry, bestState)
+      let bestValue = M.decimalRound(bestState.bestValue, 3), bestHex = bestState.move.hex, Aname = bestHex.Aname
+      console.log(stime(this, `.${ident}X:`), nPlys, stoneColor, { Aname, bestHex, bestValue, sps, dsid, dms, bestState: bestState.copyOf(), sid: State.sid })
+    }
+    if (TP.log == 0 && this.depth == this.moveNumber) { // delete a bunch of States:
+      // moveAry[I..J].moves: [hexI, state1-I] ... [hexJ, state1-J]
+      // state1-I.moves: [hexK, state2-K] ... [hexL, state2-L] --> sstate1-I.moves = undefined
+      let bestMoves = bestState.moves
+      if (gc) for (let [hex, state1] of moveAry) {
+        state1.moves = undefined // remove ALL the Map<Hex,State>
+        state1['agc'] = this.depth
+      }
+      bestState.moves = bestMoves
+    }
+  }
+  nth = 0;
   /** 
    * lookahead from current State; with its potential MOVES. 
    * select hex->state1a with MAX(state1a.bestValue)
@@ -268,6 +301,7 @@ export class Planner {
    */
   *lookaheadDeep(state0: State, stoneColor: StoneColor, nPlys?: number, breadth = TP.maxBreadth) {
     let isTop = (nPlys === undefined) ? (nPlys = TP.maxPlys, true) : false
+    if (isTop) this.nth = breadth
     try {
       TP.log > 0 && console.groupCollapsed(`${stime(this, `.lookaheadDeep`)}-${this.logId(stoneColor, nPlys)}`)
       let sid0 = State.sid, ms0 = Date.now() // current state id
@@ -276,6 +310,7 @@ export class Planner {
       let bestState = moveAry[0][1]
       if (nPlys == 0) return bestState
       for (let [hex, state1a] of moveAry) {                   // hex = state1a.move.hex
+        if (isTop) this.nth = breadth - 1
         if (this.moveAryBreak(state1a, --breadth, bestState)) break
         if (nPlys - 1 > 0) {
           let evalGen = this.evalMoveInDepth(hex, stoneColor, nPlys - 1, state1a) // state1.bestValue=MIN(-state2.bestValue)
@@ -298,7 +333,7 @@ export class Planner {
         dmy = this.ms0 - now
       }
       if (TP.log > 0 || dmy > -1) console.log(stime(this, `.lookaheadDeep timers:`), 
-        `depth=${depth} dmc=${dmc} dmy=${dmy} dsid=${dsid} dms=${dms} sps=${sps} sid=${State.sid} tms=${now-this.ms00}`)
+        `b=${this.nth} depth=${depth} dmc=${dmc} dmy=${dmy} dsid=${dsid} dms=${dms} sps=${sps} sid=${State.sid.toLocaleString()} tsec=${(now-this.ms00)/1000}`)
 
       this.logAndGC(`lookaheadDeep:`, state0, sid0, ms0, moveAry, bestState, nPlys, stoneColor, false)
       // returning a State tells allowEventLoop to terminate with: dispatchMove(bestState)
@@ -378,39 +413,6 @@ export class Planner {
       throw err
     }
   }
-  lookaheadInit(state0: State, stoneColor: StoneColor): [Hex, State][] {
-    // ASSERT: no lookaheadDeep; maybe lookaheadShallow [for fjCheck]
-    let moveAry = this.evalAndSortMoves(state0, stoneColor) // generate first approx of possible moves
-    return moveAry
-  }
-  moveAryBreak(state1a, breadth, bestState): boolean {
-    return this.roboStop || breadth < 0 || (state1a.bestValue + .01) < Math.min(bestState.value, bestState.bestValue)
-  }
-
-  logAndGC(ident: string, state0: State, sid0: number, ms0: number, moveAry: [Hex, State][], bestState: State, nPlys: number, stoneColor: string, gc = true) {
-    if (TP.log > 0 || this.depth == this.moveNumber) {
-      let dsid = State.sid - sid0, dms = Date.now() - ms0, sps = M.decimalRound(1000 * dsid / dms, 0)
-      this.logMoveAry(ident, state0, moveAry, bestState)
-      let bestValue = M.decimalRound(bestState.bestValue, 3), bestHex = bestState.move.hex, Aname = bestHex.Aname
-      console.log(stime(this, `.${ident}X:`), nPlys, stoneColor, { Aname, bestHex, bestValue, sps, dsid, dms, bestState: bestState.copyOf(), sid: State.sid })
-    }
-    if (TP.log == 0 && this.depth == this.moveNumber) { // delete a bunch of States:
-      // moveAry[I..J].moves: [hexI, state1-I] ... [hexJ, state1-J]
-      // state1-I.moves: [hexK, state2-K] ... [hexL, state2-L] --> sstate1-I.moves = undefined
-      let bestMoves = bestState.moves
-      if (gc) for (let [hex, state1] of moveAry) {
-        state1.moves = undefined // remove ALL the Map<Hex,State>
-        state1['agc'] = this.depth
-      }
-      // restore bestState.moves (pruned to remove un-evaluated states)
-      // if (bestMoves) for (let [hex, state] of bestMoves) {
-      //   if (state.move.eval !== this.moveNumber) bestMoves.delete(hex)
-      // }
-      bestState.moves = bestMoves
-    }
-  }
-  /** allow limited dogfight analysis */
-  fjCheckP(state1: State) { return state1.fj && (this.depth < this.moveNumber + TP.maxPlys + 1)}
 
   /** set state.value/bestValue; lookahead only if state.fj & !win 
    * @param hex play Stone to hex
