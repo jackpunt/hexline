@@ -171,9 +171,10 @@ export class GamePlay0 {
    * See if proposed Move is legal; one of many potential Moves we likely won't make or explore.
    * 
    * unshift(move); addStone(); isSuicide(); undo(); shift()
+   * @param evalFun if false then leave protoMove in place; if function invoke evalFun(move)
    * @returns a Hex[] (of captured Hexes) if move is Legal, else return undefined
    */
-  isLegalMove(hex: Hex, color: StoneColor, evalFun?: (move: Move) => void): Hex[] {
+  isLegalMove(hex: Hex, color: StoneColor, evalFun: boolean | ((move: Move) => void)  = true): Hex[] {
     if (hex.stoneColor !== undefined) return undefined
     let move0 = this.history[0]
     // true if nHex is unplayable because it was captured by other player's previous Move
@@ -186,16 +187,28 @@ export class GamePlay0 {
     let pstats = this.gStats.pStat(color)
     if (hex.district == 0 && pstats.dMax <= pstats.dStones[0]) return undefined
     // get Captures THEN check Suicide:
+    let move = this.doProtoMove(hex, color)
+    let suicide = hex.isAttack(otherColor(color)), rv = suicide ? undefined : move.captured
+    if (!suicide) {
+      if (evalFun === false) return rv
+      if (typeof evalFun === 'function') evalFun(move)
+    }
+    this.undoProtoMove()
+    return rv
+  }
+  doProtoMove(hex: Hex, color: StoneColor) {
     let move = new Move(hex, color, [])
     this.history.unshift(move)
     this.undoRecs.saveUndo(`iLM`).enableUndo() // before addStone in isLegalMove
+    Hex.capColor = H.capColor2
     // addUndoRec(removeStone), incrInfluence [& undoInf] -> captureStone() -> undoRec(addStone & capMark)
     this.addStone(hex, color)     // stone on hexMap: exactly 1 undoRec (have have several undo-funcs)
-    let suicide = hex.isAttack(otherColor(color)), rv = suicide ? undefined : move.captured
-    if (!suicide && evalFun) evalFun(move)
+    Hex.capColor = H.capColor1
+    return move
+  }
+  undoProtoMove() {
     this.undoRecs.closeUndo().restoreUndo()    // replace captured Stones/Colors & undo/redo Influence
     this.history.shift()
-    return rv
   }
 }
 

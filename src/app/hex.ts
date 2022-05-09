@@ -50,10 +50,12 @@ class CapMark extends Shape {
   static capSize = 4   // depends on HexMap.height
   constructor(hex: Hex2) {
     super()
-    this.graphics.f(C.capColor).dp(0, 0, CapMark.capSize, 6, 0, 30)
+    this.paint()
     hex.cont.parent.localToLocal(hex.x, hex.y, hex.map.mapCont.markCont, this)
   }
-
+  paint() {
+    this.graphics.f(Hex.capColor).dp(0, 0, CapMark.capSize, 6, 0, 30)
+  }
 }
 
 /** to recognize this class in hexUnderPoint and obtain the contained Hex. */
@@ -69,6 +71,7 @@ class HexCont extends Container {
  * (although an InfMark contains a graphics)
  */
 export class Hex {
+  static capColor = H.capColor1
   constructor(map: HexMaps, row?: number, col?: number, name = `Hex@[${row},${col}]`) {
     this.Aname = name
     this.map = map
@@ -293,6 +296,7 @@ export class Hex2 extends Hex {
   /** make and show a CapMark on this Hex2 */
    markCapture() {
     if (this.capMark === undefined) { this.capMark = this.map.mapCont.markCont.addChild(new CapMark(this)) }
+    else (this.capMark.paint())
     this.capMark.visible = true
   }
    unmarkCapture() {

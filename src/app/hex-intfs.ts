@@ -87,4 +87,7 @@ export namespace H {
   export const dirRot: {[key in HexDir] : number} = { N: 0, E: 90, S: 180, W: 270, NE: 30, SE: 150, SW: 210, NW: 330 }
   export const dirRev: {[key in HexDir] : InfDir} = { N: E, S: E, E: W, W: E, NE: SW, SE: NW, SW: NE, NW: SE }
   export const dnToAxis: { [key in InfDir]: HexAxis } = { NW: 'SE', W: 'E', SW: 'NE', NE: 'NE', E: 'E', SE: 'SE' }
+
+  export const capColor1:   string = "rgba(150,  0,   0, .8)"
+  export const capColor2:   string = "rgba(128,  80,  80, .8)"
 }

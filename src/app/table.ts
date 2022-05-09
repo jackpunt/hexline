@@ -240,6 +240,7 @@ export class Table extends EventDispatcher  {
   }
   dragShift = false // last shift state in dragFunc
   dragHex: Hex2 = undefined // last hex in dragFunc
+  protoHex: Hex2 = undefined // hex showing protoMove influence & captures
   isDragging() { return !!this.dragHex }
 
   stopDragging(target: Hex2 = this.nextHex) {
@@ -259,7 +260,7 @@ export class Table extends EventDispatcher  {
     const hex = this.hexUnderObj(stone)
     const shiftKey = ctx.event.nativeEvent ? ctx.event.nativeEvent.shiftKey : false
     const color = shiftKey ? otherColor(stone.color) : stone.color
-    const nonTarget = (hex: Hex) => { this.dropTarget = this.nextHex }
+    const nonTarget = (hexn: Hex) => { this.dropTarget = this.nextHex }
     if (ctx.first) {
       this.dragShift = shiftKey
       this.dropTarget = this.nextHex
@@ -269,17 +270,26 @@ export class Table extends EventDispatcher  {
     if (shiftKey != this.dragShift) stone.paint(shiftKey ? color : undefined) // otherColor or orig color
     if (shiftKey == this.dragShift && hex == this.dragHex) return    // nothing new
     this.dragShift = shiftKey
-    this.dragHex = hex
-    this.unmarkViewCaptured() // a new Hex/target, remove prior capture marks
-    if (!hex) return nonTarget(hex)
 
-    let caps = this.getHexStatus(hex, color) // see if sui&caps is cached
-    if (caps === undefined) {
-      caps = this.gamePlay.isLegalMove(hex, color) as Hex2[] || false
-      this.hexStatus[color].set(hex, caps)                   // false indicates found, but not legal
-    }
-    if (caps === false) return nonTarget(hex)
-    this.markViewCaptured(caps)
+    // close previous dragHex:
+    if (this.protoHex) { this.gamePlay.undoProtoMove(); this.protoHex = undefined }
+    // this.unmarkViewCaptured() // a new Hex/target, remove prior capture marks
+
+    this.dragHex = hex
+    if (!hex || hex == this.nextHex) return nonTarget(hex)
+
+    // let caps = this.getHexStatus(hex, color) // see if sui&caps is cached
+    // if (caps === undefined && hex != this.nextHex) {
+    //   caps = this.gamePlay.isLegalMove(hex, color) as Hex2[] || false
+    //   this.hexStatus[color].set(hex, caps)                   // false indicates found, but not legal
+    // }
+    // if (caps === false) return nonTarget(hex)
+    // this.markViewCaptured(caps)
+
+    // if isLegalMove then leave protoMove on display
+    if (this.gamePlay.isLegalMove(hex, color, false)) this.protoHex = hex
+    else return nonTarget(hex)
+
     if (shiftKey) {
       nonTarget(hex)
       this.hexMap.showMark(hex)  // just showMark(hex)
@@ -291,7 +301,8 @@ export class Table extends EventDispatcher  {
   dropFunc(stone: Stone = this.nextHex.stone, ctx?: DragInfo) {
     // stone.parent == hexMap.stoneCont; nextHex.stone == stone
     this.dragHex = undefined       // indicate NO DRAG in progress
-    this.unmarkViewCaptured()      // before doPlayerMove() sets them for real
+    // this.unmarkViewCaptured()      // before doPlayerMove() sets them for real
+    if (this.protoHex) { this.gamePlay.undoProtoMove(); this.protoHex = undefined }
     stone.paint()
     let target = this.dropTarget 
     stone.x = target.x
