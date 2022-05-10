@@ -6,7 +6,7 @@ import { Hex, Hex2, HexM } from "./hex";
 import { Table } from "./table";
 import { otherColor, StoneColor, stoneColor0, stoneColor1, stoneColorRecord, stoneColors, TP } from "./table-params";
 import { C, F, S, stime } from "@thegraid/createjs-lib";
-import { ParamGUI, ParamItem, ParamLine, ParamType, } from '@thegraid/createjs-lib'
+import { ParamGUI, ParamItem, ParamLine, ParamType, ParamOpts, ParamSpec, DropdownButton} from '@thegraid/createjs-lib'// './ParamGUI' //
 import { Text } from "createjs-module";
 import { H } from "./hex-intfs";
 
@@ -286,11 +286,19 @@ export class StatsPanel extends ParamGUI {
   gStats: TableStats
   bFields = ['score', 'sStat'] //
   pFields = ['nStones', 'nInf', 'nThreats', 'nAttacks', 'dMax'] // 'dStones', 'dMinControl', 
-  constructor(gStats: TableStats, defStyle?) {
-    super(gStats, defStyle)    // but StatsPanel.setValue() does nothing
+
+  /**  StatsPanel.setValue() does nothing; StatsPanel.selectValue() -> setValueText(stat) */
+  constructor(gStats: TableStats, defStyle = {}) {
+    super(gStats, DropdownButton.mergeStyle(defStyle, DropdownButton.mergeStyle({ textAlign: 'center'})))
     this.gStats = gStats
   }
-  targetValue(target: object, fieldName: string, color: StoneColor) {
+  override makeParamSpec(fieldName: string, ary: any[], opts?: ParamOpts): ParamSpec {
+    let decimal = ary[1]
+    let spec = super.makeParamSpec(fieldName, ary, opts)
+    spec['decimal'] = decimal
+    return spec
+  }
+  targetValue(target: object, color: StoneColor, fieldName: string) {
     let value = target[fieldName] as (color: StoneColor) => any | Array<StoneColor>
     if (typeof(value) === "function") {
       return value.call(target, color)
@@ -298,13 +306,13 @@ export class StatsPanel extends ParamGUI {
       return target[color][fieldName]
     }
   }
-  setValueText(line: ParamLine) {
+  setValueText(line: ParamLine, decimal = 0) {
     let fieldName = line.spec.fieldName
     let lineValue = "?"
     let target = this.pFields.includes(fieldName) ? this.gStats.pStats : this.gStats
-    let v0 = this.targetValue(target, fieldName, stoneColor0).toFixed(0)
-    let v1 = this.targetValue(target, fieldName, stoneColor1).toFixed(0)
-    lineValue = `${v0} --  ${v1}   `
+    let v0 = this.targetValue(target, stoneColor0, fieldName).toFixed(decimal)
+    let v1 = this.targetValue(target, stoneColor1, fieldName).toFixed(decimal)
+    lineValue = `${v0} -- ${v1}`
 
     line.chooser._rootButton.text.text = lineValue
   }
@@ -313,8 +321,9 @@ export class StatsPanel extends ParamGUI {
   override selectValue(fieldName: string, value?: ParamType, line?: ParamLine): ParamItem | undefined {
     line = line || this.findLine(fieldName)
     if (!line) return null
+    let decimal = line.spec['decimal']
     // instead of chooser.select(item), invoke setValueText(line)
-    this.setValueText(line)
+    this.setValueText(line, decimal)
     // invoke onChanged() for those which have supplied one.
     let item = line.spec.choices.find(item => (item.fieldName === fieldName))
     line.chooser.changed(item)

@@ -1,6 +1,6 @@
 import { Container, Stage } from "createjs-module";
 import { stime, makeStage, S } from "@thegraid/createjs-lib";
-import { ParamGUI, ParamItem} from '@thegraid/createjs-lib'
+import { ParamGUI, ParamItem} from '@thegraid/createjs-lib' // './ParamGUI' //
 import { GamePlay } from "./game-play";
 import { StatsPanel, TableStats } from "./stats";
 import { Table } from "./table";
@@ -50,7 +50,7 @@ export class GameSetup {
     table.startGame()
   }
   makeStatsPanel(gStats: TableStats, parent: Container, x, y): StatsPanel {
-    let noArrow = { arrowColor: 'rgba(0,0,0,0)' }
+    let noArrow = { arrowColor: 'transparent' }
     let panel = new StatsPanel(gStats, noArrow) // a ReadOnly ParamGUI reading gStats [& pstat(color)]
     let sp = "                   " , opts = { }
     panel.makeParamSpec("nStones", [sp], opts)
@@ -59,7 +59,7 @@ export class GameSetup {
     panel.makeParamSpec("nThreats", [sp], opts)
     panel.makeParamSpec("dMax", [sp], opts)
     panel.makeParamSpec("score", [sp], opts)
-    panel.makeParamSpec("sStat", [sp], opts)
+    panel.makeParamSpec("sStat", [sp, 1], opts)
     panel.spec("score").onChange = (item: ParamItem) => {
       panel.setNameText(item.fieldName, `score: ${TP.nVictory}`)
       panel.stage.update()
@@ -73,20 +73,20 @@ export class GameSetup {
     return panel
   }
   makeParamGUI(table: Table, parent: Container, x, y): ParamGUI {
-    let gui = new ParamGUI(TP)
+    let gui = new ParamGUI(TP, { textAlign: 'right'})
     let enable = false, nHex = (nH, mH) => { TP.fnHexes(nH, mH); enable && this.restart.call(this) }
     gui.makeParamSpec("mHexes", [2, 3, 4])
     gui.makeParamSpec("nHexes", [1, 2, 3, 4, 5, 6])
     gui.makeParamSpec("maxPlys", [1, 2, 3, 4, 5, 6, 7, 8])
     gui.makeParamSpec("maxBreadth", [5, 6, 7, 8, 9, 10])
-    gui.makeParamSpec("log", [0,1,2])
+    gui.makeParamSpec("nPerDist", [2,3,4,5,6])
     //gui.makeParamSpec("moveDwell", [300, 600])
-    gui.makeParamSpec("colorScheme", ['Black_White   ', '  Blue_Red  '])
+    gui.makeParamSpec("colorScheme", TP.schemeNames, { style: { textAlign: 'center'}})
     gui.spec("mHexes").onChange = (item: ParamItem) => { nHex(TP.nHexes, item.value) }
     gui.spec("nHexes").onChange = (item: ParamItem) => { nHex(item.value, TP.mHexes) }
     gui.spec("colorScheme").onChange = (item: ParamItem) => {
       TP[item.fieldName] = TP[item.value.trim()] // overwrite setValue
-      (table.gamePlay.hexMap as HexMap).initInfluence(true)
+      ;(table.gamePlay.hexMap as HexMap).initInfluence(true)
       table.nextHex.stone.paint()
     }
     parent.addChild(gui)
@@ -99,9 +99,10 @@ export class GameSetup {
     return gui
   }
   makeParamGUI2(table: Table, parent: Container, x, y): ParamGUI {
-    let gui = new ParamGUI(table)
+    let gui = new ParamGUI(table, { textAlign: 'center' })
     gui.makeParamSpec("showInf", [true, false])
     gui.makeParamSpec("showSui", [true, false])
+    gui.makeParamSpec("log", [0, 1, 2], { style: { textAlign: 'left' } })
     parent.addChild(gui)
     gui.x = x; gui.y = y
     gui.makeLines()

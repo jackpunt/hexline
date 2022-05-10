@@ -521,6 +521,7 @@ class HexGen {
   move0 = this.gamePlay.history[0]  // last move otherPlayer made
   move1 = this.gamePlay.history[1]  // last move 'curPlayer' made
   color = otherColor(this.move0.stoneColor)
+  density = TP.nPerDist / (this.gamePlay.hexMap.district[0].length)
 
   ; *gen() {
     //yield* this.attackHex(this.move0.hex)
@@ -529,10 +530,11 @@ class HexGen {
     for (let d of this.districts) yield* this.allHexInDistrict(d)
   }
 
-  *checkHex(hexIter: Iterable<Hex>) {
+  *checkHex(hexIter: Iterable<Hex>, sample = false) {
     for (let nHex of hexIter) {
       if (this.hexes.has(nHex)) continue
       this.hexes.add(nHex)
+      if (sample && (Math.random() >= this.density)) continue
       // evalFun(move) will process each legal Move:
       if (!this.gamePlay.isLegalMove(nHex, this.color, this.evalFun)) continue
       yield nHex                // new move && not suicide
@@ -541,7 +543,7 @@ class HexGen {
 
   //this.gamePlay.getCaptures(nHex, color)
   allHexInDistrict(d: number) {
-    return this.checkHex(this.gamePlay.hexMap.district[d])
+    return this.checkHex(this.gamePlay.hexMap.district[d], true)
   }
 
   /** alignHex with range = 1 */

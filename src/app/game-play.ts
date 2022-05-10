@@ -327,6 +327,7 @@ export class GamePlay extends GamePlay0 {
       this.gStats.updateStats(move0)          // reset stats: inControl & score & repCount check for 'win'
     }
     this.showRedoMark()
+    this.hexMap.update()
   }
   redoMove() {
     this.table.stopDragging() // drop on nextHex (no Move)
@@ -334,6 +335,7 @@ export class GamePlay extends GamePlay0 {
     if (!move) return
     this.table.dispatchEvent(new HexEvent(S.add, move.hex, move.stoneColor))
     this.showRedoMark()
+    this.hexMap.update()
   }
   showRedoMark() {
     let move0 = this.redoMoves[0]

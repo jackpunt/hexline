@@ -14,8 +14,10 @@ export class TP {
   static minYield = 20
   static maxPlys = 4     // for robo-player lookahead
   static maxBreadth = 7  // for robo-player lookahead
+  static nPerDist = 4    // samples per district
   static Black_White = stoneColorRecord('BLACK', 'WHITE')
   static Blue_Red = stoneColorRecord('BLUE', 'RED')
+  static schemeNames = ['Black_White', 'Blue_Red']
   static colorScheme: Record<StoneColor, string> = TP.Black_White
   static numPlayers = 2;
   static mHexes = 2    // number hexes on side of Meta-Hex
