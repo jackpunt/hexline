@@ -543,7 +543,9 @@ class HexGen {
 
   //this.gamePlay.getCaptures(nHex, color)
   allHexInDistrict(d: number) {
-    return this.checkHex(this.gamePlay.hexMap.district[d], true)
+    let move0 = this.gamePlay.history[0], caps = move0.captured
+    let hexAry = this.gamePlay.hexMap.district[d].filter(h => h.stoneColor == undefined && !caps.includes(h))
+    return this.checkHex(hexAry, true)
   }
 
   /** alignHex with range = 1 */
