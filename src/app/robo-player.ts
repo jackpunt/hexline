@@ -23,12 +23,10 @@ class MOVES extends Map<Hex,State>{}
 export class State {
   static sid = 0
   //move: Move; color: StoneColor; value: number; 
-  readonly value: number
   /** for debugger: evaluated to depth (= tn+ ~nPlys) */
   eval: number = 0
   id: number; moves: MOVES; bestValue: number; fj: boolean 
-  constructor(public move: Move, public color: StoneColor, value: number) {
-    this.value = value
+  constructor(public move: Move, public color: StoneColor, public readonly value: number) {
     this.bestValue = value
     this.id = ++State.sid
   }
@@ -94,36 +92,24 @@ export class Planner {
     // s0 = inControl, dMax, nStones, nInf, nAttacks, nAdj
     let scoreM0 = 1.3, dMaxM0 = 1, nStonesM0 = 1.1, nInfM0 = .3, nThreatsM0 = .2, nAttacksM0 = .5, nAdjM0 = .1
     let wv0 = dStoneM0.concat([scoreM0, dMaxM0, nStonesM0, nInfM0, nThreatsM0, nAttacksM0, nAdjM0])
-
     let dStoneM1 = new Array<number>(nDist).fill(1, 0, nDist); dStoneM1[0] = .8
     let scoreM1 = 1.4, dMaxM1 = .9, nStonesM1 = 1.2, nInfM1 = .55, nThreatsM1 = .25, nAttacksM1 = .6, nAdjM1 = .2
     let wv1 = dStoneM1.concat([scoreM1, dMaxM1, nStonesM1, nInfM1, nThreatsM1, nAttacksM1, nAdjM1])
     this.weightVecs = stoneColorRecord(wv0, wv1)
     KeyBinder.keyBinder.setKey(/1-9/, { thisArg: this, func: (e: string) => { TP.maxBreadth = Number.parseInt(e) } })
-    KeyBinder.keyBinder.setKey('C-p', { thisArg: this, func: () => { TP.yieldMs = 1000 } })
-    KeyBinder.keyBinder.setKey('C-r', { thisArg: this, func: () => { TP.yieldMs = 0 } })
-
-  }
-  evalState2 (move: Move, state1a?: State) {
-    let stoneColor = move.stoneColor
-    let gamePlay = this.gamePlay
-    let state1 = this.evalState(stoneColor, move, state1a) // set initial value (& eval) <=== what we came for!
-    let board = gamePlay.setBoardAndRepCount(move)         // set/reduce repCount to actual value & set move.board 
-    let win = gamePlay.gStats.gameOver(board)              // check for resign, stalemate
-    this.winState(state1, win)                             // adjust value if win/lose
-    return state1
   }
   /** 
    * Make a State object with simple value of current board.
-   * @param color evaluate from the POV of the given color
    * @param move  for documentation/debugging: move that brought us to this state
+   * @param state1 [new State(value)] OR [fill state1 with move, color] then set bestValue, fj, eval, winState
    */
-  evalState(color: StoneColor, move = this.gamePlay.history[0], state1?: State): State {
-    this.gamePlay.gStats.updateStats()                      // calc stats & score for VP win
+  evalState(move: Move, state1?: State): State {
+    let gamePlay = this.gamePlay, color = move.stoneColor
+    gamePlay.gStats.updateStats()                      // calc stats & score for VP win
     let weightVec = this.weightVecs[color]
     let other = otherColor(color)
-    let s0 = this.gamePlay.gStats.getSummaryStat(color, weightVec)
-    let s1 = this.gamePlay.gStats.getSummaryStat(other, weightVec)
+    let s0 = gamePlay.gStats.getSummaryStat(color, weightVec)
+    let s1 = gamePlay.gStats.getSummaryStat(other, weightVec)
     let value = s0 - s1 // best move for color will maximize value
     //console.log(stime(this, `.evalState:`), { move, color, value, bestValue: value, hex, bestHex: hex })
     if (state1) {
@@ -134,8 +120,11 @@ export class Planner {
       state1 = new State(move, color, value) // moves is undefined, eval = 0
     }
     state1.fj = (move.captured.length == 0 && move.hex.isThreat(other))
-    state1.eval = this.gamePlay.history.length // #of Stones on board (this.depth-1)
-    this.maxDepth = Math.max(this.maxDepth, state1.eval)
+    state1.eval = gamePlay.history.length    // #of Stones on board (this.depth-1)
+    this.maxDepth = Math.max(this.maxDepth, state1.eval)   // note how deep we have gone... (for logging)
+    let board = gamePlay.setBoardAndRepCount(move)         // set/reduce repCount to actual value & set move.board 
+    let win = gamePlay.gStats.gameOver(board)              // check for resign, stalemate
+    this.winState(state1, win)                             // adjust value if win/lose
     return state1
   }
   keepBestValue(state0: State, bestState: State) {
@@ -207,7 +196,7 @@ export class Planner {
     
     // try get previously evaluated State & MOVES:
     // righteous: from our own previous analysis: /* state0 = this.prevState?.moves?.get(hex) ||*/
-    let state0 = this.evalState(otherColor(stone.color))
+    let state0 = this.evalState(this.gamePlay.history[0])
     allowEventLoop(this.lookaheadDeep(state0, stone.color), (state: State) => dispatchMove(state))
   }
   /** 
@@ -360,7 +349,7 @@ export class Planner {
   *evalMoveInDepth(hex: Hex, stoneColor: StoneColor, nPlys: number = 0, state1?: State) {
     if (nPlys > 0 || !state1) {
       let move = this.placeStone(hex, stoneColor, `eMID`)  // new Move(hex, color) -> addStone -> ... state1 [eval=0]
-      state1 = this.evalState2(move, state1)
+      state1 = this.evalState(move, state1)
       let win = this.gamePlay.gStats.winAny
       // state1: new Move(hex, color) evaluated @ depth
       if (win === undefined) {
@@ -424,7 +413,7 @@ export class Planner {
    */
   evalMoveShallow(hex: Hex, stoneColor: StoneColor, nPlys: number, state1a?: State): State {
     let move = this.placeStone(hex, stoneColor, `eMS`)     // new Move(hex, color) -> addStone -> ... state1
-    let state1 = this.evalState2(move, state1a), win = this.gamePlay.gStats.winAny
+    let state1 = this.evalState(move, state1a), win = this.gamePlay.gStats.winAny
     let ind = state1.fj ? '-' : !move.captured ? '!' : move.captured.length > 0 ? `${move.captured.length}` : ' '
     TP.log > 0 && console.log(stime(this, `.evalMoveShallow: nPlys: ${nPlys}${win !== undefined ? ` --> win: ${TP.colorScheme[win]}` : ''}`),
       { move: move.Aname, fj: ind, bestValue: M.decimalRound(state1.bestValue, 2), state1: state1.copyOf() })
@@ -457,7 +446,7 @@ export class Planner {
     const moves = state0.moves ? state0.moves : (state0.moves = new MOVES())
     const evalf = (move: Move) => {
       // From isLegalMove: move = placeStone(hex, color)
-      let state1 = this.evalState2(move), win = gamePlay.gStats.winAny
+      let state1 = this.evalState(move), win = gamePlay.gStats.winAny
       let fjCheck = this.fjCheckP(state1)
       if (fjCheck && win === undefined) {
         this.lookaheadShallow(state1, other, 2) // lower state1.bestValue
@@ -530,22 +519,29 @@ class HexGen {
     for (let d of this.districts) yield* this.allHexInDistrict(d)
   }
 
-  *checkHex(hexIter: Iterable<Hex>, sample = false) {
-    for (let nHex of hexIter) {
-      if (this.hexes.has(nHex)) continue
-      this.hexes.add(nHex)
-      if (sample && (Math.random() >= this.density)) continue
-      // evalFun(move) will process each legal Move:
-      if (!this.gamePlay.isLegalMove(nHex, this.color, this.evalFun)) continue
-      yield nHex                // new move && not suicide
+  *checkHex(hexIter: Iterable<Hex>) {
+    for (let hex of hexIter) {
+      if (this.isLegal(hex)) yield hex  // isLegalMove
     }
   }
 
-  //this.gamePlay.getCaptures(nHex, color)
-  allHexInDistrict(d: number) {
+  /** sample n hexes Per Dist. */
+  *allHexInDistrict(d: number) {
     let move0 = this.gamePlay.history[0], caps = move0.captured
-    let hexAry = this.gamePlay.hexMap.district[d].filter(h => h.stoneColor == undefined && !caps.includes(h))
-    return this.checkHex(hexAry, true)
+    let hexAry = this.gamePlay.hexMap.district[d].filter(h => h.stoneColor == undefined && !caps.includes(h) && !this.hexes.has(h))
+    let n = 0
+    while (n++ < TP.nPerDist && hexAry.length > 0) {
+      let hex = hexAry[Math.floor(Math.random() * hexAry.length)]
+      if (this.isLegal(hex)) yield hex
+      hexAry = hexAry.filter(h => h != hex)
+    }
+  }
+  isLegal(hex: Hex, density?: number) {
+    if (this.hexes.has(hex)) return false
+    this.hexes.add(hex)
+    if (density && (Math.random() >= this.density)) return false
+    // evalFun(move) will process each legal Move:
+    return this.gamePlay.isMoveLegal(hex, this.color, this.evalFun)[0]
   }
 
   /** alignHex with range = 1 */

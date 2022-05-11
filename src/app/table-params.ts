@@ -9,6 +9,7 @@ export function otherColor(color: StoneColor): StoneColor { return color === sto
 export function stoneColorRecord<T>(b: T = null, w: T = null): Record<StoneColor, T> { return { 'b': b, 'w': w } };
 export function stoneColorRecordF<T>(f: (sc: StoneColor) => T) { return stoneColorRecord(f(stoneColor0), f(stoneColor1)) }
 export class TP {
+  static allowSuicide = true;
   static yieldMs = 0;
   static yield = true
   static minYield = 20

@@ -253,16 +253,18 @@ export class Table extends EventDispatcher  {
   allSuicides: Set<Hex2> = new Set()
   markAllSuicide(color: StoneColor) {
     if (!this.showSui) return
-    let capColor = Hex2.capColor
-    Hex2.capColor = H.suiColor
+    let capColor = Hex.capColor
+    Hex.capColor = TP.allowSuicide ? H.suiColor1 : H.capColor1
     this.hexMap.forEachHex((hex: Hex2) => {
       if (hex.stoneColor !== undefined) return
       if (this.gamePlay.history[0]?.captured.includes(hex)) return
-      if (this.gamePlay.isLegalMove(hex, color)) return
-      this.allSuicides.add(hex)
-      hex.markCapture()
+      let [legal, suicide] = this.gamePlay.isMoveLegal(hex, color)
+      if (suicide) {
+        this.allSuicides.add(hex)
+        hex.markCapture()
+      }
     })
-    Hex2.capColor = capColor
+    Hex.capColor = capColor
   }
   unmarkAllSuicide() {
     this.allSuicides.forEach(hex => hex.unmarkCapture())
@@ -295,9 +297,9 @@ export class Table extends EventDispatcher  {
 
     this.dragHex = hex
     if (!hex || hex == this.nextHex) return nonTarget(hex)
-    if (this.allSuicides.has(hex)) return nonTarget(hex)
+    if (!TP.allowSuicide && this.allSuicides.has(hex)) return nonTarget(hex)
     // if isLegalMove then leave protoMove on display:
-    if (this.gamePlay.isLegalMove(hex, color, false)) this.protoHex = hex
+    if (this.gamePlay.isMoveLegal(hex, color, false)[0]) this.protoHex = hex
     else return nonTarget(hex)
 
     if (shiftKey) {

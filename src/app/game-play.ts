@@ -80,6 +80,7 @@ export class GamePlay0 {
     }
     if (!this.undoRecs.isUndoing) {
       this.addUndoRec(this, `removeStone(${hex.Aname}:${stoneColor})`, () => this.removeStone(hex)) // remove for undo
+      if (hex.isAttack(otherColor(stoneColor))) this.removeStone(hex) // apparently: legalSuicide
     }
     return rv
   }
@@ -116,7 +117,7 @@ export class GamePlay0 {
       this.doPlayerResign(hex, stoneColor) // addBoard will detect
     } else {
       this.addStone(hex, stoneColor) // add Stone and Capture (& removeStone) w/addUndoRec
-      if (hex.isAttack(otherColor(stoneColor))) { 
+      if (!hex.stoneColor && !TP.allowSuicide) {
         console.log(stime(this, `.doPlayerMove: suicidal move: ${hex.Aname}`), { hex, color: TP.colorScheme[stoneColor] })
         alert(`suicidal move: ${TP.colorScheme[stoneColor]} ${hex.Aname}`)
       }
@@ -170,33 +171,35 @@ export class GamePlay0 {
    * @param evalFun if false then leave protoMove in place; if function invoke evalFun(move)
    * @returns a Hex[] (of captured Hexes) if move is Legal, else return undefined
    */
-  isLegalMove(hex: Hex, color: StoneColor, evalFun: boolean | ((move: Move) => void)  = true): Hex[] {
-    if (hex.stoneColor !== undefined) return undefined
+  isMoveLegal(hex: Hex, color: StoneColor, evalFun: boolean | ((move: Move) => void)  = true): [boolean, boolean] {
+    if (hex.stoneColor !== undefined) return [false, false]
     let move0 = this.history[0]
     // true if nHex is unplayable because it was captured by other player's previous Move
     // Note if dragShift: (move0.stoneColor === color )
     let hexBlocked = move0 && (move0.stoneColor !== color) && move0.captured.includes(hex)
-    if (hexBlocked) return undefined
+    if (hexBlocked) return [false, false]
     let pstats = this.gStats.pStat(color)
-    if (hex.district == 0 && pstats.dMax <= pstats.dStones[0]) return undefined
-    let move = this.doProtoMove(hex, color)
-    let suicide = hex.isAttack(otherColor(color)), rv = suicide ? undefined : move.captured
-    if (!suicide) {
-      if (evalFun === false) return rv
-      if (typeof evalFun === 'function') evalFun(move)
+    if (hex.district == 0 && pstats.dMax <= pstats.dStones[0]) return [false, false]
+    let move: Move = this.doProtoMove(hex, color)
+    let suicide = !hex.stoneColor
+    let legal = TP.allowSuicide || !suicide
+    if (legal) {
+      if (evalFun === false) return [legal, suicide]
+      if (typeof evalFun === 'function') evalFun(move) // history[0] = move; but move.hex is unoccupied!
     }
     this.undoProtoMove()
-    return rv
+    return [legal, suicide]
   }
   // similar to Planner.placeStone/unplaceStone, but with alt color for CapMarks
   doProtoMove(hex: Hex, color: StoneColor) {
     let move = new Move(hex, color, [])
     this.history.unshift(move)
     this.undoRecs.saveUndo(`iLM`).enableUndo() // before addStone in isLegalMove
+    let capColor = Hex.capColor
     Hex.capColor = H.capColor2
     // addUndoRec(removeStone), incrInfluence [& undoInf] -> captureStone() -> undoRec(addStone & capMark)
     this.addStone(hex, color)     // stone on hexMap: exactly 1 undoRec (have have several undo-funcs)
-    Hex.capColor = H.capColor1
+    Hex.capColor = capColor
     return move
   }
   undoProtoMove() {
@@ -256,6 +259,8 @@ export class GamePlay extends GamePlay0 {
     // setTable(table)
     this.table = table
     this.gStats = new TableStats(this, table) // AFTER allPlayers are defined so can set pStats
+    let roboPause = () => { TP.yieldMs = 1000; this.table.nextHex.markCapture(); this.hexMap.update(); console.log("Paused") }
+    let roboResume = () => { TP.yieldMs = 0; this.table.nextHex.unmarkCapture(); this.hexMap.update(); console.log("Resume") }
     KeyBinder.keyBinder.setKey('M-z', { thisArg: this, func: this.undoMove })
     KeyBinder.keyBinder.setKey('b', { thisArg: this, func: this.undoMove })
     KeyBinder.keyBinder.setKey('r', { thisArg: this, func: this.redoMove })
@@ -269,6 +274,8 @@ export class GamePlay extends GamePlay0 {
     KeyBinder.keyBinder.setKey('N', { thisArg: this, func: this.autoMove, argVal: true})
     KeyBinder.keyBinder.setKey('y', { thisArg: this, func: () => TP.yield = true })
     KeyBinder.keyBinder.setKey('u', { thisArg: this, func: () => TP.yield = false })
+    KeyBinder.keyBinder.setKey('C-p', { thisArg: this, func: roboPause })
+    KeyBinder.keyBinder.setKey('C-r', { thisArg: this, func: roboResume })
     table.undoShape.on(S.click, () => this.undoMove(), this)
     table.redoShape.on(S.click, () => this.redoMove(), this)
     table.skipShape.on(S.click, () => this.skipMove(), this)
@@ -352,7 +359,7 @@ export class GamePlay extends GamePlay0 {
   }
   override addStone(hex: Hex2, stoneColor: StoneColor) {
     let rv = super.addStone(hex, stoneColor)
-    hex.setStoneId(this.history.length)
+    if (!!hex.stoneColor) hex.setStoneId(this.history.length)
     return rv
   }
   override captureStone(nhex: Hex2): void {
@@ -434,6 +441,7 @@ export class Move {
   readonly Aname: string
   readonly hex: Hex // where to place stone
   readonly stoneColor: StoneColor
+  /** next player blocked from playing in these Hexes */
   readonly captured: Hex[] = [];
   board: Board
   constructor(hex: Hex, stoneColor: StoneColor, captured: Hex[] = []) {

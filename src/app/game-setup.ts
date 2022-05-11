@@ -5,7 +5,7 @@ import { GamePlay } from "./game-play";
 import { StatsPanel, TableStats } from "./stats";
 import { Table } from "./table";
 import { TP } from "./table-params";
-import { HexMap } from "./hex";
+import { Hex2, HexMap } from "./hex";
 
 /** initialize & reset & startup the application. */
 export class GameSetup {
@@ -79,15 +79,18 @@ export class GameSetup {
     gui.makeParamSpec("nHexes", [1, 2, 3, 4, 5, 6])
     gui.makeParamSpec("maxPlys", [1, 2, 3, 4, 5, 6, 7, 8])
     gui.makeParamSpec("maxBreadth", [5, 6, 7, 8, 9, 10])
-    gui.makeParamSpec("nPerDist", [2,3,4,5,6])
+    gui.makeParamSpec("nPerDist", [2, 3, 4, 5, 6, 8, 11, 15, 19])
+    gui.makeParamSpec("allowSuicide", [true, false])
     //gui.makeParamSpec("moveDwell", [300, 600])
     gui.makeParamSpec("colorScheme", TP.schemeNames, { style: { textAlign: 'center'}})
     gui.spec("mHexes").onChange = (item: ParamItem) => { nHex(TP.nHexes, item.value) }
     gui.spec("nHexes").onChange = (item: ParamItem) => { nHex(item.value, TP.mHexes) }
     gui.spec("colorScheme").onChange = (item: ParamItem) => {
-      TP[item.fieldName] = TP[item.value.trim()] // overwrite setValue
+      TP[item.fieldName] = TP[item.value] // overwrite setValue
       ;(table.gamePlay.hexMap as HexMap).initInfluence(true)
+      table.gamePlay.hexMap.forEachHex((h: Hex2) => h.stone && h.stone.paint())
       table.nextHex.stone.paint()
+      table.hexMap.update()
     }
     parent.addChild(gui)
     gui.x = x // (3*cw+1*ch+6*m) + max(line.width) - (max(choser.width) + 20)

@@ -54,7 +54,7 @@ class CapMark extends Shape {
     hex.cont.parent.localToLocal(hex.x, hex.y, hex.map.mapCont.markCont, this)
   }
   paint() {
-    this.graphics.f(Hex.capColor).dp(0, 0, CapMark.capSize, 6, 0, 30)
+    this.graphics.c().f(Hex.capColor).dp(0, 0, CapMark.capSize, 6, 0, 30)
   }
 }
 
@@ -102,7 +102,7 @@ export class Hex {
   /** set hex.stoneColor and push HSC on allStones */
   setColor(stoneColor: StoneColor): Hex {
     if (this.stoneColor !== undefined) 
-      alert(`hex already occupied ${this.map[S.Aname]}: ${this.stoneColor} -> ${stoneColor}`)
+      alert(`hex already occupied ${this.Aname}: ${stoneColor} -> ${this.stoneColor}`)
     this.stoneColor = stoneColor
     //let hexm = new HexMapLayer(this.map, this, stoneColor)
     //let hex = hexm.addHex(this)
