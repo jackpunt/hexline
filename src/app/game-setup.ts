@@ -73,23 +73,25 @@ export class GameSetup {
     return panel
   }
   makeParamGUI(table: Table, parent: Container, x, y): ParamGUI {
-    let gui = new ParamGUI(TP, { textAlign: 'right'})
-    let enable = false, nHex = (nH, mH) => { TP.fnHexes(nH, mH); enable && this.restart.call(this) }
+    let restart = false 
+    const gui = new ParamGUI(TP, { textAlign: 'right'})
+    const schemeAry = TP.schemeNames.map(n => { return { text: n, value: TP[n] } })
+    let nHex = (nH, mH) => { TP.fnHexes(nH, mH); restart && this.restart.call(this) }
     gui.makeParamSpec("mHexes", [2, 3, 4])
     gui.makeParamSpec("nHexes", [1, 2, 3, 4, 5, 6])
     gui.makeParamSpec("maxPlys", [1, 2, 3, 4, 5, 6, 7, 8])
     gui.makeParamSpec("maxBreadth", [5, 6, 7, 8, 9, 10])
     gui.makeParamSpec("nPerDist", [2, 3, 4, 5, 6, 8, 11, 15, 19])
     gui.makeParamSpec("allowSuicide", [true, false])
-    //gui.makeParamSpec("moveDwell", [300, 600])
-    gui.makeParamSpec("colorScheme", TP.schemeNames, { style: { textAlign: 'center'}})
+    gui.makeParamSpec("colorScheme", schemeAry, { style: { textAlign: 'center' } })
     gui.spec("mHexes").onChange = (item: ParamItem) => { nHex(TP.nHexes, item.value) }
     gui.spec("nHexes").onChange = (item: ParamItem) => { nHex(item.value, TP.mHexes) }
     gui.spec("colorScheme").onChange = (item: ParamItem) => {
-      TP[item.fieldName] = TP[item.value] // overwrite setValue
-      ;(table.gamePlay.hexMap as HexMap).initInfluence(true)
-      table.gamePlay.hexMap.forEachHex((h: Hex2) => h.stone && h.stone.paint())
-      table.nextHex.stone.paint()
+      gui.setValue(item, TP)
+      let hexMap = table.gamePlay.hexMap as HexMap
+      hexMap.initInfluence(true)
+      hexMap.forEachHex((h: Hex2) => h.stone && h.stone.paint())
+      table.nextHex.stone?.paint()
       table.hexMap.update()
     }
     parent.addChild(gui)
@@ -97,7 +99,7 @@ export class GameSetup {
     gui.y = y
     gui.makeLines()
     gui.stage.update()
-    enable = true // *after* makeLines has stablilized selectValue
+    restart = true // *after* makeLines has stablilized selectValue
     this.makeParamGUI2(table, parent, x - 250, y)
     return gui
   }
@@ -105,7 +107,7 @@ export class GameSetup {
     let gui = new ParamGUI(table, { textAlign: 'center' })
     gui.makeParamSpec("showInf", [true, false])
     gui.makeParamSpec("showSui", [true, false])
-    gui.makeParamSpec("log", [0, 1, 2], { style: { textAlign: 'left' } })
+    gui.makeParamSpec("log", [0, 1, 2], { style: { textAlign: 'left' }, target: TP })
     parent.addChild(gui)
     gui.x = x; gui.y = y
     gui.makeLines()

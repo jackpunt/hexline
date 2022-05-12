@@ -151,7 +151,7 @@ export class Planner {
     let tn = this.depth
     let mov0 = this.gamePlay.history[0]
     let gid0 = `${nPlys}/${TP.maxPlys} after ${mov0.Aname}#${tn-1}`
-    let gid1 = `${mov0.board?.id} ${TP.colorScheme[stoneColor]}#${tn}`
+    let gid1 = `${mov0.board?.id}#${mov0.board.repCount} ${TP.colorScheme[stoneColor]}#${tn}`
     return `${gid0}: ${gid1}->`
   }
   /** time at last yield (or initial makeMove) */
@@ -415,19 +415,21 @@ export class Planner {
     let move = this.placeStone(hex, stoneColor, `eMS`)     // new Move(hex, color) -> addStone -> ... state1
     let state1 = this.evalState(move, state1a), win = this.gamePlay.gStats.winAny
     let ind = state1.fj ? '-' : !move.captured ? '!' : move.captured.length > 0 ? `${move.captured.length}` : ' '
-    TP.log > 0 && console.log(stime(this, `.evalMoveShallow: nPlys: ${nPlys}${win !== undefined ? ` --> win: ${TP.colorScheme[win]}` : ''}`),
+    let winInd = (win !== undefined) ? ` --> win: ${TP.colorScheme[win]}` : ''
+    TP.log > 0 && console.log(stime(this, `.evalMoveShallow: nPlys: ${nPlys}${winInd}`),
       { move: move.Aname, fj: ind, bestValue: M.decimalRound(state1.bestValue, 2), state1: state1.copyOf() })
 
-    let fjCheck = this.fjCheckP(state1)
+    let fjCheck = this.fjCheckP(state1), prefj = state1.bestValue, state2: State
     if (win === undefined && (nPlys > 0 || fjCheck)) {
       let nPlys2 = this.nPlysCheckE(nPlys, fjCheck)
-      let state2 = this.lookaheadShallow(state1, otherColor(stoneColor), nPlys2)
+      state2 = this.lookaheadShallow(state1, otherColor(stoneColor), nPlys2)
 
       TP.log > 1 && console.log(stime(this, `.evalMoveShallow: nPlys: ${nPlys} after fjCheck`),
         { move: move.Aname, fj: state1.fj, bestValue: M.decimalRound(state1.bestValue, 2), state2: state2.copyOf() })
       TP.log > 0 && console.log(stime(this, `.evalMoveShallow: nPlys: ${nPlys} best= ${M.decimalRound(state1.bestValue, 2)}`),
         { move1: move.Aname, state1: state1.copyOf(), move2: state2.move.Aname, state2: state2.copyOf() })
     }
+    if (nPlys == 0 && state2 && state1.fj && state2.fj) state1.bestValue = (state1.bestValue + prefj)/2
     this.unplaceStone(move, true)
     return state1
   }

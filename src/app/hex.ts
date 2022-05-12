@@ -2,7 +2,7 @@ import { Container, DisplayObject, Graphics, Shape, Text } from "createjs-module
 import { C, F, RC, S, stime } from "@thegraid/createjs-lib";
 import { HexAxis, HexDir, H, InfDir } from "./hex-intfs";
 import { Stone } from "./table";
-import { otherColor, StoneColor, stoneColor0, stoneColor1, stoneColorRecord, stoneColors, TP } from "./table-params";
+import { otherColor, StoneColor, stoneColor0, stoneColor1, StoneColorRecord, stoneColorRecord, stoneColorRecordF, stoneColors, TP } from "./table-params";
 import { GamePlay0 } from "./game-play";
 
 export const S_Resign = 'Hex@Resign'
@@ -18,28 +18,27 @@ export type HexMaps = HexMap | HexMapLayer
 export type HSC = { hex: Hex, color: StoneColor, Aname?: string }
 export function newHSC(hex: Hex, color: StoneColor, Aname?: string) { return { Aname, hex, color } }
 class InfMark extends Shape {
-  static gE0: Graphics
-  static gE1: Graphics
-  static gInf(g: Graphics, color: string, w: number, wo: number, r: number) {
-    if (C.dist(color, "black") < 10) w -= 1
-    g.ss(w).s(color).mt(wo, r).lt(wo, -r); return g
-  }
+  static gE = stoneColorRecordF<Graphics>(()=> new Graphics()) // 2 Graphics, one is used by each InfMark
   static initStatic(again: boolean) {
-    if (!again && !!InfMark.gE0) return
-    InfMark.gE0 = new Graphics()
-    InfMark.gE1 = new Graphics()
-    let r = Stone.height - 1, w = 5, wo = w / 2
-    let c0 = TP.colorScheme[stoneColor0]
-    let c1 = TP.colorScheme[stoneColor1]
-    if (C.dist(c1, "white") < 10) {
-      InfMark.gInf(InfMark.gE1, 'lightgrey', w + 2, -wo, r)
+    if (!again && InfMark.gE[stoneColor0].instructions.length > 0) return
+    let gInf = (g: Graphics, color: string, w: number, wo: number, r: number) => {
+      return g.ss(w).s(color).mt(wo, r).lt(wo, -r)
     }
-    InfMark.gInf(InfMark.gE1, c1, w, -wo, r)
-    InfMark.gInf(InfMark.gE0, c0, w, wo, r)
+    let alpha = '.85'
+    let lightgreyA = C.nameToRgbaString('lightgrey', '.5')
+    stoneColors.forEach(sc => { 
+      let gE = InfMark.gE[sc]
+      gE.clear()
+      let r = Stone.height - 1, w = 5, wo = w / 2, wos = sc === stoneColor0 ? wo : -wo
+      let c = TP.colorScheme[sc]; c = C.nameToRgbaString(c, alpha)
+      if (C.dist(c, "white") < 10) gInf(gE, lightgreyA, w + 2, wos, r) // makes 'white' more visible
+      if (C.dist(c, "black") < 10) w -= 1 // makes 'black' less bold
+      gInf(gE, c, w, wos, r)
+    })
   }
   /** @param ds show Influence on Axis */
   constructor(color: StoneColor, ds: HexAxis, x: number, y: number) {
-    super((color === stoneColor0) ? InfMark.gE0 : InfMark.gE1)
+    super(InfMark.gE[color])
     this.mouseEnabled = false
     this.rotation = H.dirRot[ds]
     this.x = x; this.y = y
@@ -259,7 +258,7 @@ export class Hex2 extends Hex {
     this.showInf(color, dn, (this.stoneColor !== color && (inf > 0 || this.isInf(color, H.dirRev[dn]))))
     return inf
   }
-  static infVis = true
+  static infVis = true   // set by ParamGui('showInf')
   showInf(color: StoneColor, dn: InfDir, show = true) {
     let ds: HexAxis = H.dnToAxis[dn], infMark = this.infm[color][ds]  // infm only on [ds]
     if (show) {
