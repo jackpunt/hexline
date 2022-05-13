@@ -36,6 +36,19 @@ export function* yieldR<T extends object> (genR: YieldR<T>): YieldR<T> {
   while (result = genR.next(), !result.done) yield
   return result.value
 }
+type FUNC<T> = ()=>T
+export const callQueue: Array<FUNC<any>> = []
+export function callLater(fun: FUNC<any>) {
+  callQueue.push(fun)
+}
+export function callTopLevel<T>(start: FUNC<T>, done?: (value: T) => void, threshold = 30, ms0 = Date.now()) {
+  var dms: number
+  while ((dms = Date.now() - ms0) < threshold) {
+    let value = start()    // which may invoke callLater() to enqueue more tasks
+    if (callQueue.length == 0) return done && done(value)
+  }
+  setTimeout(() => callTopLevel(callQueue.shift(), done, threshold))
+}
   /*
   https://stackoverflow.com/questions/2282140/whats-the-yield-keyword-in-javascript
   function loop(generator, data) {
