@@ -5,7 +5,7 @@ import { S, stime, Undo, KeyBinder } from "@thegraid/createjs-lib";
 import { GameStats, TableStats } from "./stats";
 import { Stone, Table } from "./table";
 import { otherColor, StoneColor, stoneColors, TP} from "./table-params"
-import { Planner, State } from "./robo-player";
+import { Planner } from "./planner";
 import { GameSetup } from "./game-setup";
 
 export interface GamePlayOrig { 
