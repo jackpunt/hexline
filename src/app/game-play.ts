@@ -261,6 +261,10 @@ export class GamePlay extends GamePlay0 {
     this.gStats = new TableStats(this, table) // AFTER allPlayers are defined so can set pStats
     let roboPause = () => { pauseGenR(); this.table.nextHex.markCapture(); this.hexMap.update(); console.log("Paused") }
     let roboResume = () => { resumeGenR(); this.table.nextHex.unmarkCapture(); this.hexMap.update(); console.log("Resume") }
+    KeyBinder.keyBinder.setKey('C-p', { thisArg: this, func: roboPause })
+    KeyBinder.keyBinder.setKey('C-r', { thisArg: this, func: roboResume })
+    KeyBinder.keyBinder.setKey(/1-9/, { thisArg: this, func: (e: string) => { TP.maxBreadth = Number.parseInt(e) } })
+
     KeyBinder.keyBinder.setKey('M-z', { thisArg: this, func: this.undoMove })
     KeyBinder.keyBinder.setKey('b', { thisArg: this, func: this.undoMove })
     KeyBinder.keyBinder.setKey('r', { thisArg: this, func: this.redoMove })
@@ -274,8 +278,6 @@ export class GamePlay extends GamePlay0 {
     KeyBinder.keyBinder.setKey('N', { thisArg: this, func: this.autoMove, argVal: true})
     KeyBinder.keyBinder.setKey('y', { thisArg: this, func: () => TP.yield = true })
     KeyBinder.keyBinder.setKey('u', { thisArg: this, func: () => TP.yield = false })
-    KeyBinder.keyBinder.setKey('C-p', { thisArg: this, func: roboPause })
-    KeyBinder.keyBinder.setKey('C-r', { thisArg: this, func: roboResume })
     table.undoShape.on(S.click, () => this.undoMove(), this)
     table.redoShape.on(S.click, () => this.redoMove(), this)
     table.skipShape.on(S.click, () => this.skipMove(), this)

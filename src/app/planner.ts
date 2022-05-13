@@ -1,4 +1,4 @@
-import { KeyBinder, M, Obj, S, stime } from "@thegraid/createjs-lib";
+import { M, Obj, stime } from "@thegraid/common-lib";
 import { GamePlayD, GamePlayOrig, Move } from "./game-play";
 import { Hex } from "./hex";
 import { allowEventLoop } from "./hex-intfs";
@@ -94,7 +94,6 @@ export class BasePlanner {
     let scoreM1 = 1.4, dMaxM1 = .9, nStonesM1 = 1.2, nInfM1 = .55, nThreatsM1 = .25, nAttacksM1 = .6, nAdjM1 = .2
     let wv1 = dStoneM1.concat([scoreM1, dMaxM1, nStonesM1, nInfM1, nThreatsM1, nAttacksM1, nAdjM1])
     this.weightVecs = stoneColorRecord(wv0, wv1)
-    KeyBinder.keyBinder.setKey(/1-9/, { thisArg: this, func: (e: string) => { TP.maxBreadth = Number.parseInt(e) } })
   }
   /** 
    * Make a State object with simple value of current board.
