@@ -1,5 +1,3 @@
-import { C } from "@thegraid/createjs-lib";
-
 export const stoneColors = ['b', 'w'] as const
 export const stoneColor0 = stoneColors[0]
 export const stoneColor1 = stoneColors[1]
@@ -13,7 +11,6 @@ export function stoneColorRecordF<T>(f: (sc: StoneColor) => T) { return stoneCol
 export class TP {
   static allowSuicide = true;
   static yield = true
-  static minYield = 20
   static maxPlys = 4     // for robo-player lookahead
   static maxBreadth = 7  // for robo-player lookahead
   static nPerDist = 4    // samples per district

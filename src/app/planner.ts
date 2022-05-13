@@ -1,5 +1,5 @@
 import { M, Obj, stime } from "@thegraid/common-lib";
-import { GamePlayD, GamePlayOrig, Move } from "./game-play";
+import { GamePlay, GamePlayD, GamePlayOrig, Move } from "./game-play";
 import { Hex } from "./hex";
 import { allowEventLoop } from "./hex-intfs";
 import { Stone, Table } from "./table";
@@ -82,7 +82,8 @@ export class BasePlanner {
   skipState(state0: State) { return this.endState(this.gamePlay.hexMap.skipHex, state0) }
   resignState(state0: State) { return this.endState(this.gamePlay.hexMap.resignHex, state0) }
 
-  constructor(gamePlay: GamePlayD) {
+  constructor(gamePlay: GamePlayD, playerIndex: number) {
+    this.curPlayerNdx = playerIndex
     this.gamePlay = gamePlay  // downgraded to GamePlayD
     // compatible with statVector in stats.ts
     let nDist = TP.ftHexes(TP.mHexes)  // each MetaHex is a District
@@ -154,22 +155,24 @@ export class BasePlanner {
   /** time at last yield (or initial makeMove) */
   ms0: number
   ms00: number
+  yieldMs: number      // compute this long before voluntary yield
   maxDepth: number
+  curPlayerNdx: number // my Player.index
   /** play this Stone, Player is stone.color */
   makeMove(stone: Stone, table: Table): Promise<Hex> {
     this.ms0 = this.ms00 = Date.now()
     this.maxDepth = Number.NEGATIVE_INFINITY
     let gamePlay = this.gamePlay
-    gamePlay.importBoards(table.gamePlay) // prune back to the current Boards
-    TP.minYield = Math.max(20, 5* (TP.maxPlys + TP.maxBreadth - 7)) // 5 * TP.maxPlys // 
+    this.syncToGame(table.gamePlay)   // setHexMap, allBoards, turnNumber
+    // NOW: we are sync'd with mainGame...
 
-    let sid0 = State.sid, ms0 = Date.now() - 1, tn = this.moveNumber = table.gamePlay.turnNumber
+    this.yieldMs = Math.max(20, 5* (TP.maxPlys + TP.maxBreadth - 7)) // 5 * TP.maxPlys // 
 
-    let fillMove: (value: Hex | PromiseLike<Hex>) => void
-    let failMove: (reason?: any) => void 
+    let sid0 = State.sid, ms0 = Date.now() - 1
+
+    let fillMove: (value: Hex | PromiseLike<Hex>) => void, failMove: (reason?: any) => void 
     let movePromise = new Promise<Hex>((fil, rej) => {
-      fillMove = fil
-      failMove = rej
+      fillMove = fil; failMove = rej
     })
 
     let firstMove = () => {
@@ -181,16 +184,15 @@ export class BasePlanner {
 
     let dispatchMove = (state: State) => {
       this.doMove(state.move) // placeStone on our hexMap & history
+      let tn = this.moveNumber
       let dsid = State.sid - sid0, dms = Date.now() - ms0, sps = M.decimalRound(1000 * dsid / dms, 0)
       console.log(stime(this, `.makeMove: MOVE#${tn} = ${state.move.Aname}`), `state=`, state.copyOf(), 
         { sps, dms, dsid: dsid.toLocaleString(), maxD: this.maxDepth })
       this.prevState = state
       fillMove(state.move.hex)
     }
-    this.syncToGame(this.gamePlay.original) // if win, then why are we here? return skipMove?
-    let win = gamePlay.gStats.updateStats()
-    // NOW: we are sync'd with mainGame...
-    if (gamePlay.history.length < 1) {
+    let win = gamePlay.gStats.updateStats() // if 'win' then why are we here?
+    if (this.moveNumber == 1) {
       firstMove()
     } else {
       // try get previously evaluated State & MOVES:
@@ -230,15 +232,21 @@ export class BasePlanner {
     move && gamePlay.allBoards.delete(move.board?.id)
   }
 
-  syncToGame(mainGame: GamePlayOrig) {
-    let main = mainGame.history, ours = this.gamePlay.history
+  syncToGame(gamePlay: GamePlay) {
+    this.moveNumber = this.gamePlay.importBoards(gamePlay) + 1 // prune back to the current Boards
+    let main = gamePlay.history, ours = this.gamePlay.history
     // our extra moves cannot be useful [if there has been some Undo on the mainGame]
     while (ours.length > main.length) this.unplaceStone(ours[0])
     let m = 0    // number of Moves to retain on ours.history:
     for (; main.length-m-1 >= 0 && ours.length-m-1 >= 0; m++) {
       if (main[main.length-m-1].Aname != ours[ours.length-m-1].Aname) break // skip oldest moves common to both
     }
-    while (ours.length > m) this.unplaceStone(ours[0])
+    while (ours.length > m) this.unplaceStone(ours[0]) // all the Moves in ours are valid
+
+    let rev = ours.concat().reverse(), allBoards = this.gamePlay.allBoards
+    ours.splice(0, ours.length); allBoards.clear()
+    // rebuild ours and allBoards:
+    for (let move of rev) { ours.push(move); allBoards.addBoard(move, ours) }
     // apply otherPlayer and/or manual Moves; appy mainGame Moves in proper order:
     while (main.length > ours.length) this.doMove(main[main.length - ours.length - 1])
   }
@@ -254,7 +262,7 @@ export class BasePlanner {
   /** allow limited dogfight analysis */
   fjCheckP(state1: State) { return state1.fj && (this.depth < this.moveNumber + TP.maxPlys + 1)}
   nPlysCheck2(nPlys: number, fjCheck: boolean, ) { return !fjCheck ? nPlys : Math.max(nPlys + (nPlys % 2), 2) } // even number > 2
-  nPlysCheckE(nPlys: number, fjCheck: boolean, ) { return !fjCheck ? nPlys : this.nPlysCheck2(nPlys, fjCheck) + 1 - this.gamePlay.original.curPlayer.index }
+  nPlysCheckE(nPlys: number, fjCheck: boolean, ) { return !fjCheck ? nPlys : this.nPlysCheck2(nPlys, fjCheck) + 1 - this.curPlayerNdx }
 
   logAndGC(ident: string, state0: State, sid0: number, ms0: number, moveAry: [Hex, State][], bestState: State, nPlys: number, stoneColor: string, gc = true) {
     if (TP.log > 0 || this.depth == this.moveNumber) {
@@ -318,8 +326,8 @@ export class BasePlanner {
       // timers and voluntary yield:
       let dsid = State.sid - sid0, now = Date.now(), dmc = now - this.ms0, depth = this.depth - this.moveNumber
       let dms = now - ms0, dmy = -1, sps = M.decimalRound(1000 * dsid / dms, 0)
-      if (TP.yield && dmc > TP.minYield) {  // compute at least 10 -- 100 ms
-        yield                               // voluntary yield to allow event loop (& graphics paint)
+      if (TP.yield && dmc > this.yieldMs) {  // compute at least 10 -- 100 ms
+        yield                                   // voluntary yield to allow event loop (& graphics paint)
         this.ms0 = Date.now()
         dmy = this.ms0 - now
       }

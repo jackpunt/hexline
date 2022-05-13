@@ -228,13 +228,13 @@ export class GamePlayD extends GamePlay0 {
       allPlayers: original.allPlayers, allBoards: new BoardRegister(), gStats: undefined })
     this.original = original
     this.hexMap[S.Aname] = `GamePlayD#${this.id}-${player.colorn}`
-    this.importHexes()
+    this.setupHexmap(this.original.hexMap)
     this.gStats = new GameStats(this.hexMap, this.allPlayers)
     return
   }
-  importHexes() {
+  setupHexmap(origMap: HexMaps) {
     let hexMap = this.hexMap
-    for (let dist of this.original.hexMap.district) {
+    for (let dist of origMap.district) {
       for (let ohex of dist) {
         let nhex = hexMap.addHex(ohex.row, ohex.col, ohex.district)
         if (!hexMap.district[ohex.district]) hexMap.district[ohex.district] = []
@@ -243,10 +243,12 @@ export class GamePlayD extends GamePlay0 {
     }
     return
   }
+  /** @return number of boards, by repCount */
   importBoards(gamePlay: GamePlayOrig) {
+    let nb = 0
     this.allBoards.clear()
-    //gamePlay.allBoards.forEach((board: Board, id: string) => this.allBoards.set(id, board))
-    for (let [id, board] of gamePlay.allBoards.entries()) this.allBoards.set(id, board)
+    gamePlay.allBoards.forEach((board, id) => { this.allBoards.set(id, board); nb += board.repCount })
+    return nb
   }
 }
 
@@ -479,7 +481,7 @@ export class Player implements Mover {
     this.gamePlay = gamePlay
   }
   newGame(gamePlay: GamePlay) {
-    this.planner = new Planner(new GamePlayD(gamePlay, this))
+    this.planner = new Planner(new GamePlayD(gamePlay, this), this.index)
   }
   stopMove() {
     this.planner.roboStop = true

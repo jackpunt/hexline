@@ -12,13 +12,13 @@ export type YieldR<TReturn> = Generator<void, TReturn, unknown>
  * @param done 
  */
 export function allowEventLoop<T>(genR: YieldR<T>, done?: (result: T) => void): void  {
-  let result = (yieldMs == 0) ? genR.next() : { done: false, value: undefined }
+  let result = (pauseMs == 0) ? genR.next() : { done: false, value: undefined }
   if (result.done) done && done(result.value)
-  else setTimeout(() => allowEventLoop(genR, done), yieldMs)
+  else setTimeout(() => allowEventLoop(genR, done), pauseMs)
 }
-var yieldMs = 0
-export function pauseGenR (ms: number = 1000) { yieldMs = ms }
-export function resumeGenR (ms: number = 0) { yieldMs = ms }
+ var pauseMs = 0
+export function pauseGenR (ms: number = 1000) { pauseMs = ms }
+export function resumeGenR (ms: number = 0) { pauseMs = ms }
 /** 
  * Return next result from genR. 
  * If genR returns an actual value, return that value
