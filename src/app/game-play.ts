@@ -1,4 +1,4 @@
-import { H, } from "./hex-intfs";
+import { H, pauseGenR, resumeGenR, } from "./hex-intfs";
 import { Hex, Hex2, HexMap, S_Resign, HSC, HexMaps, HexMapD } from "./hex";
 import { HexEvent } from "./hex-event";
 import { S, stime, Undo, KeyBinder } from "@thegraid/createjs-lib";
@@ -259,8 +259,8 @@ export class GamePlay extends GamePlay0 {
     // setTable(table)
     this.table = table
     this.gStats = new TableStats(this, table) // AFTER allPlayers are defined so can set pStats
-    let roboPause = () => { TP.yieldMs = 1000; this.table.nextHex.markCapture(); this.hexMap.update(); console.log("Paused") }
-    let roboResume = () => { TP.yieldMs = 0; this.table.nextHex.unmarkCapture(); this.hexMap.update(); console.log("Resume") }
+    let roboPause = () => { pauseGenR(); this.table.nextHex.markCapture(); this.hexMap.update(); console.log("Paused") }
+    let roboResume = () => { resumeGenR(); this.table.nextHex.unmarkCapture(); this.hexMap.update(); console.log("Resume") }
     KeyBinder.keyBinder.setKey('M-z', { thisArg: this, func: this.undoMove })
     KeyBinder.keyBinder.setKey('b', { thisArg: this, func: this.undoMove })
     KeyBinder.keyBinder.setKey('r', { thisArg: this, func: this.redoMove })

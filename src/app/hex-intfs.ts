@@ -1,8 +1,3 @@
-import { stime } from "@thegraid/createjs-lib"
-import { EventDispatcher } from "createjs-module"
-import moment = require("moment")
-import { TP } from "./table-params"
-
 /**
 https://stackoverflow.com/questions/71963376/how-to-enable-javascript-eventloop-when-running-nested-recursive-computation/71963377#71963377
  */ 
@@ -17,11 +12,13 @@ export type YieldR<TReturn> = Generator<void, TReturn, unknown>
  * @param done 
  */
 export function allowEventLoop<T>(genR: YieldR<T>, done?: (result: T) => void): void  {
-  let result = TP.yieldMs == 0 ? genR.next() : { done: false, value: undefined }
+  let result = (yieldMs == 0) ? genR.next() : { done: false, value: undefined }
   if (result.done) done && done(result.value)
-  else setTimeout(() => allowEventLoop(genR, done), TP.yieldMs)
+  else setTimeout(() => allowEventLoop(genR, done), yieldMs)
 }
-export function pauseGenR (ms: number) { TP.yieldMs = ms }
+var yieldMs = 0
+export function pauseGenR (ms: number = 1000) { yieldMs = ms }
+export function resumeGenR (ms: number = 0) { yieldMs = ms }
 /** 
  * Return next result from genR. 
  * If genR returns an actual value, return that value
@@ -71,12 +68,7 @@ export function callTopLevel<T>(start: FUNC<T>, done?: (value: T) => void, thres
     setTimeout(run);
   });
   */
-/** Interface into RoboPlayer */
-export interface Notifyable {
-  notify(source: EventDispatcher, eventName: string, dwell?: number): void
-  block(source?: EventDispatcher, eventName?: string, dwell?: number): void
-  bonusAry(card): number[]
-}
+
 /** Hexagonal canonical directions */
 export enum Dir { C, NE, E, SE, SW, W, NW }
 export type HexDir = 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW' | 'N'

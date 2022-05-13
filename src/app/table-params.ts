@@ -12,7 +12,6 @@ export function stoneColorRecord<T>(b: T = null, w: T = null): StoneColorRecord<
 export function stoneColorRecordF<T>(f: (sc: StoneColor) => T) { return stoneColorRecord(f(stoneColor0), f(stoneColor1)) }
 export class TP {
   static allowSuicide = true;
-  static yieldMs = 0;
   static yield = true
   static minYield = 20
   static maxPlys = 4     // for robo-player lookahead
