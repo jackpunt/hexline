@@ -292,11 +292,7 @@ export class GamePlay extends GamePlay0 {
   }
   // Make ONE robo-move by curPlayer (more move if auto-move sets player.useRobo = true)
   keyMove() {
-    let running = this.curPlayer.planner.running
-    console.log(stime(this, `.makeMove: ${this.curPlayer.colorn} useRobo=`), this.curPlayer.useRobo, `running=${running}` )
-    if (!running) {
-      this.curPlayer.makeMove(this.table.nextHex.stone, true) // make one robo move
-    }
+    this.curPlayer.makeMove(this.table.nextHex.stone, true) // make one robo move
   }
   autoMove(useRobo: boolean = false) {
     let op = this.otherPlayer(this.curPlayer)
@@ -487,13 +483,27 @@ export class Player implements Mover {
     this.planner.roboStop = true
   }
   makeMove(stone: Stone, useRobo = false) {
+    let running = this.plannerRunning
+    console.log(stime(this, `.makeMove: ${this.colorn} useRobo=`), this.useRobo, `running=${running}` )
+    if (running) return
     this.planner.roboStop = false
     let table = (this.gamePlay instanceof GamePlay) && this.gamePlay.table
     if (useRobo || this.useRobo) {
       // start planner from top of stack:
-      setTimeout(() => this.planner.makeMove(stone, table))
+      setTimeout(() => this.plannerMove(stone, table))
     }
     return      // robo or GUI will invoke gamePlay.doPlayerMove(...)
+  }
+  plannerRunning = false
+  plannerMove(stone: Stone, table: Table) {
+    this.plannerRunning = true
+    this.planner.makeMove(stone, table).then((hex: Hex) => {
+      this.plannerRunning = false
+      let origMap = table.gamePlay.hexMap
+      let hex0 = hex.ofMap(origMap)
+      table.hexMap.showMark(hex0)
+      table.dispatchEvent(new HexEvent(S.add, hex0, stone))
+    })
   }
 }
 

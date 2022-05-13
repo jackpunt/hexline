@@ -1,7 +1,6 @@
 import { KeyBinder, M, Obj, S, stime } from "@thegraid/createjs-lib";
 import { GamePlayD, GamePlayOrig, Move } from "./game-play";
 import { Hex } from "./hex";
-import { HexEvent } from "./hex-event";
 import { allowEventLoop } from "./hex-intfs";
 import { Stone, Table } from "./table";
 import { otherColor, StoneColor, stoneColorRecord, TP } from "./table-params";
@@ -59,8 +58,7 @@ function entriesArray(k: MOVES) {
 /**
  * Planner: eval-node: makeState, find children, for [each] child: eval-node
  */
-export class Planner {
-  running = false
+export class BasePlanner {
   roboStop = false  // set to TRUE to break the search.
 
   gamePlay: GamePlayD
@@ -159,8 +157,7 @@ export class Planner {
   ms00: number
   maxDepth: number
   /** play this Stone, Player is stone.color */
-  makeMove(stone: Stone, table?: Table) {
-    this.running = true // TODO: maybe need a catch?
+  makeMove(stone: Stone, table: Table): Promise<Hex> {
     this.ms0 = this.ms00 = Date.now()
     this.maxDepth = Number.NEGATIVE_INFINITY
     let gamePlay = this.gamePlay
@@ -169,35 +166,40 @@ export class Planner {
 
     let sid0 = State.sid, ms0 = Date.now() - 1, tn = this.moveNumber = table.gamePlay.turnNumber
 
+    let fillMove: (value: Hex | PromiseLike<Hex>) => void
+    let failMove: (reason?: any) => void 
+    let movePromise = new Promise<Hex>((fil, rej) => {
+      fillMove = fil
+      failMove = rej
+    })
+
     let firstMove = () => {
       State.sid = sid0 = 0
       let lastDist = TP.ftHexes(TP.mHexes) - 1
       let hex = gamePlay.hexMap.district[lastDist][0]
-      dispatchMove(new State(new Move(hex, stone.color), stone.color, 0))
+      fillMove(hex)
     }
+
     let dispatchMove = (state: State) => {
       this.doMove(state.move) // placeStone on our hexMap & history
       let dsid = State.sid - sid0, dms = Date.now() - ms0, sps = M.decimalRound(1000 * dsid / dms, 0)
       console.log(stime(this, `.makeMove: MOVE#${tn} = ${state.move.Aname}`), `state=`, state.copyOf(), 
         { sps, dms, dsid: dsid.toLocaleString(), maxD: this.maxDepth })
-      if (table) {
-        let origMap = table.gamePlay.hexMap
-        let hex0 = state.move.hex.ofMap(origMap)
-        table.hexMap.showMark(hex0)
-        table.dispatchEvent(new HexEvent(S.add, hex0, stone)) //
-      }
       this.prevState = state
-      this.running = false
+      fillMove(state.move.hex)
     }
     this.syncToGame(this.gamePlay.original) // if win, then why are we here? return skipMove?
     let win = gamePlay.gStats.updateStats()
     // NOW: we are sync'd with mainGame...
-    if (gamePlay.history.length < 1) return firstMove()
-    
-    // try get previously evaluated State & MOVES:
-    // righteous: from our own previous analysis: /* state0 = this.prevState?.moves?.get(hex) ||*/
-    let state0 = this.evalState(this.gamePlay.history[0])
-    allowEventLoop(this.lookaheadDeep(state0, stone.color), (state: State) => dispatchMove(state))
+    if (gamePlay.history.length < 1) {
+      firstMove()
+    } else {
+      // try get previously evaluated State & MOVES:
+      // righteous: from our own previous analysis: /* state0 = this.prevState?.moves?.get(hex) ||*/
+      let state0 = this.evalState(this.gamePlay.history[0])
+      allowEventLoop(this.lookaheadDeep(state0, stone.color), (state: State) => dispatchMove(state))
+    }
+    return movePromise
   }
   /** 
    * like placeStone(); closeUndo()
@@ -489,7 +491,9 @@ export class Planner {
  * 3? maintain tree of forecast: prune when other player makes actual move; expand at the remaaining leafs.
  * 
  */
+export class Planner extends BasePlanner {
 
+}
 /** generate interesting Hex targets for next Move. */
 class HexGen {
   // moves that kill move0.hex: scan each of 6 axies, using getCaptures()
