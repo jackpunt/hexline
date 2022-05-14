@@ -11,6 +11,7 @@ export function stoneColorRecordF<T>(f: (sc: StoneColor) => T) { return stoneCol
 export class TP {
   static allowSuicide = true;
   static yield = true
+  static pWeight = .9
   static maxPlys = 4     // for robo-player lookahead
   static maxBreadth = 7  // for robo-player lookahead
   static nPerDist = 4    // samples per district

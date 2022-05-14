@@ -126,7 +126,7 @@ export class BasePlanner {
     return state1
   }
   keepBestValue(state0: State, bestState: State) {
-    state0.bestValue = -bestState.bestValue
+    state0.bestValue = -bestState.bestValue * TP.pWeight + state0.bestValue * (1 - TP.pWeight)
     state0.eval = bestState.eval
   }
   winState(state: State, win: StoneColor): StoneColor {
@@ -282,6 +282,7 @@ export class BasePlanner {
       bestState.moves = bestMoves
     }
   }
+  /** show progress in log, how much of breadth is done */
   nth = 0;
   /** 
    * lookahead from current State; with its potential MOVES. 
