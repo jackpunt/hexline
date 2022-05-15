@@ -1,7 +1,7 @@
 import { M, Obj, stime } from "@thegraid/common-lib";
 import { GamePlay, GamePlayD, GamePlayOrig, Move } from "./game-play";
 import { Hex } from "./hex";
-import { allowEventLoop } from "./hex-intfs";
+import { runEventLoop } from "./hex-intfs";
 import { Stone, Table } from "./table";
 import { otherColor, StoneColor, stoneColorRecord, TP } from "./table-params";
 
@@ -198,7 +198,7 @@ export class BasePlanner {
       // try get previously evaluated State & MOVES:
       // righteous: from our own previous analysis: /* state0 = this.prevState?.moves?.get(hex) ||*/
       let state0 = this.evalState(this.gamePlay.history[0])
-      allowEventLoop(this.lookaheadDeep(state0, stone.color), (state: State) => dispatchMove(state))
+      this.lookaheadDeep(state0, stone.color).then((state: State) => dispatchMove(state))
     }
     return movePromise
   }
@@ -299,7 +299,7 @@ export class BasePlanner {
    * @param breadth typically = TP.maxBreadth; for free-jeopardy it may be lower = Min(TP.maxBreadth, 6)
    * @return bestState: state1a [from moveAry] {move: new Move(hex->bestState), bestValue: max(...hex)}
    */
-  *lookaheadDeep(state0: State, stoneColor: StoneColor, nPlys?: number, breadth = TP.maxBreadth) {
+  async lookaheadDeep(state0: State, stoneColor: StoneColor, nPlys?: number, breadth = TP.maxBreadth) {
     let isTop = (nPlys === undefined) ? (nPlys = TP.maxPlys, true) : false
     if (isTop) this.nth = breadth
     try {
@@ -313,10 +313,7 @@ export class BasePlanner {
         if (isTop) this.nth = breadth - 1
         if (this.moveAryBreak(state1a, --breadth, bestState)) break
         if (nPlys - 1 > 0) {
-          let evalGen = this.evalMoveInDepth(hex, stoneColor, nPlys - 1, state1a) // state1.bestValue=MIN(-state2.bestValue)
-          let result: IteratorResult<void, State>
-          while (result = evalGen.next(), !result.done) yield
-          //ASSERT result.value === state1a, with bestValue possibly changed
+          await this.evalMoveInDepth(hex, stoneColor, nPlys - 1, state1a) // state1.bestValue=MIN(-state2.bestValue)
         } else {
           this.evalMoveShallow(hex, stoneColor, 0, state1a) // nPlys-1 == 0
         }
@@ -328,7 +325,7 @@ export class BasePlanner {
       let dsid = State.sid - sid0, now = Date.now(), dmc = now - this.ms0, depth = this.depth - this.moveNumber
       let dms = now - ms0, dmy = -1, sps = M.decimalRound(1000 * dsid / dms, 0)
       if (TP.yield && dmc > this.yieldMs) {  // compute at least 10 -- 100 ms
-        yield                                   // voluntary yield to allow event loop (& graphics paint)
+        await runEventLoop()                 // voluntary yield to allow event loop (& graphics paint)
         this.ms0 = Date.now()
         dmy = this.ms0 - now
       }
@@ -356,7 +353,7 @@ export class BasePlanner {
    * @param state1 Move(hex, color) -> state1; set state1.eval & state1.bestValue (nPlys)
    * @return !!state1 ? (the better of bestState, state1) : newState(move(hex, stoneColor), stoneColor)
    */
-  *evalMoveInDepth(hex: Hex, stoneColor: StoneColor, nPlys: number = 0, state1?: State) {
+  async evalMoveInDepth(hex: Hex, stoneColor: StoneColor, nPlys: number = 0, state1?: State) {
     if (nPlys > 0 || !state1) {
       let move = this.placeStone(hex, stoneColor, `eMID`)  // new Move(hex, color) -> addStone -> ... state1 [eval=0]
       state1 = this.evalState(move, state1)
@@ -369,10 +366,7 @@ export class BasePlanner {
         if (nPlys > 0 || fjCheck) {
           let nPlys2 = this.nPlysCheckE(nPlys, fjCheck)
           // DFS-min/max: find opponent's best move against state1.move:
-          let result: IteratorResult<any, State>
-          let planGen = this.lookaheadDeep(state1, otherColor(stoneColor), nPlys2)
-          while (result = planGen.next(), !result.done) yield // deep & wide: propagate recursive yield
-          let state2 = result.value
+          let state2 = await this.lookaheadDeep(state1, otherColor(stoneColor), nPlys2)
           TP.log > 0 && console.log(stime(this, `.evalMoveInDepth: best=${M.decimalRound(state1.bestValue,2)}`), 
             { move1: move.Aname, state1: state1.copyOf(), move2: state2.move.Aname, state2: state2.copyOf() })
         }

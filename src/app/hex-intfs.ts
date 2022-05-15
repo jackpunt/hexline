@@ -1,6 +1,11 @@
 /**
 https://stackoverflow.com/questions/71963376/how-to-enable-javascript-eventloop-when-running-nested-recursive-computation/71963377#71963377
  */ 
+
+export function runEventLoop() {
+  return new Promise((ok,fail) => setTimeout(ok,0));
+}
+
 /** <yield: void, return: TReturn, yield-in: unknown> */
 //                            Generator<yield, return, yield-in>
 export type YieldR<TReturn> = Generator<void, TReturn, unknown>
