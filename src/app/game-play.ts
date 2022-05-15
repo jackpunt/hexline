@@ -28,7 +28,7 @@ export class GamePlay0 {
       this.redoMoves = []
       this.allBoards = new BoardRegister()
       this.allPlayers = stoneColors.map((color, ndx) => new Player(ndx, color, this))
-      this.gStats = new GameStats(this.hexMap, this.allPlayers) // AFTER allPlayers are defined so can set pStats
+      this.gStats = new GameStats(this.hexMap) // AFTER allPlayers are defined so can set pStats
     }
   }
 
@@ -229,7 +229,7 @@ export class GamePlayD extends GamePlay0 {
     this.original = original
     this.hexMap[S.Aname] = `GamePlayD#${this.id}-${player.colorn}`
     this.setupHexmap(this.original.hexMap)
-    this.gStats = new GameStats(this.hexMap, this.allPlayers)
+    this.gStats = new GameStats(this.hexMap)
     return
   }
   setupHexmap(origMap: HexMaps) {
@@ -481,6 +481,7 @@ export class Player implements Mover {
     this.gamePlay = gamePlay
   }
   newGame(gamePlay: GamePlay) {
+    this.makeWorker()
     this.planner = new Planner(new GamePlayD(gamePlay, this), this.index)
   }
   stopMove() {
@@ -508,6 +509,19 @@ export class Player implements Mover {
       table.hexMap.showMark(hex0)
       table.dispatchEvent(new HexEvent(S.add, hex0, stone))
     })
+  }
+  makeWorker() {
+    if (typeof Worker !== 'undefined') {
+      // Create a new
+      const worker = new Worker(new URL('./app.worker', import.meta.url));
+      worker.onmessage = ({ data }) => {
+        console.log(`page got message: ${data}`);
+      };
+      worker.postMessage('hello');
+    } else {
+      // Web Workers are not supported in this environment.
+      // You should add a fallback so that your program still executes correctly.
+    }
   }
 }
 

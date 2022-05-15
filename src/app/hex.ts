@@ -1,4 +1,4 @@
-import { Container, DisplayObject, Graphics, Shape, Text } from "createjs-module";
+import { Container, DisplayObject, Graphics, Shape, Text } from "@thegraid/createjs-module";
 import { C, F, RC, S, stime } from "@thegraid/createjs-lib";
 import { HexAxis, HexDir, H, InfDir } from "./hex-intfs";
 import { Stone } from "./table";
@@ -18,27 +18,28 @@ export type HexMaps = HexMap | HexMapLayer
 export type HSC = { hex: Hex, color: StoneColor, Aname?: string }
 export function newHSC(hex: Hex, color: StoneColor, Aname?: string) { return { Aname, hex, color } }
 class InfMark extends Shape {
-  static gE = stoneColorRecordF<Graphics>(()=> new Graphics()) // 2 Graphics, one is used by each InfMark
-  static initStatic(again: boolean) {
-    if (!again && InfMark.gE[stoneColor0].instructions.length > 0) return
-    let gInf = (g: Graphics, color: string, w: number, wo: number, r: number) => {
-      return g.ss(w).s(color).mt(wo, r).lt(wo, -r)
-    }
+  static gColor(sc: StoneColor, g: Graphics = new Graphics()) {
     let alpha = '.85'
     let lightgreyA = C.nameToRgbaString('lightgrey', '.5')
-    stoneColors.forEach(sc => { 
-      let gE = InfMark.gE[sc]
-      gE.clear()
-      let r = Stone.height - 1, w = 5, wo = w / 2, wos = sc === stoneColor0 ? wo : -wo
-      let c = TP.colorScheme[sc]; c = C.nameToRgbaString(c, alpha)
-      if (C.dist(c, "white") < 10) gInf(gE, lightgreyA, w + 2, wos, r) // makes 'white' more visible
-      if (C.dist(c, "black") < 10) w -= 1 // makes 'black' less bold
-      gInf(gE, c, w, wos, r)
-    })
+    let r = Stone.height - 1, w = 5, wo = w / 2, wos = sc === stoneColor0 ? wo : -wo
+    let c = TP.colorScheme[sc]; c = C.nameToRgbaString(c, alpha)
+
+    let gStroke = (g: Graphics, color: string, w: number, wo: number, r: number) => {
+      return g.ss(w).s(color).mt(wo, r).lt(wo, -r)
+    }
+    g.clear()
+    if (C.dist(c, "white") < 10) gStroke(g, lightgreyA, w + 2, wos, r) // makes 'white' more visible
+    if (C.dist(c, "black") < 10) w -= 1 // makes 'black' less bold
+    gStroke(g, c, w, wos, r)
+    return g
+  }
+  static infG = stoneColorRecordF<Graphics>(InfMark.gColor) // 2 Graphics, one is used by each InfMark
+  static setInfColors() {
+    stoneColors.forEach(sc => InfMark.gColor(sc, InfMark.infG[sc]))
   }
   /** @param ds show Influence on Axis */
   constructor(color: StoneColor, ds: HexAxis, x: number, y: number) {
-    super(InfMark.gE[color])
+    super(InfMark.infG[color])
     this.mouseEnabled = false
     this.rotation = H.dirRot[ds]
     this.x = x; this.y = y
@@ -441,7 +442,7 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
     return this
   }
 
-  initInfluence(again = false): this { InfMark.initStatic(again); return this }
+  initInfluence(): this { InfMark.setInfColors(); return this }
 
   update() { this.mapCont.hexCont.parent?.stage.update()}
 

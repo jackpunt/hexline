@@ -1,4 +1,4 @@
-import { Container, Stage } from "createjs-module";
+import { Container, Stage } from "@thegraid/createjs-module";
 import { stime, makeStage, S } from "@thegraid/createjs-lib";
 import { ParamGUI, ParamItem} from '@thegraid/createjs-lib' // './ParamGUI' //
 import { GamePlay } from "./game-play";
@@ -89,7 +89,7 @@ export class GameSetup {
     gui.spec("colorScheme").onChange = (item: ParamItem) => {
       gui.setValue(item, TP)
       let hexMap = table.gamePlay.hexMap as HexMap
-      hexMap.initInfluence(true)
+      hexMap.initInfluence()
       hexMap.forEachHex((h: Hex2) => h.stone && h.stone.paint())
       table.nextHex.stone?.paint()
       table.hexMap.update()

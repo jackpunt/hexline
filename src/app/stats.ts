@@ -1,13 +1,13 @@
 // Game win: a Player controls 4 of 7 Districts
 // Control: Stone on >= 7 Hexes && Player.nHexes(district) - otherPlayer.nHexes(district) >= 3
 
-import { Board, GamePlay, Move, Player } from "./game-play";
+import { Board, GamePlay, Move } from "./game-play";
 import { Hex, Hex2, HexM } from "./hex";
 import { Table } from "./table";
-import { otherColor, StoneColor, stoneColor0, stoneColor1, stoneColorRecord, stoneColors, TP } from "./table-params";
+import { otherColor, StoneColor, stoneColor0, stoneColor1, StoneColorRecord, stoneColorRecordF, stoneColors, TP } from "./table-params";
 import { C, F, S, stime } from "@thegraid/createjs-lib";
 import { ParamGUI, ParamItem, ParamLine, ParamType, ParamOpts, ParamSpec, DropdownButton} from '@thegraid/createjs-lib'// './ParamGUI' //
-import { Text } from "createjs-module";
+import { Text } from "@thegraid/createjs-module";
 import { H } from "./hex-intfs";
 
 export class PlayerStats {
@@ -31,8 +31,7 @@ export class PlayerStats {
 
 export class GameStats {
   readonly hexMap: HexM
-  readonly allPlayers: Player[]
-  readonly pStats: Record<StoneColor, PlayerStats> = stoneColorRecord()
+  readonly pStats: StoneColorRecord<PlayerStats>
   readonly inControl: StoneColor[] = Array(TP.ftHexes(TP.mHexes)) // (nStones[color] - nStones[oc] >= TP.diffControl) -> [district]=color
   winVP: StoneColor = undefined;
   winAny: StoneColor = undefined;
@@ -41,19 +40,15 @@ export class GameStats {
   }
 
   /** extract the useful bits for maintaining stats. */
-  constructor(hexMap: HexM, allPlayers: Player[], 
-    pStats: Record<StoneColor, PlayerStats> = stoneColorRecord(new PlayerStats(), new PlayerStats()), 
+  constructor(hexMap: HexM,
+    pStats: Record<StoneColor, PlayerStats> = stoneColorRecordF(() => new PlayerStats()), 
     inControl: StoneColor[] = Array(TP.ftHexes(TP.mHexes))) {
     this.hexMap = hexMap
-    this.allPlayers = allPlayers
     this.pStats = pStats
     this.inControl = inControl
     this.setupStatVector()           // use default wVector
   }
-  toGameStats(map = this.hexMap) {
-    // remove TableStats methods:
-    return new GameStats(this.hexMap, this.allPlayers, this.pStats, this.inControl) // share pStats & inControl!
-  }
+
   afterSetColor(hex: Hex) {
     let pstat = this.pStat(hex.stoneColor)
     pstat.dStones[hex.district]++
@@ -169,7 +164,7 @@ export class TableStats extends GameStats {
   }
   // TableStats:
   constructor(gamePlay: GamePlay, table: Table) {
-    super(gamePlay.hexMap, gamePlay.allPlayers)
+    super(gamePlay.hexMap)
     this.gamePlay = gamePlay
     this.setTable(table)
   }

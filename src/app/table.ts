@@ -1,10 +1,10 @@
-import { Stage, EventDispatcher, Container, Shape, Text, DisplayObject, MouseEvent } from "createjs-module";
+import { Stage, EventDispatcher, Container, Shape, Text, DisplayObject, MouseEvent } from "@thegraid/createjs-module";
 import { F, S, stime, Dragger, DragInfo, KeyBinder, ScaleableContainer, XY, C } from "@thegraid/createjs-lib"
 import { GamePlay, Player } from "./game-play";
 import { Hex, Hex2, HexMap, } from "./hex";
 import { HexEvent } from "./hex-event";
 import { StatsPanel } from "./stats";
-import { TP, StoneColor, otherColor, stoneColor0, stoneColor1, stoneColorRecord } from "./table-params";
+import { TP, StoneColor, otherColor, stoneColor0, stoneColor1 } from "./table-params";
 import { H } from "./hex-intfs";
 
 type XYWH = {x: number, y: number, w: number, h: number} // like a Rectangle

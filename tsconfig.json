@@ -17,7 +17,7 @@
     "moduleResolution": "node",
     "importHelpers": true,
     "target": "es2021",
-    "module": "commonjs",
+    "module": "es2022",
     "lib": [ "es2021", "dom"]
   },
   "angularCompilerOptions": {
