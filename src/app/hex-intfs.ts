@@ -79,6 +79,7 @@ export enum Dir { C, NE, E, SE, SW, W, NW }
 export type HexDir = 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW' | 'N'
 export type InfDir = Exclude<HexDir, 'N' | 'S'>        // 
 export type HexAxis = Exclude<InfDir, 'SW' | 'W' | 'NW'>
+export type XYWH = {x: number, y: number, w: number, h: number} // like a Rectangle
 
 /** String things */
 export namespace H {

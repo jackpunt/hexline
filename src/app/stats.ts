@@ -155,7 +155,7 @@ export class GameStats {
 }
 export class TableStats extends GameStats {
   table: Table         // presence indicates a GUI environment: showControl, showBoardRep
-  gamePlay: GamePlay  // provides hexMap & allPlayers[] & curPlayer, history for WIN detection
+  gamePlay: GamePlay  // provides hexMap & curPlayer, history for WIN detection
   boardRep: Text
   dStonesText: Text[] = []
 
