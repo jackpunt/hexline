@@ -6,7 +6,7 @@ export type StoneColor = typeof stoneColors[number]
 export function otherColor(color: StoneColor): StoneColor { return color === stoneColor0 ? stoneColor1 : stoneColor0 }
 
 export type StoneColorRecord<T> = Record<StoneColor, T>
-export function stoneColorRecord<T>(b: T = null, w: T = null): StoneColorRecord<T> { return { 'b': b, 'w': w } };
+export function stoneColorRecord<T>(b: T = undefined, w: T = undefined): StoneColorRecord<T> { return { 'b': b, 'w': w } };
 export function stoneColorRecordF<T>(f: (sc: StoneColor) => T) { return stoneColorRecord(f(stoneColor0), f(stoneColor1)) }
 export class TP {
   static allowSuicide = true;

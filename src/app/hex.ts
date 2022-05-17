@@ -1,5 +1,5 @@
-import { Container, DisplayObject, Graphics, Shape, Text } from "@thegraid/createjs-module";
-import { C, F, RC, S, stime } from "@thegraid/createjs-lib";
+import { Container, DisplayObject, Graphics, Shape, Text } from "@thegraid/easeljs-module";
+import { C, F, RC, S, stime } from "@thegraid/easeljs-lib";
 import { HexAxis, HexDir, H, InfDir } from "./hex-intfs";
 import { Stone } from "./table";
 import { otherColor, StoneColor, stoneColor0, stoneColor1, StoneColorRecord, stoneColorRecord, stoneColorRecordF, stoneColors, TP } from "./table-params";
@@ -18,6 +18,7 @@ export type HexMaps = HexMap | HexMapLayer
 export type HSC = { hex: Hex, color: StoneColor, Aname?: string }
 export function newHSC(hex: Hex, color: StoneColor, Aname?: string) { return { Aname, hex, color } }
 class InfMark extends Shape {
+  /** Note: requires a Canvas for nameToRgbaString() */
   static gColor(sc: StoneColor, g: Graphics = new Graphics()) {
     let alpha = '.85'
     let lightgreyA = C.nameToRgbaString('lightgrey', '.5')
@@ -33,17 +34,18 @@ class InfMark extends Shape {
     gStroke(g, c, w, wos, r)
     return g
   }
-  static infG = stoneColorRecordF<Graphics>(InfMark.gColor) // 2 Graphics, one is used by each InfMark
-  static setInfColors() {
-    stoneColors.forEach(sc => InfMark.gColor(sc, InfMark.infG[sc]))
+  /** 2 Graphics, one is used by each InfMark */
+  static infG = stoneColorRecord(undefined as Graphics, undefined as Graphics)
+  static setInfGraphics(): StoneColorRecord<Graphics> {
+    return InfMark.infG = stoneColorRecordF<Graphics>(sc => InfMark.gColor(sc, InfMark.infG[sc]))
   }
   /** @param ds show Influence on Axis */
-  constructor(color: StoneColor, ds: HexAxis, x: number, y: number) {
-    super(InfMark.infG[color])
+  constructor(sc: StoneColor, ds: HexAxis, x: number, y: number) {
+    super(InfMark.infG[sc] || InfMark.setInfGraphics()[sc])
     this.mouseEnabled = false
     this.rotation = H.dirRot[ds]
     this.x = x; this.y = y
-    this[S.Aname] = `Inf[${TP.colorScheme[color]},${ds},${this.id}]`  // for debug, not production
+    this[S.Aname] = `Inf[${TP.colorScheme[sc]},${ds},${this.id}]`  // for debug, not production
   }
 }
 class CapMark extends Shape {
@@ -442,7 +444,7 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
     return this
   }
 
-  initInfluence(): this { InfMark.setInfColors(); return this }
+  initInfluence(): this { InfMark.setInfGraphics(); return this }
 
   update() { this.mapCont.hexCont.parent?.stage.update()}
 

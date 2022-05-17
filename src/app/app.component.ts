@@ -1,5 +1,5 @@
 import { Component, HostListener, Inject } from '@angular/core';
-import { KeyBinder } from '@thegraid/createjs-lib';
+import { KeyBinder } from '@thegraid/easeljs-lib';
 
 @Component({
   selector: 'app-root',

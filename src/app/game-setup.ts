@@ -1,6 +1,6 @@
-import { Container, Stage } from "@thegraid/createjs-module";
-import { stime, makeStage, S } from "@thegraid/createjs-lib";
-import { ParamGUI, ParamItem} from '@thegraid/createjs-lib' // './ParamGUI' //
+import { Container, Stage } from "@thegraid/easeljs-module";
+import { stime, makeStage, S } from "@thegraid/easeljs-lib";
+import { ParamGUI, ParamItem} from '@thegraid/easeljs-lib' // './ParamGUI' //
 import { GamePlay } from "./game-play";
 import { StatsPanel, TableStats } from "./stats";
 import { Table } from "./table";

@@ -53,14 +53,14 @@ export class Player implements Mover {
       table.dispatchEvent(new HexEvent(S.add, hex0, stone))
     })
   }
-  makeWorker() {
+  async makeWorker() {
     if (typeof Worker !== 'undefined') {
       // Create a new
       const worker = new Worker(new URL('./plan.worker', import.meta.url));
       worker.onmessage = ({ data }) => {
-        console.log(`page got message: ${data}`);
+        console.log(`player ${this.colorn} worker sent: ${data}`);
       };
-      worker.postMessage('hello');
+      worker.postMessage(`hello from player ${this.colorn}`);
     } else {
       // Web Workers are not supported in this environment.
       // You should add a fallback so that your program still executes correctly.

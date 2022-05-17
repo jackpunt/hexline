@@ -1,4 +1,4 @@
-import { ValueEvent } from '@thegraid/createjs-lib';
+import { ValueEvent } from '@thegraid/easeljs-lib';
 import { Hex } from './hex';
 import { Stone } from './table';
 import { StoneColor } from './table-params';

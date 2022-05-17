@@ -1,5 +1,5 @@
-import { Stage, EventDispatcher, Container, Shape, Text, DisplayObject, MouseEvent } from "@thegraid/createjs-module";
-import { F, S, stime, Dragger, DragInfo, KeyBinder, ScaleableContainer, XY, C } from "@thegraid/createjs-lib"
+import { Stage, EventDispatcher, Container, Shape, Text, DisplayObject, MouseEvent } from "@thegraid/easeljs-module";
+import { F, S, stime, Dragger, DragInfo, KeyBinder, ScaleableContainer, XY, C } from "@thegraid/easeljs-lib"
 import { GamePlay } from "./game-play";
 import { Player } from "./player"
 import { Hex, Hex2, HexMap, } from "./hex";

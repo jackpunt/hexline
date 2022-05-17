@@ -1,7 +1,7 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { GameSetup } from '../game-setup';
-import { stime } from '@thegraid/createjs-lib';
+import { stime } from '@thegraid/easeljs-lib';
 
 @Component({
   selector: 'stage-comp',

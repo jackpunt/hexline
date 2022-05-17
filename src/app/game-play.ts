@@ -1,7 +1,7 @@
 import { H, pauseGenR, resumeGenR, } from "./hex-intfs";
 import { Hex, Hex2, HexMap, S_Resign, HSC, HexMaps, HexMapD } from "./hex";
 import { HexEvent } from "./hex-event";
-import { S, stime, Undo, KeyBinder } from "@thegraid/createjs-lib";
+import { S, stime, Undo, KeyBinder } from "@thegraid/easeljs-lib";
 import { GameStats, TableStats } from "./stats";
 import { Stone, Table } from "./table";
 import { otherColor, StoneColor, stoneColors, TP} from "./table-params"

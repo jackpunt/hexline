@@ -5,9 +5,9 @@ import { Board, GamePlay, Move } from "./game-play";
 import { Hex, Hex2, HexM } from "./hex";
 import { Table } from "./table";
 import { otherColor, StoneColor, stoneColor0, stoneColor1, StoneColorRecord, stoneColorRecordF, stoneColors, TP } from "./table-params";
-import { C, F, S, stime } from "@thegraid/createjs-lib";
-import { ParamGUI, ParamItem, ParamLine, ParamType, ParamOpts, ParamSpec, DropdownButton} from '@thegraid/createjs-lib'// './ParamGUI' //
-import { Text } from "@thegraid/createjs-module";
+import { C, F, S, stime } from "@thegraid/easeljs-lib";
+import { ParamGUI, ParamItem, ParamLine, ParamType, ParamOpts, ParamSpec, DropdownButton} from '@thegraid/easeljs-lib'// './ParamGUI' //
+import { Text } from "@thegraid/easeljs-module";
 import { H } from "./hex-intfs";
 
 export class PlayerStats {

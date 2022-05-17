@@ -6,6 +6,6 @@ import { StoneColor } from "./table-params";
 // import { Planner } from './planner'
 // const planner = new Planner(undefined, 0)
 addEventListener('message', ({ data }) => {
-  const response = `worker response to ${data}`;
+  const response = `app.worker recieved: ${data}`;
   postMessage(response);
 });
