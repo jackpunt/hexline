@@ -394,6 +394,8 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
   readonly resignHex: Hex;
   rcLinear(row: number, col: number): number { return col + row * (1 + this.maxCol - this.minCol) }
 
+  mh: number
+  nh: number
   radius: number = TP.hexRad
   height: number = this.radius * 1.5;
   width: number = this.radius * Math.sqrt(3);
@@ -551,6 +553,7 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
    * @param nh size of meta-hex (1..6) [TP.nHexes]
    */
   makeAllDistricts(mh: number, nh: number) {
+    this.mh = mh; this.nh = nh
     let hexMap = this, district = 0
     let mrc: RC = { col: Math.ceil((mh+1) / 2), row: Math.floor(mh*1.25) } // row,col to be non-negative
     let dirs: HexDir[] = ['NE', 'SE', 'S', 'SW', 'NW', 'N',] // N-S aligned!
@@ -566,7 +569,7 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
         }
       })
     }
-    this.centerOnContainer()
+    this.mapCont.hexCont && this.centerOnContainer()
   }
   centerOnContainer() {
     let mapCont = this.mapCont

@@ -5,7 +5,10 @@ import { HexEvent } from "./hex-event"
 import { Planner } from "./planner"
 import { Stone, Table } from "./table"
 import { StoneColor, TP } from "./table-params"
-
+type PlanMsg = {
+  verb: string,
+  args: []
+}
 export class Player implements Mover {
   name: string
   index: number
@@ -28,13 +31,13 @@ export class Player implements Mover {
     this.planner = new Planner(new GamePlayD(gamePlay, this), this.index)
   }
   stopMove() {
-    this.planner.roboStop = true
+    this.planner.roboMove(false)
   }
   makeMove(stone: Stone, useRobo = false) {
     let running = this.plannerRunning
     console.log(stime(this, `.makeMove: ${this.colorn} useRobo=`), this.useRobo, `running=${running}` )
     if (running) return
-    this.planner.roboStop = false
+    this.planner.roboMove(true)
     let table = (this.gamePlay instanceof GamePlay) && this.gamePlay.table
     if (useRobo || this.useRobo) {
       // start planner from top of stack:
@@ -57,13 +60,15 @@ export class Player implements Mover {
     if (typeof Worker !== 'undefined') {
       // Create a new
       const worker = new Worker(new URL('./plan.worker', import.meta.url));
-      worker.onmessage = ({ data }) => {
-        console.log(`player ${this.colorn} worker sent: ${data}`);
+      worker.onmessage = (msg: MessageEvent<string>) => {
+        let str = msg.data
+        console.log(stime(this, `.makeWorker`), `player ${this.colorn} received from worker: ${str}`);
       };
-      worker.postMessage(`hello from player ${this.colorn}`);
+      worker.postMessage({verb: 'hello', args: [`from player`, `${this.colorn}`, this.index]});
     } else {
       // Web Workers are not supported in this environment.
       // You should add a fallback so that your program still executes correctly.
     }
   }
 }
+

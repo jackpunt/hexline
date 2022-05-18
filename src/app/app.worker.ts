@@ -9,3 +9,4 @@ addEventListener('message', ({ data }) => {
   const response = `app.worker recieved: ${data}`;
   postMessage(response);
 });
+// maybe something from https://www.jameslmilner.com/post/workers-with-webpack-and-typescript/

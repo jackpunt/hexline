@@ -1,15 +1,26 @@
-var window = self
-
 import { Planner } from './planner'
-class WebWorker {
-  async start() {
-    let planner;
-    planner = new Planner(undefined, 0)
-    return planner
-  }
+// importScripts ('MyWorker.js')
+// https://www.html5rocks.com/en/tutorials/workers/basics/#toc-inlineworkers
+
+export type PlanMsg = {
+  verb: string,
+  args: []
 }
 
-addEventListener('message', ({ data }) => {
-  const response = `plan.worker recieved: ${data}`;
-  postMessage(response);
-});
+
+class WebWorker {
+  constructor() {
+    this.planner = new Planner(undefined, 0)
+    self.addEventListener('message', ( msg: MessageEvent<PlanMsg> ) => {
+      let {verb, args}  = msg.data
+      const response = `plan.worker received: ${verb}: [${args}]`;
+      postMessage(response);
+    });
+  }
+
+  planner: Planner
+  async start() {
+
+  }
+}
+new WebWorker().start()

@@ -228,20 +228,16 @@ export class GamePlayD extends GamePlay0 {
       allPlayers: original.allPlayers, allBoards: new BoardRegister(), gStats: undefined })
     this.original = original
     this.hexMap[S.Aname] = `GamePlayD#${this.id}-${player.colorn}`
-    this.setupHexmap(this.original.hexMap)
+    this.setupHexmap(this.original.hexMap as HexMap)
     this.gStats = new GameStats(this.hexMap)
     return
   }
-  setupHexmap(origMap: HexMaps) {
-    let hexMap = this.hexMap
-    for (let dist of origMap.district) {
-      for (let ohex of dist) {
-        let nhex = hexMap.addHex(ohex.row, ohex.col, ohex.district)
-        if (!hexMap.district[ohex.district]) hexMap.district[ohex.district] = []
-        hexMap.district[ohex.district].push(nhex)
-      }
-    }
-    return
+  makeHexMap(mh: number, nh: number) {
+    let hexMap = this.hexMap as HexMap
+    hexMap.makeAllDistricts(mh, nh)
+  }
+  setupHexmap(origMap: HexMap) {
+    this.makeHexMap(origMap.mh, origMap.nh)
   }
   /** @return number of boards, by repCount */
   importBoards(gamePlay: GamePlayOrig) {
