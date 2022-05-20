@@ -27,7 +27,7 @@ export class Player implements Mover {
     this.gamePlay = gamePlay
   }
   newGame(gamePlay: GamePlay) {
-    this.makeWorker()
+    //let worker = this.makeWorker()
     this.planner = new Planner(new GamePlayD(gamePlay, this), this.index)
   }
   stopMove() {
@@ -65,10 +65,12 @@ export class Player implements Mover {
         console.log(stime(this, `.makeWorker`), `player ${this.colorn} received from worker: ${str}`);
       };
       worker.postMessage({verb: 'hello', args: [`from player`, `${this.colorn}`, this.index]});
+      return worker
     } else {
       // Web Workers are not supported in this environment.
       // You should add a fallback so that your program still executes correctly.
     }
+    return undefined
   }
 }
 

@@ -15,8 +15,8 @@ type INF   = { [key in InfDir]?: number }
 type INFM   = { [key in HexAxis]?: InfMark }
 
 export type HexMaps = HexMap | HexMapLayer
-export type HSC = { hex: Hex, color: StoneColor, Aname?: string }
-export function newHSC(hex: Hex, color: StoneColor, Aname?: string) { return { Aname, hex, color } }
+export type HSC = { hex: Hex, sc: StoneColor, Aname?: string }
+export function newHSC(hex: Hex, sc: StoneColor, Aname?: string) { return { Aname, hex, sc } }
 class InfMark extends Shape {
   /** Note: requires a Canvas for nameToRgbaString() */
   static gColor(sc: StoneColor, g: Graphics = new Graphics()) {
@@ -120,6 +120,9 @@ export class Hex {
     }
     this.stoneColor = undefined
     return color
+  }
+  toString(stoneColor = this.stoneColor) {
+    return `${TP.colorScheme[stoneColor]}${this.Aname.substring(3)}`
   }
 
   /**

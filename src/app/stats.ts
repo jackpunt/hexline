@@ -9,7 +9,7 @@ import { C, F, S, stime } from "@thegraid/easeljs-lib";
 import { ParamGUI, ParamItem, ParamLine, ParamType, ParamOpts, ParamSpec, DropdownButton} from '@thegraid/easeljs-lib'// './ParamGUI' //
 import { Text } from "@thegraid/easeljs-module";
 import { H } from "./hex-intfs";
-
+export type WINARY = [Board, StoneColor, number, number]
 export class PlayerStats {
 
   readonly dStones: number[] = [0];      // per-district (initialize district 0)
@@ -34,6 +34,8 @@ export class GameStats {
   readonly pStats: StoneColorRecord<PlayerStats>
   readonly inControl: StoneColor[] = Array(TP.ftHexes(TP.mHexes)) // (nStones[color] - nStones[oc] >= TP.diffControl) -> [district]=color
   winVP: StoneColor = undefined;
+  dn: number
+  ds: number
   winAny: StoneColor = undefined;
   score(color: StoneColor): number {
     return this.inControl.filter(ic => ic == color).length
@@ -93,11 +95,11 @@ export class GameStats {
     })
   }
   /** compute pstats, return StoneColor of winner (or undefined) */
-  updateStats(move0?: Move): StoneColor {
+  updateStats(board?: Board): [StoneColor, WINARY] {
     this.zeroCounters()
     let distLen = this.inControl.length; // = TP.ftHexes(TP.mHexes) -  1
     this.hexMap.forEachHex((hex) => this.incCounters(hex)) // set nStones, dStones, etc
-    let win: StoneColor
+    let winVP: StoneColor
     // forEachDistrict(d => {})
     for (let d = 0; d < distLen; d++) {
       stoneColors.forEach(color => {
@@ -106,23 +108,25 @@ export class GameStats {
         let min = pstats.dMinControl[d] = (dStones >= TP.nMinControl)
         if (min && dStones - (this.pStats[otherColor(color)].dStones[d] || 0) >= TP.nDiffControl) {
           this.inControl[d] = color
-          if (this.score(color) >= TP.nVictory) win = color
+          if (this.score(color) >= TP.nVictory) winVP = color
         }
       })
     }
-    this.winVP = win
-    return this.gameOver(move0?.board)
-  }  
+    this.winVP = winVP
+    this.ds = this.score(stoneColor0) - this.score(stoneColor1)
+    this.dn = this.pStats[stoneColor0].nStones - this.pStats[stoneColor1].nStones
+    let winAry: WINARY = [board, this.winVP, this.ds, this.dn]
+    let win = this.gameOver(...winAry)
+    return [win, winAry]
+  }
   /** victory, resigned, stalemate */
-  gameOver(board: Board): StoneColor { 
-    let win = this.winVP
-    let scores = stoneColors.map(pc => this.score(pc))
-    let nstones = stoneColors.map(pc => this.pStats[pc].nStones)
-    return this.winAny = (win !== undefined) ? win : !board ? undefined
+  // gameOver(board, ...moveAry)
+  gameOver(board: Board, winVP = this.winVP, ds = this.ds, dn = this.dn): StoneColor {
+    return this.winAny = (winVP !== undefined) ? winVP : !board ? undefined
       : board.resigned ? otherColor(board.resigned)
         : (board.repCount < 3) ? undefined
-          : ((scores[0] == scores[1] ? (nstones[0] <= nstones[1] ? stoneColor1 : stoneColor0)
-            : ((scores[0] > scores[1]) ? stoneColor0 : stoneColor1)))
+          : ((ds == 0 ? (dn <= 0 ? stoneColor1 : stoneColor0)
+            : ((ds > 0) ? stoneColor0 : stoneColor1)))
   }
 
   // Mixin to compute weighted summaryStat over pStats
@@ -188,9 +192,9 @@ export class TableStats extends GameStats {
   /** update all the stats 
    * @move0 if supplied, check move0.board for resign/stalemate
    */
-  override updateStats(move0?: Move): StoneColor {
-    const win = super.updateStats(move0)
-    let board = move0?.board
+  override updateStats(board?: Board): [StoneColor, WINARY] {
+    const winAry = super.updateStats(board)
+    const [win] = winAry
     if (!!this.table) {
       !!board && this.showBoardRep(board.repCount)
       this.table.statsPanel.update()
@@ -199,11 +203,11 @@ export class TableStats extends GameStats {
     if (win !== undefined) {
       let pc = win, pcr = TP.colorScheme[pc], pStats = this.pStat(pc)
       let opc = otherColor(pc), opcr = TP.colorScheme[opc], opStats = this.pStat(opc)
-      if (board.resigned) return this.showWin(board, pc, `${opcr} RESIGNS`)
-      if (board.repCount == 3) return this.showWin(board, pc, `STALEMATE: ns(${pStats.nStones} -- ${opStats.nStones})`)
-      return this.showWin(board, pc, `${opcr} loses`)
+      if (board.resigned) this.showWin(board, pc, `${opcr} RESIGNS`)
+      else if (board.repCount == 3) this.showWin(board, pc, `STALEMATE: ns(${pStats.nStones} -- ${opStats.nStones})`)
+      else this.showWin(board, pc, `${opcr} loses`)
     }
-    return win
+    return winAry
   }
 
   showWin(board: Board, win: StoneColor, text: string): StoneColor {

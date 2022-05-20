@@ -109,6 +109,7 @@ export class GameSetup {
     gui.makeParamSpec("showSui", [true, false])
     gui.makeParamSpec("log", [0, 1, 2], { style: { textAlign: 'left' }, target: TP })
     gui.makeParamSpec("pWeight", [1, .99, .97, .95, .9], { target: TP })
+    gui.makeParamSpec("boards", [true, false], { target: TP })
 
     parent.addChild(gui)
     gui.x = x; gui.y = y

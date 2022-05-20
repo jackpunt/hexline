@@ -57,10 +57,6 @@ export class GamePlay0 {
     return this.curPlayer = plyr
   }
   endCurPlayer() {}
-  /** record new Board or repCount */
-  setBoardAndRepCount(move: Move) {
-    return this.allBoards.addBoard(move, this.history)
-  }
 
   undoRecs: Undo = new Undo().enableUndo();
   addUndoRec(obj: Object, name: string, value: any | Function = obj[name]) { 
@@ -70,6 +66,47 @@ export class GamePlay0 {
   doPlayerSkip(hex: Hex, stoneColor: StoneColor) {  }  // doPlayerMove records history; override sets undoSkip 
   doPlayerResign(hex: Hex, stoneColor: StoneColor) { } // doPlayerMove records history
 
+  /** compute Board.id _after_ addStone sets move.captures */
+  get boardId(): [string, StoneColor] {
+    let move0 = this.history[0], sc = move0.stoneColor
+    let resign_sc = (move0.hex.Aname === S_Resign) ? sc : undefined, caps = ''
+    move0.captured.forEach(hex => caps += hex.Aname.substring(4))// hex@[r,c] => [r,c]
+    let id = `Board(${sc},${caps})${resign_sc ? `${resign_sc}!` : ''}`
+    let hexStones = this.hexMap.allStones.filter(({hex}) => hex.row !== undefined)
+    let bString = (hsc: HSC) => { return `${hsc.sc}${hsc.hex.Aname.substring(3)}` }
+    hexStones.sort((a, b) => { return a.hex.rc_linear - b.hex.rc_linear }); // ascending row-major
+    hexStones.forEach(hsc => id += bString(hsc)) // in canonical order
+    return [id, resign_sc]
+  }
+  /** after addStone: update repCount and set move.board */
+  incrBoard(move: Move) {
+    let [boardId, resign_sc] = this.boardId
+    let board = this.allBoards.get(boardId)// find if previous instance of identical Board
+    if (!board) {
+      board = new Board(boardId, resign_sc)
+      this.allBoards.set(boardId, board) // repCount = 1
+    } else {
+      board.repCount += 1
+    }
+    //board.setRepCount(this.history)    // count how many times canonical board appears in history
+    return move.board = board
+  }
+  decrBoard(move = this.history[0]) {
+    let board = this.allBoards.get(move.board.id)
+    if (board.repCount > 0) board.repCount-- // board.setRepCount(this.history)
+    // else this.allBoards.delete(board.id)
+    // board.setRepCount(this.history)
+  }
+
+  unshiftMove(move: Move) {
+    this.history.unshift(move)
+    this.incrBoard(move)
+  }
+  shiftMove(): Move {
+    let move = this.history.shift()
+    if (move !== undefined) this.decrBoard(move)
+    return move
+  }
   /** addStone to setStone(hex)->hex.setStone(color); assertInfluence & Captured; addUndoRec (no stats) */
   addStone(hex: Hex, stoneColor: StoneColor) {
     let rv = hex
@@ -77,14 +114,15 @@ export class GamePlay0 {
       rv = hex.setColor(stoneColor)         // move Stone onto Hex & HexMap [hex.stone = stone]
       this.gStats.afterSetColor(hex)
       this.incrInfluence(hex, stoneColor)
-    }
-    if (!this.undoRecs.isUndoing) {
-      this.addUndoRec(this, `removeStone(${hex.Aname}:${stoneColor})`, () => this.removeStone(hex)) // remove for undo
-      if (hex.isAttack(otherColor(stoneColor))) this.removeStone(hex) // apparently: legalSuicide
+      if (!this.undoRecs.isUndoing) {
+        this.addUndoRec(this, `removeStone(${hex.Aname}:${stoneColor})`, () => this.removeStone(hex)) // remove for undo
+        if (hex.isAttack(otherColor(stoneColor))) this.removeStone(hex) // apparently: legalSuicide
+      }
     }
     return rv
   }
   /** 
+   * capture [or undoMove->isUndoing]
    * remove Move/HSC from map
    * remove stone Shape from hex
    * remove all influence of color on each axis from Hex
@@ -100,21 +138,21 @@ export class GamePlay0 {
       }
     }
   }
+  /** undo capture; this is not a Move */
   readdStone(hex: Hex, stoneColor: StoneColor) {
     if (hex.stoneColor !== undefined) 
       console.log(stime(this, `.readdStone: hex occupied: ${hex.stoneColor}, trying to [re-]addStone: ${stoneColor}`))
-    this.addStone(hex, stoneColor)
+    this.addStone(hex, stoneColor) // ASSERT: produces no captures
   }
 
 
   /** remove captured Stones, from placing Stone on Hex */
   doPlayerMove(hex: Hex, stoneColor: StoneColor): StoneColor {
-    let move = new Move(hex, stoneColor, [])
-    this.history.unshift(move) // record Move in History[0] (including Skip & Resign)
+    let move0 = new Move(hex, stoneColor, [], this)
     if (hex == this.hexMap.skipHex) {
       this.doPlayerSkip(hex, stoneColor)
     } else if (hex == this.hexMap.resignHex) {
-      this.doPlayerResign(hex, stoneColor) // addBoard will detect
+      this.doPlayerResign(hex, stoneColor) // incrBoard will detect
     } else {
       this.addStone(hex, stoneColor) // add Stone and Capture (& removeStone) w/addUndoRec
       if (!hex.stoneColor && !TP.allowSuicide) {
@@ -122,10 +160,9 @@ export class GamePlay0 {
         alert(`suicidal move: ${TP.colorScheme[stoneColor]} ${hex.Aname}`)
       }
     }
-
-    this.undoRecs.closeUndo()      // expect ONE record, although GUI can pop as many as necessary
-    this.setBoardAndRepCount(move) // set/reduce repCount to actual value 
-    let win = this.gStats.updateStats(move) // check for WIN: showRepCount(), showWin()
+    let board = this.incrBoard(move0) // set move0.board && board.repCount
+    this.undoRecs.closeUndo()         // expect ONE record, although GUI can pop as many as necessary
+    let [win] = this.gStats.updateStats(board) // check for WIN: showRepCount(), showWin()
     return win
   }
   
@@ -182,7 +219,7 @@ export class GamePlay0 {
     if (hex.district == 0 && pstats.dMax <= pstats.dStones[0]) return [false, false]
     let move: Move = this.doProtoMove(hex, color)
     let suicide = !hex.stoneColor
-    let legal = TP.allowSuicide || !suicide
+    let legal = !suicide || (TP.allowSuicide && move.captured.length > 0 )
     if (legal) {
       if (evalFun === false) return [legal, suicide]
       if (typeof evalFun === 'function') evalFun(move) // history[0] = move; but move.hex is unoccupied!
@@ -192,19 +229,19 @@ export class GamePlay0 {
   }
   // similar to Planner.placeStone/unplaceStone, but with alt color for CapMarks
   doProtoMove(hex: Hex, color: StoneColor) {
-    let move = new Move(hex, color, [])
-    this.history.unshift(move)
+    let move = new Move(hex, color, [], this)
     this.undoRecs.saveUndo(`iLM`).enableUndo() // before addStone in isLegalMove
-    let capColor = Hex.capColor
+    let capColor = Hex.capColor   // dynamic bind Hex.capColor
     Hex.capColor = H.capColor2
     // addUndoRec(removeStone), incrInfluence [& undoInf] -> captureStone() -> undoRec(addStone & capMark)
     this.addStone(hex, color)     // stone on hexMap: exactly 1 undoRec (have have several undo-funcs)
     Hex.capColor = capColor
+    this.incrBoard(move)          // 
     return move
   }
   undoProtoMove() {
     this.undoRecs.closeUndo().restoreUndo()    // replace captured Stones/Colors & undo/redo Influence
-    this.history.shift()
+    this.shiftMove()
   }
 }
 
@@ -314,12 +351,12 @@ export class GamePlay extends GamePlay0 {
   /** invoked by GUI or Keyboard */
   undoMove(undoTurn: boolean = true) {
     this.table.stopDragging() // drop on nextHex (no Move)
-    let move: Move = this.history.shift() // remove last Move
+    let move: Move = this.shiftMove() // remove last Move
     if (!!move) {
       this.redoMoves.unshift(move)  // redoMoves[0] == move0
       this.undoStones()             // remove last Stone, replace captures
       this.undoCapMarks(move.captured) // unmark
-      this.allBoards.delete(move.board.id)
+      move.board.setRepCount(this.history)
       if (undoTurn) {
         this.setNextPlayer()
       }
@@ -327,14 +364,14 @@ export class GamePlay extends GamePlay0 {
       if (!!move0) {
         move0.board.setRepCount(this.history) // undo: decrement repCount; because: shift()
       }
-      this.gStats.updateStats(move0)          // reset stats: inControl & score & repCount check for 'win'
+      this.gStats.updateStats(move0?.board)   // reset stats: inControl & score & repCount check for 'win'
     }
     this.showRedoMark()
     this.hexMap.update()
   }
   redoMove() {
     this.table.stopDragging() // drop on nextHex (no Move)
-    let move = this.redoMoves[0]//.shift()
+    let move = this.redoMoves[0]// addStoneEvent will .shift() it off
     if (!move) return
     this.table.dispatchEvent(new HexEvent(S.add, move.hex, move.stoneColor))
     this.showRedoMark()
@@ -440,18 +477,20 @@ export class Move {
   /** next player blocked from playing in these Hexes */
   readonly captured: Hex[] = [];
   board: Board
-  constructor(hex: Hex, stoneColor: StoneColor, captured: Hex[] = []) {
+  constructor(hex: Hex, stoneColor: StoneColor, captured: Hex[] = [], gamePlay?: GamePlay0) {
     this.Aname = this.toString(hex, stoneColor) // for debugger..
     this.hex = hex
     this.stoneColor = stoneColor
     this.captured = captured
+    if (gamePlay) { // put this new Move into history[0]
+      gamePlay.history.unshift(this)
+    }
   }
   toString(hex = this.hex, stoneColor = this.stoneColor): string {
-    let name = hex.Aname // Hex@[r,c] OR Hex@Skip OR hex@Resign
-    return `${TP.colorScheme[stoneColor]}${name.substring(3)}`
+    return hex.toString(stoneColor)// Hex@[r,c] OR Hex@Skip OR hex@Resign
   }
   bString(): string {
-    let pid = stoneColors.indexOf(this.stoneColor) // when StoneColor is [0|1] simplify this!
+    let pid = (this.stoneColor)   // single-char stoneColor [vs indexOf(stoneColor)]
     return `${pid}${this.hex.Aname.substring(3)}`
   }
 }
@@ -460,20 +499,7 @@ export interface Mover {
 }
 
 /** a uniquifying 'symbol table' of Board.id */
-class BoardRegister extends Map<string, Board> {
-  /** as Board as Set */
-  addBoard(move: Move, history: Move[]) {
-    let bNew = new Board(move) // calc board.id
-    let board: Board = this.get(bNew.id) // find if previous instance of identical Board
-    if (!board) {
-      this.set(bNew.id, bNew)     // Note: boards are never removed, even by undo; just decr repCount
-      board = bNew
-    }
-    move.board = board
-    board.setRepCount(history)    // count how many times canonical board appears in history
-    return board
-  }
-}
+class BoardRegister extends Map<string, Board> {}
 /** Identify state of HexMap by itemizing all the extant Stones 
  * id: string = Board(nextPlayer.color, captured)resigned?, allStones
  * resigned: StoneColor
@@ -486,34 +512,16 @@ export class Board {
 
   /**
    * Record the current state of the game: {Stones, turn, captures}
-   * @param nextPlayerColor identify Player to make next Move (player.color, table.getPlayer(color))
-   * @param move Move: resigned & captured: not available for play by next Player
-   * @param hexMap supplies board.allStones: HSC[]
+   * @param move Move: color, resigned & captured [not available for play by next Player]
    */
-  constructor(move: Move) {
-    this.resigned = (move.hex.Aname === S_Resign) ? move.stoneColor : undefined
-    this.id = this.idString(move)
+  constructor(id: string, resigned: StoneColor) {
+    this.resigned = resigned
+    this.id = id
   }
   toString() { return `${this.id}#${this.repCount}` }
-  idString(move: Move) {
-    let id = this.cString(move.stoneColor, move.captured) + (this.resigned ? move.Aname : '')
-    let hexStones = move.hex.map.allStones.filter(({hex}) => hex.row !== undefined)
-    hexStones.sort((a, b) => { return a.hex.rc_linear - b.hex.rc_linear }); // ascending row-major
-    hexStones.forEach(hsc => id += this.bString(hsc)) // in canonical order
-    return id
-  }
-  bString(hsc: HSC) { 
-    return `${hsc.color}${hsc.hex.Aname.substring(3)}` // hsc.color is 0|1  or 'b'|'w'
-  }
-  cString(color: StoneColor, captured: Hex[]): string {
-    let opc = otherColor(color)
-    let caps = ''; captured.forEach(hex => caps += hex.Aname.substring(4)) // hex@[r,c] => [r,c]
-    return `Board(${opc},${caps})`
-  }
+
   setRepCount(history: Move[]) {
-    this.repCount = history.filter(hmove => hmove.board === this).length
+    return this.repCount = history.filter(hmove => hmove.board === this).length
   }
-  getHexMap() {
-    // TODO: parse board.id to recreate allStones, captures
-  }
+
 }

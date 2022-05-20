@@ -12,6 +12,7 @@ export class TP {
   static allowSuicide = true;
   static yield = true
   static pWeight = .9
+  static boards = false  // true: evalState saves board->state
   static maxPlys = 4     // for robo-player lookahead
   static maxBreadth = 7  // for robo-player lookahead
   static nPerDist = 4    // samples per district

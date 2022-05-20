@@ -23,4 +23,4 @@ class WebWorker {
 
   }
 }
-new WebWorker().start()
+//new WebWorker().start()
