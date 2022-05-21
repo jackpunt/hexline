@@ -2,7 +2,7 @@ import { H, pauseGenR, resumeGenR, } from "./hex-intfs";
 import { Hex, Hex2, HexMap, S_Resign, HSC, HexMaps, HexMapD } from "./hex";
 import { HexEvent } from "./hex-event";
 import { S, stime, Undo, KeyBinder } from "@thegraid/easeljs-lib";
-import { GameStats, TableStats } from "./stats";
+import { GameStats, TableStats, WINARY } from "./stats";
 import { Stone, Table } from "./table";
 import { otherColor, StoneColor, stoneColors, TP} from "./table-params"
 import { Player } from "./player";
@@ -148,7 +148,7 @@ export class GamePlay0 {
 
   /** remove captured Stones, from placing Stone on Hex */
   doPlayerMove(hex: Hex, stoneColor: StoneColor): StoneColor {
-    let move0 = new Move(hex, stoneColor, [], this)
+    let move0 = new Move(hex, stoneColor, [], this) // new Move(); addStone(); incrBoard(); updateStates()
     if (hex == this.hexMap.skipHex) {
       this.doPlayerSkip(hex, stoneColor)
     } else if (hex == this.hexMap.resignHex) {
@@ -160,8 +160,8 @@ export class GamePlay0 {
         alert(`suicidal move: ${TP.colorScheme[stoneColor]} ${hex.Aname}`)
       }
     }
-    let board = this.incrBoard(move0) // set move0.board && board.repCount
     this.undoRecs.closeUndo()         // expect ONE record, although GUI can pop as many as necessary
+    let board = this.incrBoard(move0) // set move0.board && board.repCount
     let [win] = this.gStats.updateStats(board) // check for WIN: showRepCount(), showWin()
     return win
   }
@@ -222,7 +222,7 @@ export class GamePlay0 {
     let legal = !suicide || (TP.allowSuicide && move.captured.length > 0 )
     if (legal) {
       if (evalFun === false) return [legal, suicide]
-      if (typeof evalFun === 'function') evalFun(move) // history[0] = move; but move.hex is unoccupied!
+      if (typeof evalFun === 'function') evalFun(move) // history[0] = move; Stone on hex
     }
     this.undoProtoMove()
     return [legal, suicide]
@@ -509,6 +509,7 @@ export class Board {
   readonly id: string = ""   // Board(nextPlayer,captured[])Resigned?,Stones[]
   readonly resigned: StoneColor //
   repCount: number = 1;
+  winAry: WINARY
 
   /**
    * Record the current state of the game: {Stones, turn, captures}

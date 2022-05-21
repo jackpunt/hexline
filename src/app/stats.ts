@@ -117,10 +117,12 @@ export class GameStats {
     this.dn = this.pStats[stoneColor0].nStones - this.pStats[stoneColor1].nStones
     let winAry: WINARY = [board, this.winVP, this.ds, this.dn]
     let win = this.gameOver(...winAry)
+    board && (board.winAry = winAry)
     return [win, winAry]
   }
   /** victory, resigned, stalemate */
   // gameOver(board, ...moveAry)
+  // maybe someday: board.gameOver() [using board.winAry]
   gameOver(board: Board, winVP = this.winVP, ds = this.ds, dn = this.dn): StoneColor {
     return this.winAny = (winVP !== undefined) ? winVP : !board ? undefined
       : board.resigned ? otherColor(board.resigned)
@@ -129,7 +131,7 @@ export class GameStats {
             : ((ds > 0) ? stoneColor0 : stoneColor1)))
   }
 
-  // Mixin to compute weighted summaryStat over pStats
+  // Mixin to compute weighted summaryStat over pStats for Planner:
   wVector: number[] = []
   setupStatVector() {
     let distLen = this.inControl.length
