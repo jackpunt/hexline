@@ -123,7 +123,7 @@ export class GameStats {
   /** victory, resigned, stalemate */
   // gameOver(board, ...moveAry)
   // maybe someday: board.gameOver() [using board.winAry]
-  gameOver(board: Board, winVP = this.winVP, ds = this.ds, dn = this.dn): StoneColor {
+  gameOver(board: Board, winVP: StoneColor, ds: number, dn: number): StoneColor {
     return this.winAny = (winVP !== undefined) ? winVP : !board ? undefined
       : board.resigned ? otherColor(board.resigned)
         : (board.repCount < 3) ? undefined
