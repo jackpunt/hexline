@@ -168,6 +168,8 @@ export class BasePlanner {
 
     let dispatchMove = (hex: Hex, state: State) => {
       this.doMove(hex, stone.color) // placeStone on our hexMap & history
+      this.reduceBoards(true)       // reduce & prune
+      this.boardState.clear()       // todo: keep the subset derive from current/actual Moves/board
       let tn = this.moveNumber
       let dsid = State.sid - sid0, dms = Date.now() - ms0, sps = M.decimalRound(1000 * dsid / dms, 0)
       console.log(stime(this, `.makeMove: MOVE#${tn} = ${stone.color}@${hex.Aname}`), `state=`, state.copyOf(), 
@@ -181,7 +183,6 @@ export class BasePlanner {
     } else {
       // try get previously evaluated State & MOVES:
       // righteous: from our own previous analysis: /* state0 = this.prevState?.moves?.get(hex) ||*/
-      this.boardState.clear() // todo: keep the subset derive from current/actual Moves/board
       let state0 = this.evalState(this.gamePlay.history[0]) // history[0] placed by syncGame
       this.lookaheadDeep(state0, stone.color).then((hexState: HexState) => dispatchMove(hexState[0], hexState[1]))
     }
@@ -222,7 +223,18 @@ export class BasePlanner {
     else gamePlay.undoRecs.closeUndo().pop()
     gamePlay.shiftMove()
   }
-
+  reduceBoards(prune = true) {
+    // reset all repCounts; [MAYBE remove Boards that are no longer 'accessible']
+    let history = this.gamePlay.history, ab = this.gamePlay.allBoards, bs = this.boardState
+    for (let [id, board] of ab.entries()) {
+      // board.setRepCount(history)
+      // space-time tradeoff: keep evaluated Board/Ids/States in memory?
+      if (board.setRepCount(history) == 0 && prune) {
+        bs.delete(id)
+        ab.delete(id)
+      }
+    }
+  }
   syncToGame(gamePlay: GamePlay) {
     let main = gamePlay.history, ours = this.gamePlay.history
     // our extra moves cannot be useful [if there has been some Undo on the mainGame]
@@ -232,18 +244,7 @@ export class BasePlanner {
       if (main[main.length-m-1].Aname != ours[ours.length-m-1].Aname) break // skip oldest moves common to both
     }
     while (ours.length > m) this.unplaceStone(ours[0]) // all the Moves in ours are valid
-
-    // reset all repCounts; [do NOT remove Boards that are no longer 'accessible']
-    let history = this.gamePlay.history, allBoards = this.gamePlay.allBoards, bs = this.boardState
-    for (let [id, board] of allBoards.entries()) {
-      board.setRepCount(history)
-      // space-time tradeoff: keep evaluated Board/Ids/States in memory?
-      // if (board.setRepCount(history) == 0) {
-      //   bs.delete(id)
-      //   allBoards.delete(id)
-      // }
-    }
-
+    this.reduceBoards()
     // apply otherPlayer and/or manual Moves; appy mainGame Moves in proper order:
     while (main.length > ours.length) this.doHistoryMove(main[main.length - ours.length - 1])
     this.moveNumber = ours.length + 1
@@ -292,7 +293,7 @@ export class BasePlanner {
       let value = (win === stoneColor0) ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY
       if (Number.isNaN(value)) debugger;
       state.bestValue = stoneColorRecord(value, -value)
-      console.log(stime(this, `.winState: win!${win} ${state.id} state1=`), state)
+      //console.log(stime(this, `.winState: win!${win} ${state.id} state1=`), state)
     }
     return win
   }
