@@ -1,5 +1,5 @@
 import { H, pauseGenR, resumeGenR, } from "./hex-intfs";
-import { Hex, Hex2, HexMap, S_Resign, HSC, HexMaps, HexMapD } from "./hex";
+import { Hex, Hex2, HexMap, S_Resign, HSC, HexMaps, HexMapD, IHex } from "./hex";
 import { HexEvent } from "./hex-event";
 import { S, stime, Undo, KeyBinder } from "@thegraid/easeljs-lib";
 import { GameStats, TableStats, WINARY } from "./stats";
@@ -8,56 +8,18 @@ import { otherColor, StoneColor, stoneColors, TP} from "./table-params"
 import { Player } from "./player";
 import { GameSetup } from "./game-setup";
 
-export interface GamePlayOrig { 
-  hexMap: HexMaps, history: Move[], redoMoves: Move[], 
-  allBoards: BoardRegister, allPlayers: Player[], gStats: GameStats
-}
 export class GamePlay0 {
 
-  constructor(original?: GamePlayOrig) {
-    if (original) {
-      this.hexMap = original.hexMap
-      this.history = original.history
-      this.redoMoves = original.redoMoves
-      this.allBoards = original.allBoards
-      this.allPlayers = original.allPlayers
-      this.gStats = original.gStats  // but may not be defined...
-    } else {
-      this.hexMap = new HexMap()
-      this.history = []
-      this.redoMoves = []
-      this.allBoards = new BoardRegister()
-      this.allPlayers = stoneColors.map((color, ndx) => new Player(ndx, color, this))
-      this.gStats = new GameStats(this.hexMap) // AFTER allPlayers are defined so can set pStats
-    }
+  constructor() {
+    this.gStats = new GameStats(this.hexMap) // AFTER allPlayers are defined so can set pStats
   }
 
-  gStats: GameStats
   readonly hexMap: HexMaps = new HexMap()
   readonly history: Move[] = []          // sequence of Move that bring board to its state
   readonly redoMoves: Move[] = []
   readonly allBoards = new BoardRegister()
-  readonly allPlayers: Player[];
-
-  turnNumber: number = 0    // = history.lenth + 1 [by this.setNextPlayer] 
-
-  curPlayer: Player;
-  getPlayer(color: StoneColor): Player {
-    return this.allPlayers.find(p => p.color == color)
-  }
-
-  otherPlayer(plyr: Player = this.curPlayer) { return this.getPlayer(otherColor(plyr.color))}
-
-  forEachPlayer(f: (p:Player, index?: number, players?: Player[]) => void) {
-    this.allPlayers.forEach((p, index, players) => f(p, index, players));
-  }
-  setNextPlayer(plyr = this.otherPlayer()): Player {
-    if (plyr != this.curPlayer) this.endCurPlayer() // clean up nextHex on undo/skip/redo...
-    this.turnNumber = this.history.length + 1
-    return this.curPlayer = plyr
-  }
-  endCurPlayer() {}
-
+  readonly gStats: GameStats       // 'readonly' (set once by clone constructor)
+  
   undoRecs: Undo = new Undo().enableUndo();
   addUndoRec(obj: Object, name: string, value: any | Function = obj[name]) { 
     this.undoRecs.addUndoRec(obj, name, value); 
@@ -245,43 +207,16 @@ export class GamePlay0 {
   }
 }
 
-/** GamePlayC is clone of original (which may have been GamePlay) downcast to GamePlay0 */
-export class GamePlayC extends GamePlay0 {
-  readonly original: GamePlay0
-  constructor (original: GamePlay0) {
-    super(original)
-    this.original = original
-  }
-}
-
 /** GamePlayD is compatible 'copy' with original, but does not share components */
 export class GamePlayD extends GamePlay0 {
   static sid = 0
   readonly id = GamePlayD.sid++
-  readonly original: GamePlay0
   override hexMap: HexMaps;
-  constructor(original: GamePlay0, player: Player) {
-    super({ hexMap: new HexMapD(), history: [], redoMoves: [], 
-      allPlayers: original.allPlayers, allBoards: new BoardRegister(), gStats: undefined })
-    this.original = original
-    this.hexMap[S.Aname] = `GamePlayD#${this.id}-${player.colorn}`
-    this.setupHexmap(this.original.hexMap as HexMap)
-    this.gStats = new GameStats(this.hexMap)
+  constructor(mh: number, nh: number, colorn: string) {
+    super()
+    this.hexMap[S.Aname] = `GamePlayD#${this.id}-${colorn}`
+    this.hexMap.makeAllDistricts(mh, nh)
     return
-  }
-  makeHexMap(mh: number, nh: number) {
-    let hexMap = this.hexMap as HexMap
-    hexMap.makeAllDistricts(mh, nh)
-  }
-  setupHexmap(origMap: HexMap) {
-    this.makeHexMap(origMap.mh, origMap.nh)
-  }
-  /** @return number of boards, by repCount */
-  importBoards(gamePlay: GamePlayOrig) {
-    let nb = 0
-    this.allBoards.clear()
-    gamePlay.allBoards.forEach((board, id) => { this.allBoards.set(id, board); nb += board.repCount })
-    return nb
   }
 }
 
@@ -290,10 +225,11 @@ export class GamePlay extends GamePlay0 {
   readonly table: Table
   override readonly gStats: TableStats
   constructor(table: Table) {
-    super()            // hexMap, history, allPlayers, gStats...
+    super()            // hexMap, history, gStats...
+    this.allPlayers = stoneColors.map((color, ndx) => new Player(ndx, color, this))
     // setTable(table)
     this.table = table
-    this.gStats = new TableStats(this, table) // AFTER allPlayers are defined so can set pStats
+    this.gStats = new TableStats(this, table) // reset gStats AFTER allPlayers are defined so can set pStats
     let roboPause = () => { pauseGenR(); this.table.nextHex.markCapture(); this.hexMap.update(); console.log("Paused") }
     let roboResume = () => { resumeGenR(); this.table.nextHex.unmarkCapture(); this.hexMap.update(); console.log("Resume") }
     KeyBinder.keyBinder.setKey('C-p', { thisArg: this, func: roboPause })
@@ -317,6 +253,27 @@ export class GamePlay extends GamePlay0 {
     table.redoShape.on(S.click, () => this.redoMove(), this)
     table.skipShape.on(S.click, () => this.skipMove(), this)
   }
+
+  readonly allPlayers: Player[];
+
+  turnNumber: number = 0    // = history.lenth + 1 [by this.setNextPlayer] 
+
+  curPlayer: Player;
+  getPlayer(color: StoneColor): Player {
+    return this.allPlayers.find(p => p.color == color)
+  }
+
+  otherPlayer(plyr: Player = this.curPlayer) { return this.getPlayer(otherColor(plyr.color))}
+
+  forEachPlayer(f: (p:Player, index?: number, players?: Player[]) => void) {
+    this.allPlayers.forEach((p, index, players) => f(p, index, players));
+  }
+  setNextPlayer0(plyr = this.otherPlayer()): Player {
+    if (plyr != this.curPlayer) this.endCurPlayer() // clean up nextHex on undo/skip/redo...
+    this.turnNumber = this.history.length + 1
+    return this.curPlayer = plyr
+  }
+  endCurPlayer0() {}
 
   stopPlayer() {
     this.curPlayer.stopMove()
@@ -434,17 +391,19 @@ export class GamePlay extends GamePlay0 {
     this.hexMap.update()
     if (win !== undefined) {
       // addStoneEvent will NOT invoke this.setNextPlayer()
-      super.setNextPlayer()
+      this.autoMove(false)  // disable robots
+      this.setNextPlayer0()
       this.table.logCurPlayer(this.curPlayer) // log for next move, but do not PutButtonOnPlayer(curPlayer)
+
     }
     return win
   }
-  override setNextPlayer(plyr?: Player): Player {
-    super.setNextPlayer(plyr)
+  setNextPlayer(plyr?: Player): Player {
+    this.setNextPlayer0(plyr)
     this.hexMap.update()
     return this.table.setNextPlayer()
   }
-  override endCurPlayer(): void {
+  endCurPlayer(): void {
     // IFF stone is [still] ON nextHex: Hex2.clearColor() 
     let nextHex = this.table.nextHex, nxtStone = nextHex.stone
     if (nxtStone?.parent) {     // NOTE: nextHex.xy are already rounded:
@@ -469,29 +428,43 @@ export class GamePlay extends GamePlay0 {
   }
 }
 
+export type IMove = { Aname: string, hex: IHex, stoneColor: StoneColor }
+
 /** Historical record of each move made. */
 export class Move {
   readonly Aname: string
-  readonly hex: Hex // where to place stone
   readonly stoneColor: StoneColor
+  readonly hex: Hex // where to place stone
   /** next player blocked from playing in these Hexes */
   readonly captured: Hex[] = [];
+  /** set by GamePlay.incrBoard(Move) */
   board: Board
+  /**
+   * 
+   * @param hex 
+   * @param stoneColor 
+   * @param captured 
+   * @param gamePlay optional: unshift Move to gamePlay.history
+   */
   constructor(hex: Hex, stoneColor: StoneColor, captured: Hex[] = [], gamePlay?: GamePlay0) {
     this.Aname = this.toString(hex, stoneColor) // for debugger..
-    this.hex = hex
     this.stoneColor = stoneColor
+    this.hex = hex
     this.captured = captured
     if (gamePlay) { // put this new Move into history[0]
       gamePlay.history.unshift(this)
     }
   }
   toString(hex = this.hex, stoneColor = this.stoneColor): string {
-    return hex.toString(stoneColor)// Hex@[r,c] OR Hex@Skip OR hex@Resign
+    return hex.toString(stoneColor)// ${color}@[r,c] from: Hex@[r,c] OR Hex@Skip OR hex@Resign
   }
   bString(): string {
     let pid = (this.stoneColor)   // single-char stoneColor [vs indexOf(stoneColor)]
     return `${pid}${this.hex.Aname.substring(3)}`
+  }
+  /** reduce to serializable IMove (removes captured & board) */
+  get toIMove(): IMove {
+    return { Aname: this.Aname, stoneColor: this.stoneColor, hex: this.hex.toIHex }
   }
 }
 export interface Mover {

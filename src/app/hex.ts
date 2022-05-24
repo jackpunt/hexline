@@ -7,6 +7,7 @@ import { GamePlay0 } from "./game-play";
 
 export const S_Resign = 'Hex@Resign'
 export const S_Skip = 'Hex@skip'
+export type IHex = { Aname: string, row: number, col: number }
 
 // Note: graphics.drawPolyStar(x,y,radius, sides, pointSize, angle) will do a regular polygon
 
@@ -73,13 +74,20 @@ class HexCont extends Container {
  * (although an InfMark contains a graphics)
  */
 export class Hex {
-  static capColor = H.capColor1
+  static capColor = H.capColor1 // dynamic set
   constructor(map: HexMaps, row?: number, col?: number, name = `Hex@[${row},${col}]`) {
     this.Aname = name
     this.map = map
     this.row = row
     this.col = col
     this.links = {}
+  }
+  /** (x,y): center of hex; (width,height) of hex; scaled by radius if supplied */
+  xywh(row = this.row, col = this.col, radius = 1) {
+    let w = radius * H.sqrt3, h = radius * 1.5
+    let x = w * col + w * Math.abs(row % 2) / 2
+    let y = h * row
+    return [x, y, w, h]
   }
   readonly Aname: string
   /** color of current Stone on this Hex (or undefined) */
@@ -189,12 +197,25 @@ export class Hex {
     while (!!(nhex = hex.links[ds])) { hex = nhex }
     return hex    
   }
+  /** distance between Hexes: adjacent = 1 */
+  radialDist(hex: Hex): number {
+    let [tx, ty, tw] = this.xywh(), [hx, hy] = hex.xywh()
+    let dx = tx-hx, dy = ty - hy
+    return Math.sqrt(dx*dx + dy*dy)/tw // tw == H.sqrt3
+  }
   /** @return corresonding Hex on other map */
   ofMap(otherMap: HexMaps): Hex {
-    return (this.Aname === S_Skip) ? otherMap.skipHex
-      : (this.Aname === S_Resign) ? otherMap.resignHex
-        : otherMap[this.row][this.col]
+    return Hex.ofMap(this, otherMap)
   }
+  /** return indicated Hex from otherMap */
+  static ofMap(hex: IHex, otherMap: HexMaps) {
+    return (hex.Aname === S_Skip) ? otherMap.skipHex
+      : (hex.Aname === S_Resign) ? otherMap.resignHex
+        : otherMap[hex.row][hex.col]
+  }
+  /** reduce to serializable IHex (removes map, inf, links, etc) */
+  get toIHex() { return { Aname: this.Aname, row: this.row, col: this.col } }
+
 }
 /** One Hex cell in the game, shown as a polyStar Shape */
 export class Hex2 extends Hex {
@@ -238,20 +259,20 @@ export class Hex2 extends Hex {
     this.stoneIdText.textAlign = 'center'; this.stoneIdText.regY = -20
 
     if (row === undefined || col === undefined) return
-    let w = this.radius * Math.sqrt(3), h = this.radius * 1.5
-    this.x += col * w + Math.abs(row % 2) * w/2
-    this.y += row * h
+    let [x, y, w, h] = this.xywh(row, col, this.radius)
+    this.x += x
+    this.y += y
     this.cont.setBounds(-w/2, -h/2, w, h)
 
-    let rc = `${row},${col}`, yc = -25
+    let rc = `${row},${col}`, tdy = -25
     this.hexShape.name = this.Aname
 
     let rct = this.rcText = new Text(rc, F.fontSpec(26)); // radius/2 ?
-    rct.textAlign = 'center'; rct.y = yc // based on fontSize? & radius
+    rct.textAlign = 'center'; rct.y = tdy // based on fontSize? & radius
     this.cont.addChild(rct)
 
     this.distText = new Text(``, F.fontSpec(20)); 
-    this.distText.textAlign = 'center'; this.distText.y = yc + 46 // yc + 26+20
+    this.distText.textAlign = 'center'; this.distText.y = tdy + 46 // yc + 26+20
     this.cont.addChild(this.distText)
     this.showText(true)
   }
@@ -474,13 +495,13 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
     //for (let ir = this.minRow || 0; ir < this.length; ir++) { 
     for (let ir of this) {
       // beginning and end of this AND ir may be undefined
-      for (let hex of ir) { hex !== undefined && fn(hex as K) }
+      if (ir !== undefined) for (let hex of ir) { hex !== undefined && fn(hex as K) }
     }
   }
   findHex<K extends Hex>(fn: (hex: K) => boolean): K {
     let found: K
     for (let ir of this) {
-      if (!ir) continue
+      if (ir === undefined) continue
       found = ir.find((hex: K) => fn(hex)) as K
       if (found !== undefined) return found
     }
@@ -691,6 +712,8 @@ export class HexMapLayer implements HexM {
   constructor(map0: HexMaps, hex: Hex, stoneColor: StoneColor) {
     this.base = (map0 instanceof HexMap) ? map0 : map0.base;
     this.parent = map0
+    this.mh = this.base.mh
+    this.nh = this.base.nh
     this.district = this.base.district
     this.mapCont = this.base.mapCont
     this.skipHex = this.base.skipHex
@@ -700,12 +723,15 @@ export class HexMapLayer implements HexM {
   base: HexMap
   parent: HexMaps
 
+  readonly mh: number
+  readonly nh: number
   readonly allStones: HSC[];
   readonly district: Hex[][];
   readonly mapCont: MapCont;
   readonly skipHex: Hex;
   readonly resignHex: Hex;
 
+  makeAllDistricts(mh: number, nh: number) {return this.base.makeAllDistricts(mh, nh)}
   rcLinear(row: number, col: number): number { return this.base.rcLinear(row, col) }
   forEachHex<K extends Hex>(fn: (hex: K) => void): void { return this.base.forEachHex(fn) }
   update(): void { this.base.update() }

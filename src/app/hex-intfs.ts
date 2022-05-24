@@ -83,6 +83,7 @@ export type XYWH = {x: number, y: number, w: number, h: number} // like a Rectan
 
 /** String things */
 export namespace H {
+  export const sqrt3 = Math.sqrt(3)  // 1.7320508075688772
   export const N: HexDir = "N"
   export const S: HexDir = "S"
   export const E: HexDir = "E"

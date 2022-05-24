@@ -1,7 +1,7 @@
 // Game win: a Player controls 4 of 7 Districts
 // Control: Stone on >= 7 Hexes && Player.nHexes(district) - otherPlayer.nHexes(district) >= 3
 
-import { Board, GamePlay, Move } from "./game-play";
+import { Board, GamePlay } from "./game-play";
 import { Hex, Hex2, HexM } from "./hex";
 import { Table } from "./table";
 import { otherColor, StoneColor, stoneColor0, stoneColor1, StoneColorRecord, stoneColorRecordF, stoneColors, TP } from "./table-params";
@@ -159,10 +159,13 @@ export class GameStats {
     return this.sumVector(sv)
   }
 }
+/**
+ * GameStats with Table/GUI
+ */
 export class TableStats extends GameStats {
+  // provide nextHex, hexMap.mapCont, statsPanel, miniMap
   table: Table         // presence indicates a GUI environment: showControl, showBoardRep
-  gamePlay: GamePlay  // provides hexMap & curPlayer, history for WIN detection
-  boardRep: Text
+  boardRep: Text       // display repeatCount
   dStonesText: Text[] = []
 
   sStat(color: StoneColor): number {
@@ -171,12 +174,9 @@ export class TableStats extends GameStats {
   // TableStats:
   constructor(gamePlay: GamePlay, table: Table) {
     super(gamePlay.hexMap)
-    this.gamePlay = gamePlay
-    this.setTable(table)
+    this.table = table
   }
-  setTable(table: Table) {
-    this.table = table    // table points to: nextHex Container (for BoardRepCount)
-  }
+
   showBoardRep(n: number) {
     let repText = this.boardRep
     if (!repText) {
@@ -218,10 +218,9 @@ export class TableStats extends GameStats {
     let winr = TP.colorScheme[win], msg = `${winr} WINS: ${text} ${winS} -- ${loseS}`
     console.log(stime(this, `.showWin:`), msg)
     this.table.winText.text = msg
-    this.gamePlay.autoMove(false)
-    //setTimeout(() => alert(msg), 200)
     return win
   }
+  /** show count Stones in each District (on miniMap) */
   showControl(table: Table) {
     this.table.winText.text = ''
     let hexMap = table.miniMap; hexMap[S.Aname] = 'miniMap'

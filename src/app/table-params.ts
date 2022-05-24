@@ -11,6 +11,8 @@ export function stoneColorRecordF<T>(f: (sc: StoneColor) => T) { return stoneCol
 export class TP {
   static allowSuicide = true;
   static yield = true
+  static yieldMM = 1
+  static pWorker = true
   static pWeight = .9
   static boards = false  // true: evalState saves board->state
   static maxPlys = 4     // for robo-player lookahead
@@ -19,11 +21,12 @@ export class TP {
   static Black_White = stoneColorRecord('BLACK', 'WHITE')
   static Blue_Red = stoneColorRecord('BLUE', 'RED')
   static schemeNames = ['Black_White', 'Blue_Red']
-  static colorScheme: Record<StoneColor, string> = TP.Black_White
+  static colorScheme = TP.Black_White
   static numPlayers = 2;
   static mHexes = 2    // number hexes on side of Meta-Hex
   static nHexes = 1    // number of Hexes on side of District
   static nVictory = 4  // number of Districts to control
+  static tHexes = TP.ftHexes(this.mHexes) * TP.ftHexes(this.nHexes)
   static nMinControl  = (TP.nHexes <= 1) ? 1 : TP.nHexes + 1 // [1, 1, 3, 4, 5, ...]
   static nDiffControl = (TP.nHexes <= 1) ? 0 : TP.nHexes - 1 // [0, 0, 1, 2, 3, ...]
   static hexRad = 50
@@ -33,6 +36,7 @@ export class TP {
     TP.mHexes = mh
     TP.nHexes = nh
     TP.nVictory = Math.ceil(TP.ftHexes(mh) / 2)
+    TP.tHexes = TP.ftHexes(mh) * TP.ftHexes(nh)
     TP.nMinControl  = (nh <= 1) ? 1 : nh + 1 // [1, 1, 3, 4, 5, ...]
     TP.nDiffControl = (nh <= 1) ? 1 : nh - 1 // [0, 0, 1, 2, 3, ...]
   }
