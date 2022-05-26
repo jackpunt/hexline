@@ -14,6 +14,8 @@ export class TP {
   static yieldMM = 1
   static pWorker = true
   static pWeight = .9
+  static keepMoves = 4; // number of predicted/evaluated moves to retain in State.moveAry
+  static resignAhead = 1 // if lookahead(resignAhead).bv = -Infinity --> Resign
   static boards = false  // true: evalState saves board->state
   static maxPlys = 4     // for robo-player lookahead
   static maxBreadth = 7  // for robo-player lookahead
@@ -23,7 +25,7 @@ export class TP {
   static schemeNames = ['Black_White', 'Blue_Red']
   static colorScheme = TP.Black_White
   static numPlayers = 2;
-  static mHexes = 2    // number hexes on side of Meta-Hex
+  static mHexes = 3    // number hexes on side of Meta-Hex
   static nHexes = 1    // number of Hexes on side of District
   static nVictory = 4  // number of Districts to control
   static tHexes = TP.ftHexes(this.mHexes) * TP.ftHexes(this.nHexes)
@@ -51,8 +53,8 @@ export class TP {
   static flashDwell: number = 500
   static flipDwell:  number = 200 // chooseStartPlayer dwell between each card flip
 
-  static bgColor: string = 'peru'// C.BROWN
-  static borderColor: string = TP.bgColor; //'burlywood'
+  static bgColor: string = 'wheat'// C.BROWN
+  static borderColor: string = 'peru'//TP.bgColor; //'burlywood'
   static networkUrl: string = "wss://game7.thegraid.com:8444";  // URL to cgserver (wspbserver)
   static networkGroup: string = "hexline:game1";
 }

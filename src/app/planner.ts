@@ -87,15 +87,14 @@ class State {
   }
 
   /** this.setBestValue(bestHexState.bestValue[sc0]) */
-  saveBestHexState(bestHexState: HexState) {
+  saveBestHexState(bestHexState: HexState, tn: number) {
     let [bhex, state2] = bestHexState
     let v0 = this.bestValue[stoneColor0], v2 = state2.bestValue[stoneColor0] 
     let value = (v2 < WINMIN && v0 < WINMIN) ? (v2 * TP.pWeight + v0 * (1 - TP.pWeight)) : v2
 
     this.setBestValue(value)
     this.eval = state2.eval
-    //this.sortMoves() // this is NOT correct; it may sort the evaluated moves to the end of list.
-    //this.moveAry.splice(TP.maxBreadth) // TP.keepMoves GC the other stateds
+    this.moveAry = this.moveAry.filter(([h,s]) => s.eval > tn)
   }
 }
 
@@ -190,10 +189,8 @@ export class Planner implements IPlanner {
     let maybeResign = (hexState: HexState) => {
       let [hex, state] = hexState
       if (state.bv <= -WINMIN)
-        //if (hex == this.skipHex)
-          if (state.eval > this.moveNumber)
-            //if (state.moveAry.length == 1)
-              hex = this.resignHex
+        if (state.eval > this.moveNumber + TP.resignAhead)
+          hex = this.resignHex
       return hex
     }
 
@@ -224,10 +221,11 @@ export class Planner implements IPlanner {
     } else {
       // syncToGame has unshifted other Player's move into history[0] (and maybe history[1]... )
       // try get previously evaluated State & MOVES:
-      let history = this.gamePlay.history, prevMove = history[1]
+      let history = this.gamePlay.history, move1 = history[1]
       let move0 = history[0], hex0 = move0.hex, state0: State
-      if (prevMove && prevMove == this.prevMove) { // really: if Aname == Aname && caps == caps
-        state0 = prevMove.state.nextState(hex0) // opponent moved to predicted state (with a moveAry!)
+      if (move1 && move1 == this.prevMove) { // really: if Aname == Aname && caps == caps
+        state0 = move1.state.nextState(hex0) // opponent moved to predicted state (with a moveAry!)
+        console.log(stime(this, `.makeMove: prevMove = move1.state0:`), state0)
       }
       if (!state0) state0 = this.evalState(move0, state0) // move0->state0 (placed by syncGame)
       this.lookaheadDeep(state0, color).then((hexState: HexState) => dispatchMove(hexState))
@@ -436,8 +434,8 @@ export class Planner implements IPlanner {
   }
 
   /** return the better HexState (from POV of sc) */
-  maxBestValue(bestHexState1: HexState, bestHexState2: HexState, sc: StoneColor) {
-    return (bestHexState1[1].bestValue[sc] > bestHexState2[1].bestValue[sc]) ? bestHexState1 : bestHexState2 // MAX
+  maxBestValue(bHS1: HexState, bHS2: HexState, sc: StoneColor) {
+    return (bHS1[1].bestValue[sc] > bHS2[1].bestValue[sc]) ? bHS1 : bHS2 // MAX
   }
 
 
@@ -478,7 +476,7 @@ export class Planner implements IPlanner {
           bestHexState = this.maxBestValue(bestHexState1, bestHexState, stoneColor)
         }
       }
-      state0.saveBestHexState(bestHexState)
+      state0.saveBestHexState(bestHexState, this.depth)
       this.logAndGC(`.lookaheadDeep:`, state0, sid0, ms0, moveAry, bestHexState[1], nPlys, stoneColor, false)
 
       // timers and voluntary yield:
@@ -555,7 +553,7 @@ export class Planner implements IPlanner {
         let bestHexState1 = this.evalMoveShallow(hex, stoneColor, nPlys - 1, state1a) // eval move and update state1a
         bestHexState = this.maxBestValue(bestHexState1, bestHexState, stoneColor)
       }
-      state0.saveBestHexState(bestHexState)
+      state0.saveBestHexState(bestHexState, this.depth)
       this.logAndGC(`.lookaheadShallow`, state0, sid0, ms0, moveAry, bestHexState[1], nPlys, stoneColor, false)
       TP.log > 0 && console.groupEnd()
       return bestHexState
