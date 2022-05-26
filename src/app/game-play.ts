@@ -1,5 +1,5 @@
 import { H, pauseGenR, resumeGenR, } from "./hex-intfs";
-import { Hex, Hex2, HexMap, S_Resign, HSC, HexMaps, HexMapD, IHex } from "./hex";
+import { Hex, Hex2, HexMap, S_Resign, HSC, HexMaps } from "./hex";
 import { HexEvent } from "./hex-event";
 import { S, stime, Undo, KeyBinder } from "@thegraid/easeljs-lib";
 import { GameStats, TableStats, WINARY } from "./stats";
@@ -7,6 +7,7 @@ import { Stone, Table } from "./table";
 import { otherColor, StoneColor, stoneColors, TP} from "./table-params"
 import { Player } from "./player";
 import { GameSetup } from "./game-setup";
+import { Move } from "./move";
 
 export class GamePlay0 {
 
@@ -120,6 +121,7 @@ export class GamePlay0 {
       if (!hex.stoneColor && !TP.allowSuicide) {
         console.log(stime(this, `.doPlayerMove: suicidal move: ${hex.Aname}`), { hex, color: TP.colorScheme[stoneColor] })
         alert(`suicidal move: ${TP.colorScheme[stoneColor]} ${hex.Aname}`)
+        debugger; // illegal suicide
       }
     }
     this.undoRecs.closeUndo()         // expect ONE record, although GUI can pop as many as necessary
@@ -226,7 +228,7 @@ export class GamePlay extends GamePlay0 {
   override readonly gStats: TableStats
   constructor(table: Table) {
     super()            // hexMap, history, gStats...
-    this.allPlayers = stoneColors.map((color, ndx) => new Player(ndx, color, this))
+    this.allPlayers = stoneColors.map((color, ndx) => new Player(ndx, color, table))
     // setTable(table)
     this.table = table
     this.gStats = new TableStats(this, table) // reset gStats AFTER allPlayers are defined so can set pStats
@@ -428,45 +430,6 @@ export class GamePlay extends GamePlay0 {
   }
 }
 
-export type IMove = { Aname: string, hex: IHex, stoneColor: StoneColor }
-
-/** Historical record of each move made. */
-export class Move {
-  readonly Aname: string
-  readonly stoneColor: StoneColor
-  readonly hex: Hex // where to place stone
-  /** next player blocked from playing in these Hexes */
-  readonly captured: Hex[] = [];
-  /** set by GamePlay.incrBoard(Move) */
-  board: Board
-  /**
-   * 
-   * @param hex 
-   * @param stoneColor 
-   * @param captured 
-   * @param gamePlay optional: unshift Move to gamePlay.history
-   */
-  constructor(hex: Hex, stoneColor: StoneColor, captured: Hex[] = [], gamePlay?: GamePlay0) {
-    this.Aname = this.toString(hex, stoneColor) // for debugger..
-    this.stoneColor = stoneColor
-    this.hex = hex
-    this.captured = captured
-    if (gamePlay) { // put this new Move into history[0]
-      gamePlay.history.unshift(this)
-    }
-  }
-  toString(hex = this.hex, stoneColor = this.stoneColor): string {
-    return hex.toString(stoneColor)// ${color}@[r,c] from: Hex@[r,c] OR Hex@Skip OR hex@Resign
-  }
-  bString(): string {
-    let pid = (this.stoneColor)   // single-char stoneColor [vs indexOf(stoneColor)]
-    return `${pid}${this.hex.Aname.substring(3)}`
-  }
-  /** reduce to serializable IMove (removes captured & board) */
-  get toIMove(): IMove {
-    return { Aname: this.Aname, stoneColor: this.stoneColor, hex: this.hex.toIHex }
-  }
-}
 export interface Mover {
   makeMove(stone: Stone, useRobo: boolean): void
 }

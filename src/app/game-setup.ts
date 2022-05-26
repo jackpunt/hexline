@@ -1,5 +1,5 @@
 import { Container, Stage } from "@thegraid/easeljs-module";
-import { stime, makeStage, S, DropdownStyle } from "@thegraid/easeljs-lib";
+import { stime, makeStage, S, DropdownStyle, className } from "@thegraid/easeljs-lib";
 import { ParamGUI, ParamItem} from '@thegraid/easeljs-lib' // './ParamGUI' //
 import { GamePlay } from "./game-play";
 import { StatsPanel, TableStats } from "./stats";
@@ -16,6 +16,7 @@ class ParamGUIP extends ParamGUI {
 
   override setValue(item: ParamItem, target = this.target): void { 
     super.setValue(item, target)
+    console.log(stime(this, `.setValue`), `${target['name'] || className(target)}[${item.fieldName}] = ${item.value}`)
     this.gamePlay.forEachPlayer(p => {
       let planner = p.planner
       if (planner instanceof PlannerProxy) {

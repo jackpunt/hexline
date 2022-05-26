@@ -111,8 +111,10 @@ export class Hex {
 
   /** set hex.stoneColor and push HSC on allStones */
   setColor(stoneColor: StoneColor): Hex {
-    if (this.stoneColor !== undefined) 
+    if (this.stoneColor !== undefined) {
       alert(`hex already occupied ${this.Aname}: ${stoneColor} -> ${this.stoneColor}`)
+      debugger; // hex already occupied
+    }
     this.stoneColor = stoneColor
     //let hexm = new HexMapLayer(this.map, this, stoneColor)
     //let hex = hexm.addHex(this)
@@ -244,9 +246,6 @@ export class Hex2 extends Hex {
   stone: Stone      // shown on this.map.stoneCont
   stoneIdText: Text     // shown on this.map.markCont
   infm: Record<StoneColor,INFM> = stoneColorRecord({},{})
-  override toString() {
-    return `Hex[${this.row},${this.col}]`
-  }
 
   /** Hex2 cell with graphics; shown as a polyStar Shape of radius @ (XY=0,0) */
   constructor(map: HexMaps, row?: number, col?: number, name?: string) {
