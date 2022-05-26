@@ -77,10 +77,10 @@ export class GamePlay0 {
       rv = hex.setColor(stoneColor)         // move Stone onto Hex & HexMap [hex.stone = stone]
       this.gStats.afterSetColor(hex)
       this.incrInfluence(hex, stoneColor)
-      if (!this.undoRecs.isUndoing) {
-        this.addUndoRec(this, `removeStone(${hex.Aname}:${stoneColor})`, () => this.removeStone(hex)) // remove for undo
-        if (hex.isAttack(otherColor(stoneColor))) this.removeStone(hex) // apparently: legalSuicide
-      }
+    }
+    if (!this.undoRecs.isUndoing) {
+      this.addUndoRec(this, `removeStone(${hex.Aname}:${stoneColor})`, () => this.removeStone(hex)) // remove for undo
+      if (hex.isAttack(otherColor(stoneColor))) this.removeStone(hex) // apparently: legalSuicide
     }
     return rv
   }
@@ -119,8 +119,7 @@ export class GamePlay0 {
     } else {
       this.addStone(hex, stoneColor) // add Stone and Capture (& removeStone) w/addUndoRec
       if (!hex.stoneColor && !TP.allowSuicide) {
-        console.log(stime(this, `.doPlayerMove: suicidal move: ${hex.Aname}`), { hex, color: TP.colorScheme[stoneColor] })
-        alert(`suicidal move: ${TP.colorScheme[stoneColor]} ${hex.Aname}`)
+        console.warn(stime(this, `.doPlayerMove: suicidal move: ${hex.Aname}`), { hex, color: TP.colorScheme[stoneColor] })
         debugger; // illegal suicide
       }
     }
@@ -206,6 +205,16 @@ export class GamePlay0 {
   undoProtoMove() {
     this.undoRecs.closeUndo().restoreUndo()    // replace captured Stones/Colors & undo/redo Influence
     this.shiftMove()
+  }
+  /** undoRecs.pop(): with logging collapsed */
+  undoStones() {
+    let undoNdx = this.undoRecs.length -1;
+    let popRec = (undoNdx >= 0) ? this.undoRecs[undoNdx].concat() : [] // copy undoRecs[] so it is stable in log
+    console.groupCollapsed(`${stime(this)}:undoIt-${undoNdx}`)
+    console.log(stime(this, `.undoStones: undoRec[${undoNdx}] =`), popRec);
+    this.undoRecs.pop(); // remove/replace Stones
+    console.log(stime(this, `.undoIt: after[${undoNdx}]`), { allHSC: this.hexMap.allStones.concat(), undo: this.undoRecs });
+    console.groupEnd()   // "undoIt-ndx"
   }
 }
 
@@ -295,16 +304,6 @@ export class GamePlay extends GamePlay0 {
     this.curPlayer.useRobo = op.useRobo = useRobo // if toggle then useRobo = !useRobo
     console.log(stime(this, `.autoMove: ${this.curPlayer.colorn}.useRobo=`), this.curPlayer.useRobo)
     console.log(stime(this, `.autoMove: ${op.colorn}.useRobo=`), op.useRobo)
-  }
-  /** undoRecs.pop(): with logging collapsed */
-  undoStones() {
-    let undoNdx = this.undoRecs.length -1;
-    let popRec = (undoNdx >= 0) ? this.undoRecs[undoNdx].concat() : [] // copy undoRecs[] so it is stable in log
-    console.groupCollapsed(`${stime(this)}:undoIt-${undoNdx}`)
-    console.log(stime(this, `.undoStones: undoRec[${undoNdx}] =`), popRec);
-    this.undoRecs.pop(); // remove/replace Stones
-    console.log(stime(this, `.undoIt: after[${undoNdx}]`), { allHSC: this.hexMap.allStones.concat(), undo: this.undoRecs });
-    console.groupEnd()   // "undoIt-ndx"
   }
 
   /** invoked by GUI or Keyboard */

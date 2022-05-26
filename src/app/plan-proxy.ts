@@ -88,7 +88,7 @@ export class PlannerProxy implements IPlanner {
   makeMove(stoneColor: StoneColor, history: Move[]): Promise<IHex> {
     let iHistory = history.map((m) => m.toIMove)
     // TODO: marshal iHistory to a [Transferable] bytebuffer [protobuf?]
-    this.ll0 && console.log(stime(this, `(${stoneColor}).makeMove: iHistory =`), iHistory)
+    /*this.ll0 &&*/ console.log(stime(this, `(${stoneColor}).makeMove: iHistory =`), iHistory)
     this.postMessage(`.makeMove:`, 'makeMove', stoneColor, iHistory )
     return new Promise<IHex>((fil, rej) => {
       this.filHex = fil

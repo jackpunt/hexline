@@ -7,10 +7,12 @@ import { IPlanner } from "./plan-proxy";
 import { WINARY } from "./stats";
 import { otherColor, StoneColor, stoneColor0, stoneColor1, StoneColorRecord, stoneColorRecord, stoneColors, TP } from "./table-params";
 
-const WINVAL = stoneColorRecord(Number.POSITIVE_INFINITY)
-const RESVAL = stoneColorRecord(Number.POSITIVE_INFINITY)
-const STALEV = stoneColorRecord(Number.POSITIVE_INFINITY)
+function stoneColorValue (value: number) { return stoneColorRecord(value, -value)}
+const WINVAL = stoneColorValue(Number.POSITIVE_INFINITY)
+const RESVAL = stoneColorValue(Number.POSITIVE_INFINITY)
+const STALEV = stoneColorValue(Number.POSITIVE_INFINITY)
 let WINLIM = WINVAL[stoneColor0] // stop searching if Move achieves WINLIM[sc0]
+let WINMIN = STALEV[stoneColor0] // stop searching if Move achieves WINLIM[sc0]
 
 type HexState = [Hex, State]
 class MOVES extends Map<Hex,State>{}
@@ -37,7 +39,7 @@ class State {
   static sid = 0
   //move: Move; 
   //color: StoneColor; 
-  /** for debugger: evaluated to depth (= tn+ ~nPlys) */
+  /** evaluated to depth (= tn+ ~nPlys) */
   eval: number = 0
   val: number[]  // unshift for each lookahead...
   readonly v0: number; 
@@ -50,7 +52,8 @@ class State {
   setBestValue(value: number) {
     if (Number.isNaN(value)) debugger;
     value = M.decimalRound(value, 4)
-    this.bestValue = stoneColorRecord(value, -value)
+    if (Number.isNaN(value)) debugger;
+    this.bestValue = stoneColorValue(value)
   }
   /**
    * @param move for doc/debug: last move to get to this state
@@ -87,7 +90,7 @@ class State {
   saveBestHexState(bestHexState: HexState) {
     let [bhex, state2] = bestHexState
     let v0 = this.bestValue[stoneColor0], v2 = state2.bestValue[stoneColor0] 
-    let value = (v2 < WINLIM && v0 < WINLIM) ? (v2 * TP.pWeight + v0 * (1 - TP.pWeight)) : v2
+    let value = (v2 < WINMIN && v0 < WINMIN) ? (v2 * TP.pWeight + v0 * (1 - TP.pWeight)) : v2
 
     this.setBestValue(value)
     this.eval = state2.eval
@@ -137,13 +140,13 @@ export class Planner implements IPlanner {
   get depth() { return this.gamePlay.history.length + 1 } // accounting for Stones we have played
   /** copy of gamePlay.turnNumber: gamePlay.history.length + 1 */
   moveNumber: number
-  skipStateRec: Record<StoneColor, State>
-  resignStateRec: Record<StoneColor, State>
   boardState: Map<string,State> = new Map<string,State>()
 
+  get skipHex() { return this.gamePlay.hexMap.skipHex }
+  get resignHex() { return this.gamePlay.hexMap.resignHex }
   /** make skipState or resignState for given color (and unshift to gamePlay.history) */
-  skipMove(color: StoneColor) { return new Move(this.gamePlay.hexMap.skipHex, color, [], this.gamePlay) as PlanMove }
-  resignMove(color: StoneColor) { return new Move(this.gamePlay.hexMap.resignHex, color, [], this.gamePlay) }
+  skipMove(color: StoneColor) { return new Move(this.skipHex, color, [], this.gamePlay) as PlanMove }
+  resignMove(color: StoneColor) { return new Move(this.resignHex, color, [], this.gamePlay) as PlanMove }
 
   constructor(mh: number, nh: number, playerIndex: number) {
     let color = stoneColors[playerIndex], colorn = TP.colorScheme[color]
@@ -184,6 +187,15 @@ export class Planner implements IPlanner {
     let movePromise = new Promise<Hex>((fil, rej) => {
       fillMove = fil; failMove = rej
     })
+    let maybeResign = (hexState: HexState) => {
+      let [hex, state] = hexState
+      if (state.bv <= -WINMIN)
+        //if (hex == this.skipHex)
+          if (state.eval > this.moveNumber)
+            //if (state.moveAry.length == 1)
+              hex = this.resignHex
+      return hex
+    }
 
     let firstMove = () => {
       State.sid = sid0 = 0
@@ -195,6 +207,7 @@ export class Planner implements IPlanner {
 
     let dispatchMove = (hexState: HexState) => {
       let [hex, state] = hexState
+      hex = maybeResign(hexState)
       this.doLocalMove(hex, color)  // placeStone on our hexMap & history
       this.reduceBoards(true)       // reduce & prune
       this.boardState.clear()       // todo: keep the subset derive from current/actual Moves/board
@@ -213,15 +226,18 @@ export class Planner implements IPlanner {
       // try get previously evaluated State & MOVES:
       let history = this.gamePlay.history, prevMove = history[1]
       let move0 = history[0], hex0 = move0.hex, state0: State
-      if (prevMove && prevMove == this.prevMove) {
+      if (prevMove && prevMove == this.prevMove) { // really: if Aname == Aname && caps == caps
         state0 = prevMove.state.nextState(hex0) // opponent moved to predicted state (with a moveAry!)
       }
       if (!state0) state0 = this.evalState(move0, state0) // move0->state0 (placed by syncGame)
       this.lookaheadDeep(state0, color).then((hexState: HexState) => dispatchMove(hexState))
     }
     return movePromise
-    // Note: (mh:2, nh:1) lookahead(Black[2,1])->White[1,2] dsid: '384,412'; Black[3,2] dsid: '611,340';
-    // White[2,4] dsid: '473,667' (19 secs); Black[0,4] dsid: '355,987' (15 secs)
+    // Note: (mh:2, nh:1) lookahead(Black[2,1])->
+    // White[1,2] dsid: '384,412' (14 secs); 
+    // Black[3,2] dsid: '611,340' (25 secs);
+    // White[2,4] dsid: '473,667' (19 secs);
+    // Black[0,4] dsid: '355,987' (15 secs);
   }
   /** do move from main.history: translate hex */
   doHistoryMove(moveg: IMove) {
@@ -234,13 +250,13 @@ export class Planner implements IPlanner {
       let state0a = state1.nextState(hex0)            // state0a may be undefined (if hex0 was not predicted)
       let state0 = this.evalState(move0, state0a)     // make or update state0, move0.state = state0a
       // historical record: state2(move1.hex1)->state1; state1(move0.hex0)->state0
-      if (!state0a) {
+      if (!state0a) { // hex0 was not previously predicted/evaluated
         if (!state1.moveAry) state1.moveAry = []
-        state1.moveAry.push([hex0, state0])
+        state1.moveAry.push([hex0, state0])  // As if we had predicted this, but not deeply evaluated...
       }
     } else {
       this.evalState(move0)     // make or update state0, move0.state = state0a
-    }
+    } // if move0.color == myStoneColor: set this.prevMove? [not that it has any useful moveAry...]
     return 
   }
   /** 
@@ -271,21 +287,8 @@ export class Planner implements IPlanner {
   unplaceStone(move?: Move, popUndo = false) {
     let gamePlay = this.gamePlay          // undoRecs, shiftMove
     if (popUndo) gamePlay.undoRecs.closeUndo().restoreUndo() // like undoStones(); SHOULD replace captured Stones/Colors
-    else gamePlay.undoRecs.closeUndo().pop()
+    else {gamePlay.undoRecs.closeUndo(); gamePlay.undoStones() }
     gamePlay.shiftMove()
-  }
-  reduceBoards(prune = true) {
-    // TODO: replace boardState with stepping down state0.moveAry(move0.hex)->state1.moveAry(move1.hex)->...
-    // reset all repCounts; [MAYBE remove Boards that are no longer 'accessible']
-    let history = this.gamePlay.history, ab = this.gamePlay.allBoards, bs = this.boardState
-    for (let [id, board] of ab.entries()) {
-      // board.setRepCount(history)
-      // space-time tradeoff: keep evaluated Board/Ids/States in memory?
-      if (board.setRepCount(history) == 0 && prune) {
-        bs.delete(id)
-        ab.delete(id)
-      }
-    }
   }
   syncToGame(main: IMove[]) {
     let ours = this.gamePlay.history
@@ -303,7 +306,19 @@ export class Planner implements IPlanner {
     this.moveNumber = ours.length + 1
     this.reduceBoards()  // update repCount and delete un-attained Boards
   }
-
+  reduceBoards(prune = true) {
+    // TODO: replace boardState with stepping down state0.moveAry(move0.hex)->state1.moveAry(move1.hex)->...
+    // reset all repCounts; [MAYBE remove Boards that are no longer 'accessible']
+    let history = this.gamePlay.history, ab = this.gamePlay.allBoards, bs = this.boardState
+    for (let [id, board] of ab.entries()) {
+      // board.setRepCount(history)
+      // space-time tradeoff: keep evaluated Board/Ids/States in memory?
+      if (board.setRepCount(history) == 0 && prune) {
+        bs.delete(id)
+        ab.delete(id)
+      }
+    }
+  }
   /** 
    * Compute v0 & fj for State representing the current board.
    * After every planner.placeStone() -> move; evalMove(move, state1?)
@@ -452,16 +467,16 @@ export class Planner implements IPlanner {
       let bestHexState = moveAry[0], bestHexState1: HexState
       if (nPlys == 0) return bestHexState
       if (state0.eval < this.moveNumber + nPlys) {
-      for (let [hex1, state1a] of moveAry) {                   // hex = state1a.move.hex
-        if (isTop) this.nth = breadth - 1
-        if (this.moveAryBreak(state1a, --breadth, bestHexState[1])) break
-        if (nPlys - 1 > 0) {
-          bestHexState1 = await this.evalMoveInDepth(hex1, stoneColor, nPlys - 1, state1a) // state1.bestValue=MIN(-state2.bestValue)
-        } else {
-          bestHexState1 = this.evalMoveShallow(hex1, stoneColor, nPlys - 1, state1a)
+        for (let [hex1, state1a] of moveAry) {                   // hex = state1a.move.hex
+          if (isTop) this.nth = breadth - 1
+          if (this.moveAryBreak(state1a, --breadth, bestHexState[1])) break
+          if (nPlys - 1 > 0) {
+            bestHexState1 = await this.evalMoveInDepth(hex1, stoneColor, nPlys - 1, state1a) // state1.bestValue=MIN(-state2.bestValue)
+          } else {
+            bestHexState1 = this.evalMoveShallow(hex1, stoneColor, nPlys - 1, state1a)
+          }
+          bestHexState = this.maxBestValue(bestHexState1, bestHexState, stoneColor)
         }
-        bestHexState = this.maxBestValue(bestHexState1, bestHexState, stoneColor)
-      }
       }
       state0.saveBestHexState(bestHexState)
       this.logAndGC(`.lookaheadDeep:`, state0, sid0, ms0, moveAry, bestHexState[1], nPlys, stoneColor, false)
@@ -569,7 +584,7 @@ export class Planner implements IPlanner {
       if (state1.fj && state2.fj) {
         let bv1 = state1.bestValue[stoneColor0]
         // Alternative value computation for continuing dogfight:
-        let value = (bv1 < WINLIM) ? (bv1 + pre_fj0) / 2 : bv1
+        let value = (bv1 < WINMIN) ? (bv1 + pre_fj0) / 2 : bv1
         state1.setBestValue(value)
         state1.eval = state2.eval
       }

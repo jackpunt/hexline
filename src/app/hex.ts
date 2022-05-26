@@ -112,7 +112,7 @@ export class Hex {
   /** set hex.stoneColor and push HSC on allStones */
   setColor(stoneColor: StoneColor): Hex {
     if (this.stoneColor !== undefined) {
-      alert(`hex already occupied ${this.Aname}: ${stoneColor} -> ${this.stoneColor}`)
+      console.warn(`hex already occupied ${this.Aname}: ${stoneColor} -> ${this.stoneColor}`)
       debugger; // hex already occupied
     }
     this.stoneColor = stoneColor
