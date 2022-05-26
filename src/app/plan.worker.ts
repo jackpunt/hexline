@@ -13,7 +13,9 @@ class PlanWorker {
   planner: Planner
   get ll0() { return TP.log > 0 }
   get ll1() { return TP.log > 1 }
-  constructor() {}
+  constructor() {
+    stime.anno = (obj) => { return ` ${this.color}` }
+  }
   async init() {
     this['Aname'] = `PlanWorker-${self['A_Random']}@${stime(this, '.init')}`
     self.addEventListener('message', (msg: MessageEvent<PlanData>) => { this.handleMsg(msg)})
@@ -53,7 +55,7 @@ class PlanWorker {
     this.ll0 && console.log(stime(this, `.newPlanner:`), {mh, nh, index}) // [Object object]
     this.planner = new Planner(mh, nh, index)
     this[S.Aname] = `PlanWorker@${stime(this, `.newPlanner(${index})`)}`
-    this.reply('ready', this.color, this.planner.depth)
+    this.reply('newDone', this.color, this.planner.depth)
   }
   roboMove(run: boolean) {
     this.planner.roboMove(run)
@@ -74,9 +76,7 @@ class PlanWorker {
     this.ll0 && console.log(stime(this, `.handleMsg.terminate:`), args)
   }
 }
-stime.anno = (obj) => {
-  return ` ${A_PlanWorker.color}`
-}
+
 var A_Random = self['A_Random'] = Math.floor(Math.random()*100)
 var A_PlanWorker = self['A_PlanWorker'] = new PlanWorker()
 A_PlanWorker.init()

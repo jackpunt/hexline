@@ -88,7 +88,7 @@ export class PlannerProxy implements IPlanner {
   makeMove(stoneColor: StoneColor, history: Move[]): Promise<IHex> {
     let iHistory = history.map((m) => m.toIMove)
     // TODO: marshal iHistory to a [Transferable] bytebuffer [protobuf?]
-    /*this.ll0 &&*/ console.log(stime(this, `(${stoneColor}).makeMove: iHistory =`), iHistory)
+    /*this.ll0 &&*/ console.log(stime(this, `(${this.colorn}).makeMove: iHistory =`), iHistory)
     this.postMessage(`.makeMove:`, 'makeMove', stoneColor, iHistory )
     return new Promise<IHex>((fil, rej) => {
       this.filHex = fil
@@ -100,12 +100,12 @@ export class PlannerProxy implements IPlanner {
     this.ll0 && console.log(stime(this, `.parseMessage:`), data)
     let { verb, args } = data
     switch (verb) {
-      case 'ready':
+      case 'newDone': // reply to newPlanner
         break;
-      case 'move':
+      case 'move':  // reply to makeMove
         let [row, col, Aname] = args as [number, number, string]
         let ihex = {row, col, Aname}
-        this.ll0 && console.log(this, `.move:`, ihex)
+        this.ll0 && console.log(stime(this, `.move:`), ihex)
         this.filHex(ihex)
         break;
     }

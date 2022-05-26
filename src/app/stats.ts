@@ -120,9 +120,7 @@ export class GameStats {
     board && (board.winAry = winAry)
     return [win, winAry]
   }
-  /** victory, resigned, stalemate */
-  // gameOver(board, ...moveAry)
-  // maybe someday: board.gameOver() [using board.winAry]
+  /** victory, resigned, stalemate; win = gStats.gameOver(...board.winAry) */
   gameOver(board: Board, winVP: StoneColor, ds: number, dn: number): StoneColor {
     return this.winAny = (winVP !== undefined) ? winVP : !board ? undefined
       : board.resigned ? otherColor(board.resigned)

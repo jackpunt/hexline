@@ -255,7 +255,7 @@ export class GamePlay extends GamePlay0 {
     KeyBinder.keyBinder.setKey('Escape', {thisArg: table, func: table.stopDragging}) // Escape
     KeyBinder.keyBinder.setKey('C-s', { thisArg: GameSetup.setup, func: GameSetup.setup.restart })// C-s START
     KeyBinder.keyBinder.setKey('C-c', { thisArg: this, func: this.stopPlayer })// C-c Stop Planner
-    KeyBinder.keyBinder.setKey('m', { thisArg: this, func: this.keyMove })
+    KeyBinder.keyBinder.setKey('m', { thisArg: this, func: this.makeMove, argVal: true })
     KeyBinder.keyBinder.setKey('n', { thisArg: this, func: this.autoMove, argVal: false })
     KeyBinder.keyBinder.setKey('N', { thisArg: this, func: this.autoMove, argVal: true})
     KeyBinder.keyBinder.setKey('y', { thisArg: this, func: () => TP.yield = true })
@@ -286,24 +286,30 @@ export class GamePlay extends GamePlay0 {
   }
   endCurPlayer0() {}
 
+  /** tell [robo-]Player to stop thinking and make their Move; also set useRobo = false */
   stopPlayer() {
+    this.autoMove(false)
     this.curPlayer.stopMove()
-    this.curPlayer.useRobo = this.otherPlayer(this.curPlayer).useRobo = false // if toggle then useRobo = !useRobo
     console.log(stime(this, `.stopPlan:`), { planner: this.curPlayer.planner }, '----------------------')
     setTimeout(() => {
       this.table.winText.text = `stopPlan:`
       this.table.hexMap.update()
     }, 400)
   }
-  // Make ONE robo-move by curPlayer (more move if auto-move sets player.useRobo = true)
-  keyMove() {
-    this.curPlayer.makeMove(this.table.nextHex.stone, true) // make one robo move
+  /** provoke Player (GUI or Planner) to respond with addStoneEvent */
+  makeMove(auto?: boolean) {
+    let stone = this.table.nextHex.stone
+    let player = this.curPlayer
+    if (this.turnNumber == 1) player = this.otherPlayer(player)
+    if (auto === undefined) auto = player.useRobo
+    player.makeMove(stone, auto) // make one robo move
   }
+  /** if useRobo == true, then Player delegates to robo-player immediately. */
   autoMove(useRobo: boolean = false) {
-    let op = this.otherPlayer(this.curPlayer)
-    this.curPlayer.useRobo = op.useRobo = useRobo // if toggle then useRobo = !useRobo
-    console.log(stime(this, `.autoMove: ${this.curPlayer.colorn}.useRobo=`), this.curPlayer.useRobo)
-    console.log(stime(this, `.autoMove: ${op.colorn}.useRobo=`), op.useRobo)
+    this.forEachPlayer(p => {
+      p.useRobo = useRobo
+      console.log(stime(this, `.autoMove: ${p.colorn}.useRobo=`), p.useRobo)
+    })
   }
 
   /** invoked by GUI or Keyboard */
