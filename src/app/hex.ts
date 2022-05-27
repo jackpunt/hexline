@@ -420,13 +420,21 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
   mh: number
   nh: number
   radius: number = TP.hexRad
+  /** height of hexagonal cell (1.5 * radius) */
   height: number = this.radius * 1.5;
-  width: number = this.radius * Math.sqrt(3);
+  /** width of hexagonal cell  (H.sqrt3 * radius */
+  width: number = this.radius * H.sqrt3
   mark: DisplayObject                              // a cached DisplayObject, used by showMark
   private minCol: number = undefined               // Array.forEach does not look at negative indices!
   private maxCol: number = undefined               // used by rcLinear
   private minRow: number = undefined               // not used at this time
 
+  /** bounding box: XYWH = {0, 0, w, h} */
+  get wh() {
+    let hexRect = this.mapCont.hexCont.getBounds()
+    let wh = { width: hexRect.width + 2 * this.width, height: hexRect.height + 2 * this.width }
+    return wh
+  }
   /** for contrast paint it black AND white, leave a hole in the middle unpainted. */
   makeMark(radius: number, radius0: number = 0) {
     let mark = new Shape(), cb = "rgba(0,0,0,.3)", cw="rgba(255,255,255,.3)"
@@ -446,7 +454,7 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
   constructor(radius: number = TP.hexRad, addToMapCont = false) {
     super()
     this.radius = radius
-    this.height = radius * Math.sqrt(3)
+    this.height = radius * H.sqrt3
     this.width = radius * 1.5
     CapMark.capSize = this.width/2
     this.skipHex = new Hex(this, undefined, undefined, S_Skip)

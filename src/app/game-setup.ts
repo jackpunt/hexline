@@ -1,30 +1,13 @@
 import { Container, Stage } from "@thegraid/easeljs-module";
-import { stime, makeStage, S, DropdownStyle, className } from "@thegraid/easeljs-lib";
+import { stime, makeStage, S } from "@thegraid/easeljs-lib";
 import { ParamGUI, ParamItem} from '@thegraid/easeljs-lib' // './ParamGUI' //
 import { GamePlay } from "./game-play";
 import { StatsPanel, TableStats } from "./stats";
 import { Table } from "./table";
 import { TP } from "./table-params";
 import { Hex2, HexMap } from "./hex";
-import { PlannerProxy } from "./plan-proxy";
+import { ParamGUIP } from "./ParamGUIP";
 
-/** ParamGUI that updates PlannerProxy -> PlanWorker */
-class ParamGUIP extends ParamGUI {
-  constructor(public gamePlay: GamePlay, target: object, style?: DropdownStyle) {
-    super(target, style)
-  }
-
-  override setValue(item: ParamItem, target = this.target): void { 
-    super.setValue(item, target)
-    console.log(stime(this, `.setValue`), `${target['name'] || className(target)}[${item.fieldName}] = ${item.value}`)
-    this.gamePlay.forEachPlayer(p => {
-      let planner = p.planner
-      if (planner instanceof PlannerProxy) {
-        planner.setParam(target, item.fieldName, item.value)
-      }
-    })
-  }
-}
 /** initialize & reset & startup the application. */
 export class GameSetup {
   static setup: GameSetup
@@ -66,9 +49,9 @@ export class GameSetup {
 
     let statsPanel = this.makeStatsPanel(gamePlay.gStats, table.scaleCont, statsx, statsy)
     table.statsPanel = statsPanel
-    let last = statsPanel.lines[statsPanel.lines.length-1]
-    let guiy = statsPanel.y + last.y + last.height + statsPanel.lead * 2  
-    this.makeParamGUI(table, table.scaleCont, statsx, guiy) // modify TP.params...
+    let guiy = statsPanel.y + statsPanel.ymax
+    let [gui, gui2] = this.makeParamGUI(table, table.scaleCont, statsx, guiy) // modify TP.params...
+    table.miniMap.mapCont.y = Math.max(gui.ymax, gui2.ymax)+gui.y + table.miniMap.wh.height/2
     table.startGame()
   }
   makeStatsPanel(gStats: TableStats, parent: Container, x: number, y: number): StatsPanel {
@@ -94,17 +77,18 @@ export class GameSetup {
     panel.stage.update()
     return panel
   }
-  makeParamGUI(table: Table, parent: Container, x: number, y: number): ParamGUI {
+  makeParamGUI(table: Table, parent: Container, x: number, y: number) {
     let restart = false 
-    const gui = new ParamGUIP(this.gamePlay, TP, { textAlign: 'right'})
+    const gui = new ParamGUIP(TP, { textAlign: 'right'}, this.gamePlay)
     const schemeAry = TP.schemeNames.map(n => { return { text: n, value: TP[n] } })
     let nHex = (nH: number, mH: number) => { TP.fnHexes(nH, mH); restart && this.restart.call(this) }
+    gui.makeParamSpec("log", [0, 1, 2], { style: { textAlign: 'left' }, target: TP }); TP.log
     gui.makeParamSpec("mHexes", [2, 3, 4])
     gui.makeParamSpec("nHexes", [1, 2, 3, 4, 5, 6])
-    gui.makeParamSpec("maxPlys", [1, 2, 3, 4, 5, 6, 7, 8])
-    gui.makeParamSpec("maxBreadth", [5, 6, 7, 8, 9, 10])
-    gui.makeParamSpec("nPerDist", [2, 3, 4, 5, 6, 8, 11, 15, 19])
-    gui.makeParamSpec("allowSuicide", [true, false])
+    gui.makeParamSpec("maxPlys", [1, 2, 3, 4, 5, 6, 7, 8]); TP.maxPlys
+    gui.makeParamSpec("maxBreadth", [5, 6, 7, 8, 9, 10]); TP.maxBreadth
+    gui.makeParamSpec("nPerDist", [2, 3, 4, 5, 6, 8, 11, 15, 19]); TP.nPerDist
+    gui.makeParamSpec("allowSuicide", [true, false]); TP.allowSuicide
     gui.makeParamSpec("colorScheme", schemeAry, { style: { textAlign: 'center' } })
     gui.spec("mHexes").onChange = (item: ParamItem) => { nHex(TP.nHexes, item.value) }
     gui.spec("nHexes").onChange = (item: ParamItem) => { nHex(item.value, TP.mHexes) }
@@ -122,17 +106,17 @@ export class GameSetup {
     gui.makeLines()
     gui.stage.update()
     restart = true // *after* makeLines has stablilized selectValue
-    this.makeParamGUI2(table, parent, x - 250, y)
-    return gui
+    const gui2 = this.makeParamGUI2(table, parent, x - 250, y)
+    return [gui, gui2]
   }
-  makeParamGUI2(table: Table, parent: Container, x: number, y: number): ParamGUI {
-    let gui = new ParamGUIP(this.gamePlay, table, { textAlign: 'center' })
+  makeParamGUI2(table: Table, parent: Container, x: number, y: number) {
+    let gui = new ParamGUIP(table, { textAlign: 'center' }, this.gamePlay)
     gui.makeParamSpec("showInf", [true, false])
     gui.makeParamSpec("showSui", [true, false])
-    gui.makeParamSpec("log", [0, 1, 2], { style: { textAlign: 'left' }, target: TP })
-    gui.makeParamSpec("pWeight", [1, .99, .97, .95, .9], { target: TP })
-    gui.makeParamSpec("pWorker", [true, false], { target: TP })
-    gui.makeParamSpec("boards", [true, false], { target: TP })
+    gui.makeParamSpec("pWeight", [1, .99, .97, .95, .9], { target: TP }) ; TP.pWeight
+    gui.makeParamSpec("pWorker", [true, false], { target: TP }); TP.pWorker
+    gui.makeParamSpec("pBoards", [true, false], { target: TP }); TP.pBoards
+    gui.makeParamSpec("pMoves",  [true, false], { target: TP }); TP.pMoves
 
     parent.addChild(gui)
     gui.x = x; gui.y = y

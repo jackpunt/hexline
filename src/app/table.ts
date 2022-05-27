@@ -1,5 +1,5 @@
 import { Stage, EventDispatcher, Container, Shape, Text, DisplayObject, MouseEvent } from "@thegraid/easeljs-module";
-import { F, S, stime, Dragger, DragInfo, KeyBinder, ScaleableContainer, XY, C } from "@thegraid/easeljs-lib"
+import { F, S, stime, Dragger, DragInfo, KeyBinder, ScaleableContainer, XY, C, WH } from "@thegraid/easeljs-lib"
 import { GamePlay } from "./game-play";
 import { Player } from "./player"
 import { Hex, Hex2, HexMap, } from "./hex";
@@ -16,7 +16,7 @@ import { H, XYWH } from "./hex-intfs";
  */
 export class Stone extends Shape {
   static radius: number = TP.hexRad
-  static height: number = Stone.radius*Math.sqrt(3)/2
+  static height: number = Stone.radius*H.sqrt3/2
   get radius() { return Stone.height -1 }
   readonly color: StoneColor;
 
@@ -67,7 +67,7 @@ export class Table extends EventDispatcher  {
     this.stage = stage
     this.scaleCont = this.makeScaleCont(!!this.stage) // scaleCont & background
   }
-  setupUndoButtons(xOffs, bSize, skipRad, bgr: XYWH) {
+  setupUndoButtons(xOffs: number, bSize: number, skipRad: number, bgr: XYWH) {
     this.skipShape.graphics.f("white").dp(0, 0, 40, 4, 0, skipRad)  
     this.undoShape.graphics.f("red").dp(-xOffs, 0, bSize, 3, 0, 180);
     this.redoShape.graphics.f("green").dp(+xOffs, 0, bSize, 3, 0, 0); 
@@ -152,12 +152,12 @@ export class Table extends EventDispatcher  {
     let hexRect = this.hexMap.mapCont.hexCont.getBounds()
     // background sized for hexMap:
     let high = this.hexMap.height, wide = this.hexMap.width // h=rad*1.5; w=rad*r(3)
-    let miny = hexRect.y - high, maxy = hexRect.y + hexRect.height + high
-    let minx = hexRect.x - wide, maxx = hexRect.x + hexRect.width + wide
-    let bgr: XYWH = { x: 0, y: 0, w: (maxx - minx), h: (maxy - miny) }
+    let miny = hexRect.y - high, minx = hexRect.x - wide
+    let { width, height } = this.hexMap.wh
+    let bgr: XYWH = { x: 0, y: 0, w: width, h: height}
     // align center of mapCont(0,0) == hexMap(center) with center of background
-    mapCont.x = bgr.x + (bgr.w) / 2
-    mapCont.y = bgr.y + (bgr.h) / 2
+    mapCont.x = (bgr.w) / 2
+    mapCont.y = (bgr.h) / 2
 
     this.nextHex = new Hex2(this.hexMap, undefined, undefined, 'nextHex')
     this.nextHex.cont.scaleX = this.nextHex.cont.scaleY = 2
@@ -171,8 +171,8 @@ export class Table extends EventDispatcher  {
     this.hexMap.mapCont.markCont.addChild(this.undoCont)
 
     this.bgRect = this.setBackground(this.scaleCont, bgr) // bounded by bgr
-    let p00 = this.scaleCont.localToLocal(bgr.x, bgr.y, this.hexMap.mapCont.hexCont) 
-    let pbr = this.scaleCont.localToLocal(bgr.x+bgr.w, bgr.y+bgr.h, this.hexMap.mapCont.hexCont)
+    let p00 = this.scaleCont.localToLocal(0, 0, this.hexMap.mapCont.hexCont) 
+    let pbr = this.scaleCont.localToLocal(bgr.w, bgr.h, this.hexMap.mapCont.hexCont)
     this.hexMap.mapCont.hexCont.cache(p00.x, p00.y, pbr.x-p00.x, pbr.y-p00.y) // cache hexCont (bounded by bgr)
     this.setupUndoButtons(55, 60, 45, bgr)
 

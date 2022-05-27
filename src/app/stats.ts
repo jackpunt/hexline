@@ -9,6 +9,7 @@ import { C, F, S, stime } from "@thegraid/easeljs-lib";
 import { ParamGUI, ParamItem, ParamLine, ParamType, ParamOpts, ParamSpec, DropdownButton} from '@thegraid/easeljs-lib'// './ParamGUI' //
 import { Text } from "@thegraid/easeljs-module";
 import { H } from "./hex-intfs";
+import { ParamGUIy } from "./ParamGUIP";
 export type WINARY = [Board, StoneColor, number, number]
 export class PlayerStats {
 
@@ -279,7 +280,7 @@ export class TableStats extends GameStats {
  */
 
 /** A "read-only" version of ParamGUI, to display value of target[fieldName] */
-export class StatsPanel extends ParamGUI {
+export class StatsPanel extends ParamGUIy {
 
   gStats: TableStats
   bFields = ['score', 'sStat'] //
