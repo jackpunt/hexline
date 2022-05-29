@@ -126,8 +126,7 @@ function entriesArray(k: MOVES) {
 /**
  * Planner: eval-node: makeState, find children, for [each] child: eval-node
  */
-// TODO: assign planner to a Player; do all eval wrt that player
-// so won't need -state2.bestValue
+
 // remove Move from State; state.color should suffice (whose turn is it?)
 // presumably can check history[0] to find "the move that got us here"
 // but this way when a State is achieved by different means, we can use it.
@@ -139,7 +138,7 @@ export class Planner implements IPlanner {
   terminate() {} // TODO: maybe run GC or summary stats?
 
   gamePlay: GamePlayDH
-  weightVecs: Record<StoneColor, number[]>
+  myWeightVec: number[]
   districtsToCheck = TP.nHexes > 1 ? [0, 1, 2, 3, 4, 5, 6] 
     : (() => { let a = Array<number>(TP.ftHexes(TP.mHexes)).fill(0); a.forEach((v, ndx) => a[ndx] = ndx); return a })()
   prevMove: Move // previous Move
@@ -160,6 +159,9 @@ export class Planner implements IPlanner {
     this.myPlayerNdx = playerIndex
     this.myStoneColor = color
     this.gamePlay = new GamePlayD(mh, nh, colorn) as GamePlayDH // downgraded to GamePlayD: history, hexMap, undoRecs, allBoards, gStats
+    this.myWeightVec = this.getWeightVec(color)
+  }
+  getWeightVec(color: StoneColor) {
     // compatible with statVector in stats.ts
     let nDist = TP.ftHexes(TP.mHexes)  // each MetaHex is a District
     let dStoneM0 = new Array<number>(nDist).fill(1, 0, nDist); dStoneM0[0] = 1
@@ -169,7 +171,7 @@ export class Planner implements IPlanner {
     let dStoneM1 = new Array<number>(nDist).fill(1, 0, nDist); dStoneM1[0] = .8
     let scoreM1 = 1.4, dMaxM1 = .9, nStonesM1 = 1.2, nInfM1 = .55, nThreatsM1 = .25, nAttacksM1 = .6, nAdjM1 = .2
     let wv1 = dStoneM1.concat([scoreM1, dMaxM1, nStonesM1, nInfM1, nThreatsM1, nAttacksM1, nAdjM1])
-    this.weightVecs = stoneColorRecord(wv0, wv1)
+    return stoneColorRecord(wv0, wv1)[color]
   }
   /** time at last yield (or initial makeMove) */
   ms0: number
@@ -369,7 +371,7 @@ export class Planner implements IPlanner {
     // so we don't _need_ boardState.get(move.board.id) => state1
     // boardState would be useful for 'convergent' paths to same Board/State
     if (state1) { move.state = state1; return state1; }
-    let gStats = this.gamePlay.gStats, color = move.stoneColor
+    let color = move.stoneColor
     let board = move.board, boardId = board.id
     //let [boardId, resign] = this.gamePlay.boardId 
     let state = this.boardState.get(boardId) // reuse State & bestValue
@@ -381,11 +383,10 @@ export class Planner implements IPlanner {
       }
     } else {
       if (!state1) {
+        let gStats = this.gamePlay.gStats
         let [win, winAry] = gStats.updateStats(board)  // calc stats & score for VP win
-        let c0 = stoneColor0, c1 = stoneColor1
-        let weightVec = this.weightVecs[this.myStoneColor] // each planner has its own weightVed estimator
-        let s0 = gStats.getSummaryStat(c0, weightVec)
-        let s1 = gStats.getSummaryStat(c1, weightVec)
+        let s0 = gStats.getSummaryStat(stoneColor0, this.myWeightVec)
+        let s1 = gStats.getSummaryStat(stoneColor1, this.myWeightVec)
         let v0 = s0 - s1 // best move for c0 will maximize value
         state1 = new State(move, color, v0, winAry) // state.move = move; state.moveAry = undefined
         state1.eval = this.gamePlay.history.length  // #of Moves to achieve this board (this.depth-1)
@@ -576,9 +577,7 @@ export class Planner implements IPlanner {
       let fjCheck = this.fjCheckP(state) // or just state1.fj??
       if (nPlys > 0 || fjCheck) {
         let nPlys2 = this.nPlysCheckE(nPlys, fjCheck)
-        // DFS-min/max: find opponent's best move against state1.move:
-        let hexState = await this.lookaheadDeep(state1, otherColor(stoneColor), nPlys2)
-        let [hexn, state3] = hexState
+        let [hexn, state3] = await this.lookaheadDeep(state1, otherColor(stoneColor), nPlys2)
         let bv3 = state3.bestValue[stoneColor0], state2: State
         if (state3.fj && (state2 = this.stateBefore(state, state3)).fj) {
           let bv2 = state2.bestValue[stoneColor0]
@@ -673,6 +672,7 @@ export class Planner implements IPlanner {
     return [hex, state]
   }
 
+  /** find the State (& Move) that preceded stateN */
   stateBefore(state: State, stateN: State) {
     let state1: State 
     while ((state1 = state.bestHexState[1]) != stateN) state = state1
@@ -724,7 +724,7 @@ export class Planner implements IPlanner {
       gamePlay.shiftMove()
       // generate MOVES (of otherColor[gamePlay.history[0].color] =~= stoneColor)
       let hexGen = new HexGen(gamePlay, this.districtsToCheck, evalf).gen()
-      let hexGenA = Array.from(hexGen) // invoke evalf(move) on each legalMove
+      //let hexGenA = Array.from(hexGen) // invoke evalf(move) on each legalMove
       //TP.log > 1 && console.log(stime(this, ident), { moveAry, state0: state0.copyOf(), hexGenA })
       group && console.groupEnd()
     } catch (err) {
@@ -778,24 +778,27 @@ class HexGen {
   hThreats = this.gamePlay.gStats.pStat(this.color).hThreats
   depth = this.gamePlay.history.length
 
-  ; *gen() {
+  gen() {
+    let rv: Hex[] = []
     //yield* this.attackHex(this.move0.hex)
-    if (this.move1) yield* this.alignHex(this.move1.hex, 2, 2)
-    for (let hex of this.hThreats) yield* this.alignHex(hex, 4, 2)
-    yield* this.alignHex(this.move0.hex, undefined, 3)
-    for (let d of this.districts) yield* this.allHexInDistrict(d)
+    if (this.move1) this.alignHex(rv, this.move1.hex, 2, 2)
+    for (let hex of this.hThreats) this.alignHex(rv, hex, 4, 2)
+    this.alignHex(rv, this.move0.hex, undefined, 3)
+    for (let d of this.districts) this.allHexInDistrict(rv, d)
+    return rv
   }
 
   /** sample n hexes Per Dist. */ // TODO: when nh > 1: only districts with Stones, or neighbor with Stones ()
-  *allHexInDistrict(d: number) {
+  allHexInDistrict(rv = [], d: number) {
     let move0 = this.gamePlay.history[0], caps = move0.captured
     let hexAry = this.gamePlay.hexMap.district[d].filter(h => h.stoneColor == undefined && !caps.includes(h) && !this.hexes.has(h))
     let n = 0
     while (n++ < TP.nPerDist && hexAry.length > 0) {
       let hex = hexAry[Math.floor(Math.random() * hexAry.length)]
-      if (this.isLegal(hex)) yield hex
+      if (this.isLegal(hex)) rv.push(hex)
       hexAry = hexAry.filter(h => h != hex)
     }
+    return rv
   }
   /** if hex is unchecked then run isMoveLegal(evalFun), mark as checked */
   isLegal(hex: Hex, density?: number) {
@@ -807,16 +810,16 @@ class HexGen {
   }
 
   /** Hexes that an on-axis to the given Hex */
-  *alignHex(hex: Hex, maxD = this.maxD, maxN = Number.POSITIVE_INFINITY, maxT = Number.POSITIVE_INFINITY) {
+  alignHex(rv: Hex[], hex: Hex, maxD = this.maxD, maxN = Number.POSITIVE_INFINITY, maxT = Number.POSITIVE_INFINITY) {
     let nt = 0, dirs = Object.keys(hex.links) // directions with linked neighbors
     for (let dn of dirs) {
       let nHex = hex, dist = 0, nd = 0
       while ((nHex = nHex.links[dn]) && ++dist <= maxD && nd <= maxN && nt <= maxT) {
         if (!this.isLegal(nHex)) continue
         nd++; nt++
-        yield nHex
+        rv.push(nHex)
       }
     }
-    return
+    return rv
   }
 }
