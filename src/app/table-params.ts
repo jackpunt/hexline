@@ -12,8 +12,8 @@ export class TP {
   static allowSuicide = true;
   static yield = true
   static yieldMM = 1
-  static pWorker = false
-  static pWeight = .9
+  static pWorker = true
+  static pWeight = 1
   static keepMoves = 4; // number of predicted/evaluated moves to retain in State.moveAry
   static pResign = 1    // if lookahead(resignAhead).bv = -Infinity --> Resign
   static pBoards = false  // true: evalState saves board->state
