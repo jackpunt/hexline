@@ -165,11 +165,11 @@ export class GamePlay0 {
       openRec: this.undoRecs.openRec.concat(), })
   }
   /**
-   * See if proposed Move is legal; one of many potential Moves we likely won't make or explore.
+   * See if proposed Move is legal, and if it is suicide (when suicide is legal)
    * 
    * unshift(move); addStone(); isSuicide(); undo(); shift()
    * @param evalFun if false then leave protoMove in place; if function invoke evalFun(move)
-   * @returns a Hex[] (of captured Hexes) if move is Legal, else return undefined
+   * @returns [isLegal, isSuicide]
    */
   isMoveLegal(hex: Hex, color: StoneColor, evalFun: boolean | ((move: Move) => void)  = true): [boolean, boolean] {
     if (hex.stoneColor !== undefined) return [false, false]

@@ -2,7 +2,7 @@ import { M, Obj, stime } from "@thegraid/common-lib";
 import { Move, IMove } from "./move";
 import { GamePlayD,  } from "./game-play"
 import { Hex, IHex } from "./hex";
-import { runEventLoop } from "./hex-intfs";
+import { HexDir, runEventLoop } from "./hex-intfs";
 import { IPlanner } from "./plan-proxy";
 import { WINARY } from "./stats";
 import { otherColor, StoneColor, stoneColor0, stoneColor1, StoneColorRecord, stoneColorRecord, stoneColors, TP } from "./table-params";
@@ -14,6 +14,8 @@ const STALEV = stoneColorValue(Number.POSITIVE_INFINITY)
 let WINLIM = WINVAL[stoneColor0] // stop searching if Move achieves WINLIM[sc0]
 let WINMIN = STALEV[stoneColor0] // stop searching if Move achieves WINLIM[sc0]
 
+type Dir1 = 'NW' | 'SE' // Axis for firstMove
+type Dir2 = Exclude<HexDir, Dir1> // intersecting axes for isSX
 type HexState = [Hex, State]
 class MOVES extends Map<Hex,State>{}
 class PlanMove extends Move {
@@ -139,8 +141,6 @@ export class Planner implements IPlanner {
 
   gamePlay: GamePlayDH
   myWeightVec: number[]
-  districtsToCheck = TP.nHexes > 1 ? [0, 1, 2, 3, 4, 5, 6] 
-    : (() => { let a = Array<number>(TP.ftHexes(TP.mHexes)).fill(0); a.forEach((v, ndx) => a[ndx] = ndx); return a })()
   prevMove: Move // previous Move
   get depth() { return this.gamePlay.history.length + 1 } // accounting for Stones we have played
   /** copy of gamePlay.turnNumber: gamePlay.history.length + 1 */
@@ -181,6 +181,7 @@ export class Planner implements IPlanner {
   myPlayerNdx: number // my Player.index
   myStoneColor: StoneColor // from myPlayerIndex
   readonly scMul = stoneColorRecord(1, -1)
+  readonly dir1: Dir1 = 'NW'
 
   /** play this Stone, Player is stone.color */
   makeMove(color: StoneColor, iHistory: IMove[]): Promise<IHex> {
@@ -208,10 +209,10 @@ export class Planner implements IPlanner {
 
     let firstMove = () => {
       State.sid = sid0 = 0
-      let lastDist = TP.ftHexes(TP.mHexes) - 1
-      let hex = this.gamePlay.hexMap.district[lastDist][0]
+      let mhex = this.gamePlay.hexMap.district[0][0], dir = this.dir1
+      while (mhex.metaLinks[dir]) mhex = mhex.metaLinks[dir]
       // Note: we don't doLocalMove; will pick it up on next syncToGame(history)
-      fillMove(hex)
+      fillMove(mhex)
     }
 
     let dispatchMove = (hexState: HexState) => {
@@ -258,12 +259,12 @@ export class Planner implements IPlanner {
     // Black[4,3] dms: 13705, dsid: '268,854'; (dms: 18403, dsid: '402,543') Black[0,2]
     // White[1,4] dms:  7570, dsid: '144,670'; (dms:  6100, dsid: '132,266') White[0,3]
 
-    // (pWorker = true)
-    // White[1,2] dms: 12123, dsid: '364,437'; (dms: 14134, dsid: '374,896') dms: 11850, dsid: '359,757'
-    // Black[3,2] dms: 23186, dsid: '610,868'; (dms: 33035, dsid: '783,695') dms: 20920, dsid: '552,415'
-    // White[2,4] dms: 17849, dsid: '481,793'; (dms: 18401, dsid: '464,466') dms: 16629, dsid: '455,830'
-    // Black[4,3] dms: 11188, dsid: '268,854'; (dms: 18403, dsid: '402,543') B[0,2] dms:  9486, dsid: '228,399' B[0,4]
-    // White[1,4] dms:  6432, dsid: '144,670'; (dms:  6100, dsid: '132,266') W[0,3] dms: 10594, dsid: '257,853' W[2,3]
+    // Note: (mh:3, nh:1, pW=1.0) after 'Black[2,1]'-> (pWorker = true)                 [isSX]
+    // White[1,2] dms: 12123, dsid: '364,437'; (dms: 14134, dsid: '374,896') dms: 12656, dsid: '329,815' 
+    // Black[3,2] dms: 23186, dsid: '610,868'; (dms: 33035, dsid: '783,695') dms: 23033, dsid: '533,080'
+    // White[2,4] dms: 17849, dsid: '481,793'; (dms: 18401, dsid: '464,466') dms: 18384, dsid: '435,924'
+    // Black[4,3] dms: 11188, dsid: '268,854'; (dms: 18403, dsid: '402,543') B[0,2] dms:  9790, dsid: '206,793' B[0,4]
+    // White[1,4] dms:  6432, dsid: '144,670'; (dms:  6100, dsid: '132,266') W[0,3] dms: 11750, dsid: '247,673' W[2,3]
 
     // Note: (mh:3, nh:1, pW=0.9) after 'Black[2,1]'->
     // White[1,2] dms: 14825, dsid: '382,897'; (dms: 15820, dsid: '384,412')
@@ -272,16 +273,79 @@ export class Planner implements IPlanner {
     // Black[0,4] dms: 11235, dsid: '247,251'; (dms: 16748, dsid: '355,987')
     // White[1,4] dms:  7664, dsid: '153,047'; (dms: 20333, dsid: '407,456') White[4,4]
 
-    // (mh:4, nh:1, pW=1.0) after 'Black[1,3]
-    // White[3,3] dms:  71639, dsid: '1,514,360'
-    // Black[3,5] dms: 137567, dsid: '2,887,662'
-    // White[1,4] dms: 158565, dsid: '3,281,437'
-    // Black[3,6] dms: 182414, dsid: '3,546,926'
-    // White[4,4] dms: 203493, dsid: '4,034,728'
-    // Black[0,5]!dms: 197978, dsid: '3,612,632' (artificially high value, due to dogfight?; stopped breadth!)
-    // White[0,4]c     manual
+    // (mh:4, nh:1, pW=1.0) after 'Black[3,1]           isSX: (onAxis)
+    // White[3,3] dms:  71639, dsid: '1,514,360'; dms:  65014, dsid: '1,214,147'
+    // Black[3,5] dms: 137567, dsid: '2,887,662'; dms: 121368, dsid: '2,522,506'
+    // White[1,4] dms: 158565, dsid: '3,281,437'; dms: 189707, dsid: '2,989,795' (dms: twitter, dsid: '2,988,655')
+    // Black[3,6] dms: 182414, dsid: '3,546,926'; dms: 297154, dsid: '4,432,444'
+    // White[4,4] dms: 203493, dsid: '4,034,728'; dms: 231774, dsid: '3,428,875'
+    // Black[4,3]c                              ; dms: 200114, dsid: '2,856,353'
+    // White[2,4]c                              ; dms: 115438, dsid: '1,686,401'
+    // Black[4,6]                               ; dms: 240023, dsid: '3,384,763'
 
+    // (mh:2, nh:2, pW=1) [with districtsToCheck, but for [2,2] that is allDistricts!]
+    // White[2,5] dms: 55191, dsid: '1,135,886'   isSX: dms: 52609, dsid: '1,144,593'
+    // Black[4,3] dms: 130943, dsid: '2,618,526'
   }
+  /* 3x1: 
+10: {Aname: 'BLACK@[1,1]', stoneColor: 'b', hex: {…}}
+11: {Aname: 'WHITE@[1,4]', stoneColor: 'w', hex: {…}}
+12: {Aname: 'BLACK@[1,4]', stoneColor: 'b', hex: {…}}
+13: {Aname: 'WHITE@[3,4]', stoneColor: 'w', hex: {…}}
+14: {Aname: 'BLACK@[1,2]', stoneColor: 'b', hex: {…}}
+15: {Aname: 'WHITE@[2,3]', stoneColor: 'w', hex: {…}}
+16: {Aname: 'BLACK@[3,1]', stoneColor: 'b', hex: {…}} <- Black Resigns
+17: {Aname: 'WHITE@[2,4]', stoneColor: 'w', hex: {…}}
+18: {Aname: 'BLACK@[1,2]', stoneColor: 'b', hex: {…}}
+19: {Aname: 'WHITE@[2,3]', stoneColor: 'w', hex: {…}}
+20: {Aname: 'BLACK@[2,1]', stoneColor: 'b', hex: {…}} <- Black Skip! (only one move in log!)
+21: {Aname: 'WHITE@[0,4]', stoneColor: 'w', hex: {…}}
+22: {Aname: 'BLACK@[1,4]', stoneColor: 'b', hex: {…}}
+23: {Aname: 'WHITE@[2,4]', stoneColor: 'w', hex: {…}}
+24: {Aname: 'BLACK@[2,4]', stoneColor: 'b', hex: {…}}
+25: {Aname: 'WHITE@[3,4]', stoneColor: 'w', hex: {…}}
+26: {Aname: 'BLACK@[2,5]', stoneColor: 'b', hex: {…}}
+27: {Aname: 'WHITE@[4,4]', stoneColor: 'w', hex: {…}}
+28: {Aname: 'BLACK@[4,2]', stoneColor: 'b', hex: {…}}
+29: {Aname: 'WHITE@[3,3]', stoneColor: 'w', hex: {…}}
+30: {Aname: 'BLACK@[2,2]', stoneColor: 'b', hex: {…}}
+31: {Aname: 'WHITE@[1,3]', stoneColor: 'w', hex: {…}}
+32: {Aname: 'BLACK@[0,2]', stoneColor: 'b', hex: {…}}
+
+// [2x2]
+0: {Aname: 'BLACK@[2,6]', stoneColor: 'b', hex: {…}}
+1: {Aname: 'WHITE@[1,6]', stoneColor: 'w', hex: {…}}
+2: {Aname: 'BLACK@[7,4]', stoneColor: 'b', hex: {…}}
+3: {Aname: 'WHITE@[5,8]', stoneColor: 'w', hex: {…}}
+4: {Aname: 'BLACK@[0,6]', stoneColor: 'b', hex: {…}}
+5: {Aname: 'WHITE@[4,8]', stoneColor: 'w', hex: {…}}
+6: {Aname: 'BLACK@[4,8]', stoneColor: 'b', hex: {…}}
+7: {Aname: 'WHITE@[1,5]', stoneColor: 'w', hex: {…}}
+8: {Aname: 'BLACK@[5,4]', stoneColor: 'b', hex: {…}}
+9: {Aname: 'WHITE@[1,4]', stoneColor: 'w', hex: {…}}
+10: {Aname: 'BLACK@[6,5]', stoneColor: 'b', hex: {…}}
+11: {Aname: 'WHITE@[2,4]', stoneColor: 'w', hex: {…}}
+12: {Aname: 'BLACK@[5,5]', stoneColor: 'b', hex: {…}}
+13: {Aname: 'WHITE@[1,6]', stoneColor: 'w', hex: {…}}
+14: {Aname: 'BLACK@[6,4]', stoneColor: 'b', hex: {…}}
+15: {Aname: 'WHITE@[4,7]', stoneColor: 'w', hex: {…}}
+16: {Aname: 'BLACK@[3,5]', stoneColor: 'b', hex: {…}}
+17: {Aname: 'WHITE@[5,7]', stoneColor: 'w', hex: {…}}
+18: {Aname: 'BLACK@[3,4]', stoneColor: 'b', hex: {…}}
+19: {Aname: 'WHITE@[2,8]', stoneColor: 'w', hex: {…}}
+20: {Aname: 'BLACK@[0,5]', stoneColor: 'b', hex: {…}}
+21: {Aname: 'WHITE@[0,6]', stoneColor: 'w', hex: {…}}
+22: {Aname: 'BLACK@[2,5]', stoneColor: 'b', hex: {…}}
+23: {Aname: 'WHITE@[1,7]', stoneColor: 'w', hex: {…}}
+24: {Aname: 'BLACK@[4,6]', stoneColor: 'b', hex: {…}}
+25: {Aname: 'WHITE@[1,8]', stoneColor: 'w', hex: {…}}
+26: {Aname: 'BLACK@[4,5]', stoneColor: 'b', hex: {…}}
+27: {Aname: 'WHITE@[3,7]', stoneColor: 'w', hex: {…}}
+28: {Aname: 'BLACK@[1,4]', stoneColor: 'b', hex: {…}}
+29: {Aname: 'WHITE@[2,7]', stoneColor: 'w', hex: {…}}
+30: {Aname: 'BLACK@[1,5]', stoneColor: 'b', hex: {…}}
+  */
+
   /** do move from main.history: translate hex */
   doHistoryMove(moveg: IMove) {
     let move1 = this.gamePlay.history[0]
@@ -437,7 +501,8 @@ export class Planner implements IPlanner {
   logAndGC(ident: string, state0: State, sid0: number, ms0: number, nPlys: number, stoneColor: string, gc = true) {
     let [bestHex, bestState] = state0.bestHexState
     if (TP.log > 0 || this.depth == this.moveNumber) {
-      let dsid = State.sid - sid0, dms = Date.now() - ms0, sps = M.decimalRound(1000 * dsid / dms, 0)
+      let dsidn = State.sid - sid0, dms = Date.now() - ms0, sps = M.decimalRound(1000 * dsidn / dms, 0)
+      let dsid = dsidn.toLocaleString()
       state0.logMoveAry(ident, this.depth, bestState)
       let bestValue = bestState.bv, move = bestState.move
       let Aname = bestHex.toString(move.stoneColor), nBoards = this.gamePlay.allBoards.size
@@ -531,7 +596,7 @@ export class Planner implements IPlanner {
           state0.setBestHexState(bestHexState) // best of what we just looked at. TODO: compare to other evaluated states
         }
       }
-      this.logAndGC(`.lookaheadDeep:`, state0, sid0, ms0, nPlys, stoneColor, false)
+      this.logAndGC(`.lookaheadDeep:`, state0, sid0, ms0, nPlys, stoneColor)
 
       // timers and voluntary yield:
       let dsid = State.sid - sid0, now = Date.now(), dmc = now - this.ms0, dtn = this.depth - this.moveNumber
@@ -630,7 +695,7 @@ export class Planner implements IPlanner {
           state0.setBestHexState(bestHexState)
         }
       }
-      this.logAndGC(`.lookaheadShallow`, state0, sid0, ms0, nPlys, stoneColor, false)
+      this.logAndGC(`.lookaheadShallow`, state0, sid0, ms0, nPlys, stoneColor)
       group && console.groupEnd()
       return bestHexState
     } catch (err) {
@@ -713,6 +778,9 @@ export class Planner implements IPlanner {
 
     if (useMoveAry) {
       TP.log > 0 && state0.logMoveAry(`${ident}:pre-evaluated moveAry`, tn)
+      TP.log > 0 && console.warn(stime(this, ident), ':pre-evaluated moveAry')
+      // TODO: check move.caps for moves that *were* blocked, but are not ok?
+      debugger;
     } else try {
       TP.log > 0 && (console.groupCollapsed(`${stime(this, ident)} -> ${TP.colorScheme[sc]}#${tn}:`), group = true)
       moveAry = state0.moveAry = []
@@ -723,7 +791,8 @@ export class Planner implements IPlanner {
       evalf(skipMove)                      // eval and set into moves & moveAry
       gamePlay.shiftMove()
       // generate MOVES (of otherColor[gamePlay.history[0].color] =~= stoneColor)
-      let hexGen = new HexGen(gamePlay, this.districtsToCheck, evalf).gen()
+      let hexGen = new HexGen(gamePlay, evalf)
+      hexGen.gen() // TODO: respond to C-c to stop! (back to yield/next?)
       //let hexGenA = Array.from(hexGen) // invoke evalf(move) on each legalMove
       //TP.log > 1 && console.log(stime(this, ident), { moveAry, state0: state0.copyOf(), hexGenA })
       group && console.groupEnd()
@@ -768,58 +837,138 @@ class HexGen {
   // conversely, check for attack moves to finish-off threats that I have against otherPlayer.
 
   // assert: history[0] is valid (because first move has been done)
-  constructor(private gamePlay: GamePlayD, private districts: number[] = [0, 1, 2, 3, 4, 5, 6], private evalFun?: (move: Move) => void) { }
+  constructor(private gamePlay: GamePlayD, private evalFun?: (move: Move) => void) { 
+    this.setSXmeta()   // set statics once, when board format/signature changes
+  }
   hexes = new Set<Hex>()
   move0 = this.gamePlay.history[0]  // last move otherPlayer made
   move1 = this.gamePlay.history[1]  // last move 'curPlayer' made
   color = otherColor(this.move0.stoneColor)
-  density = TP.nPerDist / (this.gamePlay.hexMap.district[0].length)
   maxD = Math.min(10, Math.ceil(Math.sqrt(TP.tHexes)/2))
   hThreats = this.gamePlay.gStats.pStat(this.color).hThreats
   depth = this.gamePlay.history.length
+  attemptDist = Array<number>(TP.nDistricts).fill(0) 
+  legalDists = Array<number>(TP.nDistricts).fill(0)
+  hexMap = this.gamePlay.hexMap
+  moveAry: Hex[]
+  otherDists: IterableIterator<number>
 
   gen() {
-    let rv: Hex[] = []
+    this.moveAry = []
     //yield* this.attackHex(this.move0.hex)
-    if (this.move1) this.alignHex(rv, this.move1.hex, 2, 2)
-    for (let hex of this.hThreats) this.alignHex(rv, hex, 4, 2)
-    this.alignHex(rv, this.move0.hex, undefined, 3)
-    for (let d of this.districts) this.allHexInDistrict(rv, d)
-    return rv
+    if (this.move1) this.alignHex(this.move1.hex, 2, 2)
+    for (let hex of this.hThreats) this.alignHex(hex, 4, 2)
+    this.alignHex(this.move0.hex, undefined, 3)
+    for (let d of this.adjacentDistricts(this.legalDists)) this.nInEachDistrict(d)
+    if (this.moveAry.length <= TP.maxBreadth) 
+      for (let d of this.otherDists) this.nInEachDistrict(d)
+    return this.moveAry
   }
 
-  /** sample n hexes Per Dist. */ // TODO: when nh > 1: only districts with Stones, or neighbor with Stones ()
-  allHexInDistrict(rv = [], d: number) {
+  enumAllDistricts() {
+    let allDistricts = (TP.nHexes > 1) ? [0, 1, 2, 3, 4, 5, 6] 
+      : (() => { let a = Array<number>(TP.nDistricts).fill(0); a.forEach((v, ndx) => a[ndx] = ndx); return a })()
+    return allDistricts
+  }
+  adjacentDistricts(districts: number[]) {
+    let districtsToCheck = new Set<number>()
+    let otherDistricts = new Set<number>()
+    districts.forEach((v, d) => {
+      if (v == 0) { 
+        otherDistricts.add(d)
+      } else {
+        // add each visited District and its immediate neighbor Districts
+        districtsToCheck.add(d)
+        let mhex0 = this.gamePlay.hexMap.district[d][0]
+        let mlinks = mhex0.metaLinks
+        for (let hex of Object.values(mlinks)) 
+          districtsToCheck.add(hex.district)
+      }
+    })
+    this.otherDists = otherDistricts.values()
+    return districtsToCheck.values()
+  }
+
+  /** sample n hexes Per Dist. */
+  nInEachDistrict(d: number) {
     let move0 = this.gamePlay.history[0], caps = move0.captured
     let hexAry = this.gamePlay.hexMap.district[d].filter(h => h.stoneColor == undefined && !caps.includes(h) && !this.hexes.has(h))
     let n = 0
     while (n++ < TP.nPerDist && hexAry.length > 0) {
-      let hex = hexAry[Math.floor(Math.random() * hexAry.length)]
-      if (this.isLegal(hex)) rv.push(hex)
+      let hex = hexAry[Math.floor(Math.random() * hexAry.length)] // sample until we find nPerDist
+      this.isLegal(hex) // { hexes.add(hex); evalFun(hex) }
       hexAry = hexAry.filter(h => h != hex)
     }
-    return rv
   }
   /** if hex is unchecked then run isMoveLegal(evalFun), mark as checked */
-  isLegal(hex: Hex, density?: number) {
+  isLegal(hex: Hex) {
     if (this.hexes.has(hex)) return false
     this.hexes.add(hex)
-    if (density && (Math.random() >= this.density)) return false
+    if (this.onAxis() && this.isSX(hex)) return false // if allStones are onAxis, ignore Southern
+    this.attemptDist[hex.district]++
     // evalFun(move) will process each legal Move:
-    return this.gamePlay.isMoveLegal(hex, this.color, this.evalFun)[0]
+    if (this.gamePlay.isMoveLegal(hex, this.color, this.evalFun)[0]) {
+      this.legalDists[hex.district]++ // count legal Moves into each District
+      this.moveAry.push(hex)
+      return true
+    }
+    return false
   }
 
   /** Hexes that an on-axis to the given Hex */
-  alignHex(rv: Hex[], hex: Hex, maxD = this.maxD, maxN = Number.POSITIVE_INFINITY, maxT = Number.POSITIVE_INFINITY) {
+  alignHex(hex: Hex, maxD = this.maxD, maxN = Number.POSITIVE_INFINITY, maxT = Number.POSITIVE_INFINITY) {
     let nt = 0, dirs = Object.keys(hex.links) // directions with linked neighbors
     for (let dn of dirs) {
       let nHex = hex, dist = 0, nd = 0
       while ((nHex = nHex.links[dn]) && ++dist <= maxD && nd <= maxN && nt <= maxT) {
         if (!this.isLegal(nHex)) continue
         nd++; nt++
-        rv.push(nHex)
       }
     }
-    return rv
+  }
+  offAxis = false
+  onAxis() {
+    return this.offAxis ? true : !(this.offAxis = !!this.gamePlay.hexMap.allStones.find(hsc => !HexGen.sxMetaLine.includes(hsc[0])))
+  }
+  isSX(hex: Hex) {
+    return this.gamePlay.history.length < 2 && HexGen.sxAllMetas?.includes(this.gamePlay.hexMap.district[hex.district][0])
+  }
+  static sxSignature: string
+  static sxMetaLine: Hex[]  // a line of metaHex: from move1.hex through center Hex
+  static sxAllMetas: Hex[] // all the Metas south of the metaLineC
+
+  /** isSX(hex) if hex.metaLinks[Dir2] intersects the metaHexes on the axis from B[1] through District[0] (NW-SE = LR:horizontal) 
+   * @param hex the Hex to test
+   * @param hex0 the Hex where B[Move1]==history[0] was played
+  */
+  setSXmeta() {
+    let move0 = this.gamePlay.history[this.gamePlay.history.length - 1] // first Move of game
+    let sig = `[${TP.mHexes}x${TP.nHexes}]${move0.board.id}`
+    if (HexGen.sxSignature != sig) {
+      let metaLine = []
+      let hex0 = move0.hex
+      let hexC = this.hexMap.district[0][0]
+      let axisDir = Object.keys(hex0.metaLinks).find(dir => { // axis = revDir[this.dir1]
+        metaLine.splice(0, metaLine.length, hex0)             // metaLine = [hex0]
+        let nhex = hex0
+        while ((nhex = nhex.metaLinks[dir]) && metaLine.push(nhex)) {
+          if (nhex == hexC) {
+            while ((nhex = nhex.metaLinks[dir]) && metaLine.push(nhex)) { } // the rest of metaLine
+            return true // axis = dir
+          }
+        }
+        return false
+      })
+      // ASSERT: dir2 intersects dir1
+      let dir2: Dir2 = 'NE'  // Note: makeDistrict/metaMap uses nsTopo (even when nh==1) 
+      let allSXMetas = this.hexMap.district.map(d => d[0]).filter((mhex, ndx, hexary) => {
+        while (mhex = mhex.metaLinks[dir2])
+          if (metaLine.includes(mhex)) return true
+        return false
+      })
+      HexGen.sxAllMetas = allSXMetas
+      HexGen.sxMetaLine = metaLine
+      HexGen.sxSignature = sig
+    }
   }
 }

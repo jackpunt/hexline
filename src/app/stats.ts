@@ -24,7 +24,7 @@ export class PlayerStats {
   nAdj: number = 0;      // number of adjacent stones [compactness]
 
   constructor() {
-    let distLen = TP.ftHexes(TP.mHexes) // gStats.hexMap.nDistricts; 
+    let distLen = TP.nDistricts // gStats.hexMap.nDistricts; 
     this.dStones = Array(distLen).fill(0, 0, distLen)
     this.dMinControl = Array(distLen).fill(false, 0, distLen)
   }
