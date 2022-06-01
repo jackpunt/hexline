@@ -20,7 +20,7 @@
     "@angular/platform-browser": "~13.2.0",
     "@angular/platform-browser-dynamic": "~13.2.0",
     "@angular/router": "~13.2.0",
-    "@thegraid/common-lib": "^1.3.17",
+    "@thegraid/common-lib": "^1.3.19",
     "@thegraid/easeljs-lib": "^1.1.2",
     "@thegraid/easeljs-module": "^1.1.4",
     "@thegraid/ezpromise": "^1.0.10",
