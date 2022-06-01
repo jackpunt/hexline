@@ -19,8 +19,8 @@ type TopoNS = { [key in NsDir] }
 type Topo = TopoEW | TopoNS
 
 export type HexMaps = HexMap | HexMapLayer
-export type HSC = { hex: Hex, sc: StoneColor, Aname?: string }
-export function newHSC(hex: Hex, sc: StoneColor, Aname?: string) { return { Aname, hex, sc } }
+export type HSC = { hex: Hex, sc: StoneColor, Aname: string }
+export function newHSC(hex: Hex, sc: StoneColor, Aname = hex.Aname) { return { Aname, hex, sc } }
 class InfMark extends Shape {
   /** Note: requires a Canvas for nameToRgbaString() */
   static gColor(sc: StoneColor, g: Graphics = new Graphics()) {
@@ -122,7 +122,7 @@ export class Hex {
     this.stoneColor = stoneColor
     //let hexm = new HexMapLayer(this.map, this, stoneColor)
     //let hex = hexm.addHex(this)
-    let hsc: HSC = newHSC(this, stoneColor, this.Aname)
+    let hsc: HSC = newHSC(this, stoneColor)
     this.map?.allStones.push(hsc) // no push: Aname == nextHex
     return this
   }
