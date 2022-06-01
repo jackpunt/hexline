@@ -60,8 +60,8 @@ class PlanWorker {
   roboMove(run: boolean) {
     this.planner.roboMove(run)
   }
-  makeMove(stoneColor: StoneColor, iHistory: IMove[]) {
-    let movePromise = this.planner.makeMove(stoneColor, iHistory)
+  makeMove(stoneColor: StoneColor, iHistory: IMove[], incb = 0) {
+    let movePromise = this.planner.makeMove(stoneColor, iHistory, incb)
     movePromise.then(hex => this.reply('move', hex.row, hex.col, hex.Aname))
   }
   log(...args: Args)  {

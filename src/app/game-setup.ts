@@ -117,6 +117,7 @@ export class GameSetup {
     gui.makeParamSpec("pWorker", [true, false], { target: TP }); TP.pWorker
     gui.makeParamSpec("pBoards", [true, false], { target: TP }); TP.pBoards
     gui.makeParamSpec("pMoves",  [true, false], { target: TP }); TP.pMoves
+    gui.makeParamSpec("pGCM",    [true, false], { target: TP }); TP.pGCM
 
     parent.addChild(gui)
     gui.x = x; gui.y = y

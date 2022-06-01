@@ -1,4 +1,5 @@
-import { H, pauseGenR, resumeGenR, } from "./hex-intfs";
+import { H } from "./hex-intfs";
+import { pauseGenR, resumeGenR, } from "./event-loop";
 import { Hex, Hex2, HexMap, S_Resign, HSC, HexMaps } from "./hex";
 import { HexEvent } from "./hex-event";
 import { S, stime, Undo, KeyBinder } from "@thegraid/easeljs-lib";
@@ -256,6 +257,7 @@ export class GamePlay extends GamePlay0 {
     KeyBinder.keyBinder.setKey('C-s', { thisArg: GameSetup.setup, func: GameSetup.setup.restart })// C-s START
     KeyBinder.keyBinder.setKey('C-c', { thisArg: this, func: this.stopPlayer })// C-c Stop Planner
     KeyBinder.keyBinder.setKey('m', { thisArg: this, func: this.makeMove, argVal: true })
+    KeyBinder.keyBinder.setKey('M', { thisArg: this, func: this.makeMoveAgain, argVal: true })
     KeyBinder.keyBinder.setKey('n', { thisArg: this, func: this.autoMove, argVal: false })
     KeyBinder.keyBinder.setKey('N', { thisArg: this, func: this.autoMove, argVal: true})
     KeyBinder.keyBinder.setKey('y', { thisArg: this, func: () => TP.yield = true })
@@ -296,13 +298,16 @@ export class GamePlay extends GamePlay0 {
       this.table.hexMap.update()
     }, 400)
   }
+  makeMoveAgain(arg?: boolean, ev?: any) {
+    this.undoMove()
+    this.makeMove(true, 1)
+  }
   /** provoke Player (GUI or Planner) to respond with addStoneEvent */
-  makeMove(auto?: boolean) {
+  makeMove(auto?: boolean, ev?: any, incb = 0) {
     let stone = this.table.nextHex.stone
-    let player = this.curPlayer
-    if (this.turnNumber == 1) player = this.otherPlayer(player)
+    let player = (this.turnNumber > 1) ? this.curPlayer : this.otherPlayer(this.curPlayer)
     if (auto === undefined) auto = player.useRobo
-    player.makeMove(stone, auto) // make one robo move
+    player.playerMove(stone, auto, incb) // make one robo move
   }
   /** if useRobo == true, then Player delegates to robo-player immediately. */
   autoMove(useRobo: boolean = false) {
@@ -433,10 +438,6 @@ export class GamePlay extends GamePlay0 {
   removeStoneEvent(hev: HexEvent) {
     throw new Error("Method not implemented.");
   }
-}
-
-export interface Mover {
-  makeMove(stone: Stone, useRobo: boolean): void
 }
 
 /** a uniquifying 'symbol table' of Board.id */

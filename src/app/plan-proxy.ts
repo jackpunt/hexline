@@ -12,7 +12,7 @@ export type IPlanner = {
   /** enable Planner to continue searching */
   roboMove(run: boolean): void;
   /** provoke Planner to search for next Move */
-  makeMove(stoneColor: StoneColor, history: IMove[]): Promise<IHex>;
+  makeMove(stoneColor: StoneColor, history: IMove[], incb?: number): Promise<IHex>;
   /** permanently stop this IPlanner */
   terminate(): void;
 }
@@ -85,11 +85,11 @@ export class PlannerProxy implements IPlanner {
 
   filHex: (hex: IHex) => void
   rejHex: (arg: any) => void
-  makeMove(stoneColor: StoneColor, history: Move[]): Promise<IHex> {
+  makeMove(stoneColor: StoneColor, history: Move[], incb = 0): Promise<IHex> {
     let iHistory = history.map((m) => m.toIMove)
     // TODO: marshal iHistory to a [Transferable] bytebuffer [protobuf?]
     /*this.ll0 &&*/ console.log(stime(this, `(${this.colorn}).makeMove: iHistory =`), iHistory)
-    this.postMessage(`.makeMove:`, 'makeMove', stoneColor, iHistory )
+    this.postMessage(`.makeMove:`, 'makeMove', stoneColor, iHistory, incb )
     return new Promise<IHex>((fil, rej) => {
       this.filHex = fil
       this.rejHex = rej

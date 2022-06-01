@@ -13,7 +13,7 @@
     // White[1,4] dms:  7570, dsid: '144,670'; (dms:  6100, dsid: '132,266') White[0,3]
 
     // Note: (mh:3, nh:1, pW=1.0) after 'Black[2,1]'-> (pWorker = true)                 [isSX]
-    // White[1,2] dms: 12123, dsid: '364,437'; (dms: 14134, dsid: '374,896') dms: 12656, dsid: '329,815' 
+    // White[1,2] dms: 12123, dsid: '364,437'; (dms: 14134, dsid: '374,896') dms: 12656, dsid: '329,815'
     // Black[3,2] dms: 23186, dsid: '610,868'; (dms: 33035, dsid: '783,695') dms: 23033, dsid: '533,080'
     // White[2,4] dms: 17849, dsid: '481,793'; (dms: 18401, dsid: '464,466') dms: 18384, dsid: '435,924'
     // Black[4,3] dms: 11188, dsid: '268,854'; (dms: 18403, dsid: '402,543') B[0,2] dms:  9790, dsid: '206,793' B[0,4]
@@ -38,7 +38,7 @@
     // White[3,2]c dms: 34421, dsid:   '707,855'
     // Black[2,4]c dms: 40121, dsid:   '776,000'
     // White[4,4]  dms: 78252, dsid: '1,525,493'
-    // Black[2,5]  dms: 59408, dsid: '1,033,271' 
+    // Black[2,5]  dms: 59408, dsid: '1,033,271'
     // White[5,4]  dms: 46590, dsid:   '831,365'
     // Black[1,3]  dms: 54325, dsid:   '910,455'
     // White[6,4]  dms: 28171, dsid:   '490,460'
@@ -58,7 +58,7 @@
     // White[3,7] dms:  53291, dsid: '1,246,162';
     // Black[3,4] dms: 135829, dsid: '2,925,547';
     // White[5,7] dms: 135156, dsid: '2,946,357';
-      /* 3x1: 
+      /* 3x1:
 10: {Aname: 'BLACK@[1,1]', stoneColor: 'b', hex: {…}}
 11: {Aname: 'WHITE@[1,4]', stoneColor: 'w', hex: {…}}
 12: {Aname: 'BLACK@[1,4]', stoneColor: 'b', hex: {…}}

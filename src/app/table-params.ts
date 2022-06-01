@@ -14,13 +14,14 @@ export class TP {
   static yieldMM = 1
   static pWorker = true
   static pWeight = 1
-  static keepMoves = 4; // number of predicted/evaluated moves to retain in State.moveAry
-  static pResign = 1    // if lookahead(resignAhead).bv = -Infinity --> Resign
+  static keepMoves = 4;   // number of predicted/evaluated moves to retain in State.moveAry
+  static pResign = 1      // if lookahead(resignAhead).bv = -Infinity --> Resign
   static pBoards = false  // true: evalState saves board->state
   static pMoves = true    // true: use predicted moveAry
-  static maxPlys = 4     // for robo-player lookahead
-  static maxBreadth = 7  // for robo-player lookahead
-  static nPerDist = 4    // samples per district
+  static pGCM = true      // GC state.moveAry (except bestHexState.moveAry)
+  static maxPlys = 4      // for robo-player lookahead
+  static maxBreadth = 7   // for robo-player lookahead
+  static nPerDist = 4     // samples per district
   static Black_White = stoneColorRecord('BLACK', 'WHITE')
   static Blue_Red = stoneColorRecord('BLUE', 'RED')
   static schemeNames = ['Black_White', 'Blue_Red']

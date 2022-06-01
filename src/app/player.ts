@@ -1,19 +1,19 @@
 import { stime, S } from "@thegraid/common-lib"
-import { Mover, GamePlay } from "./game-play"
+import { GamePlay } from "./game-play"
 import { Hex, IHex } from "./hex"
 import { HexEvent } from "./hex-event"
 import { IPlanner, newPlanner } from "./plan-proxy"
 import { Stone, Table } from "./table"
 import { StoneColor, TP } from "./table-params"
 
-export class Player implements Mover {
+export class Player {
   name: string
   index: number
   color: StoneColor
-  mover: Mover
   otherPlayer: Player
   table: Table
   planner: IPlanner
+  /** if true then invoke plannerMove */
   useRobo: boolean = false
   get colorn() { return TP.colorScheme[this.color] }
  
@@ -35,12 +35,11 @@ export class Player implements Mover {
     this.planner.roboMove(false)
   }
   /** if Planner is not running, maybe start it; else wait for GUI */ // TODO: move Table.dragger to HumanPlanner
-  makeMove(stone: Stone, useRobo = false) {
+  playerMove(stone: Stone, useRobo = this.useRobo, incb = 0) {
     let running = this.plannerRunning
     // feedback for KeyMove:
     console.log(stime(this, `(${this.colorn}).makeMove(${useRobo}): useRobo=${this.useRobo}, running=${running}`))
     if (running) return
-    this.planner.roboMove(true)
     if (useRobo || this.useRobo) {
       // start planner from top of stack:
       setTimeout(() => this.plannerMove(stone, this.table))
@@ -48,9 +47,10 @@ export class Player implements Mover {
     return      // robo or GUI will invoke gamePlay.doPlayerMove(...)
   }
   plannerRunning = false
-  plannerMove(stone: Stone, table: Table) {
+  plannerMove(stone: Stone, table: Table, incb = 0) {
+    this.planner.roboMove(true)
     this.plannerRunning = true
-    this.planner.makeMove(stone.color, table.gamePlay.history).then((ihex: IHex) => {
+    this.planner.makeMove(stone.color, table.gamePlay.history, incb).then((ihex: IHex) => {
       this.plannerRunning = false
       let hex = Hex.ofMap(ihex, table.hexMap)
       table.hexMap.showMark(hex)
