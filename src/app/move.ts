@@ -14,6 +14,8 @@ export class Move {
   readonly captured: Hex[] = [];
   /** set by GamePlay.incrBoard(Move) */
   board: Board;
+  /**  */
+  suicide: boolean
   /**
    *
    * @param hex
@@ -40,5 +42,12 @@ export class Move {
   /** reduce to serializable IMove (removes captured & board) */
   get toIMove(): IMove {
     return { Aname: this.Aname, stoneColor: this.stoneColor, hex: this.hex.toIHex };
+  }
+  /** override in PlanMove to indicate move.state.fj */
+  ind(none = ' ', pre?: string) { 
+    let caps = this.captured
+    let rv = (pre || (!caps ? '?' : (caps.length > 0) ? `${caps.length}` : none) )
+    + (this.suicide ? '*' : ' ')
+    return rv
   }
 }

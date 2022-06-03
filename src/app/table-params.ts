@@ -39,9 +39,9 @@ export class TP {
   static hexRad = 50
   static log = 0
   /** set victory conditions for (nh, mh) */
-  static fnHexes(nh: number, mh: number) {
+  static fnHexes(mh: number, nh: number) {
     TP.mHexes = mh
-    TP.nHexes = nh
+    TP.nHexes = nh = (mh < 5 ? nh : 1)
     TP.nDistricts = TP.ftHexes(mh)
     TP.nVictory = Math.ceil(TP.nDistricts / 2)
     TP.tHexes = TP.ftHexes(mh) * TP.ftHexes(nh)

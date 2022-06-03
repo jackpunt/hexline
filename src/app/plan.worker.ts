@@ -50,7 +50,7 @@ class PlanWorker {
     postMessage({verb, args})
   }
   newPlanner(mh: number, nh: number, index: number) {
-    TP.fnHexes(nh, mh)
+    TP.fnHexes(mh, nh)
     // this.planner.gamePlay.hexMap.mh
     this.ll0 && console.log(stime(this, `.newPlanner:`), {mh, nh, index}) // [Object object]
     this.planner = new Planner(mh, nh, index)

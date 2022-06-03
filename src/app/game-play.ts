@@ -22,6 +22,10 @@ export class GamePlay0 {
   readonly allBoards = new BoardRegister()
   readonly gStats: GameStats       // 'readonly' (set once by clone constructor)
   
+  newMoveFunc: (hex: Hex, sc: StoneColor, caps: Hex[], gp: GamePlay0) => Move 
+  newMove(hex: Hex, sc: StoneColor, caps: Hex[], gp: GamePlay0) {
+    return this.newMoveFunc? this.newMoveFunc(hex,sc, caps, gp) : new Move(hex, sc, caps, gp)
+  }
   undoRecs: Undo = new Undo().enableUndo();
   addUndoRec(obj: Object, name: string, value: any | Function = obj[name]) { 
     this.undoRecs.addUndoRec(obj, name, value); 
@@ -112,14 +116,15 @@ export class GamePlay0 {
 
   /** remove captured Stones, from placing Stone on Hex */
   doPlayerMove(hex: Hex, stoneColor: StoneColor): StoneColor {
-    let move0 = new Move(hex, stoneColor, [], this) // new Move(); addStone(); incrBoard(); updateStates()
+    let move0 = this.newMove(hex, stoneColor, [], this) // new Move(); addStone(); incrBoard(); updateStates()
     if (hex == this.hexMap.skipHex) {
       this.doPlayerSkip(hex, stoneColor)
     } else if (hex == this.hexMap.resignHex) {
       this.doPlayerResign(hex, stoneColor) // incrBoard will detect
     } else {
       this.addStone(hex, stoneColor) // add Stone and Capture (& removeStone) w/addUndoRec
-      if (!hex.stoneColor && !TP.allowSuicide) {
+      move0.suicide = !hex.stoneColor
+      if (move0.suicide && !TP.allowSuicide) {
         console.warn(stime(this, `.doPlayerMove: suicidal move: ${hex.Aname}`), { hex, color: TP.colorScheme[stoneColor] })
         debugger; // illegal suicide
       }
@@ -182,7 +187,7 @@ export class GamePlay0 {
     let pstats = this.gStats.pStat(color)
     if (hex.district == 0 && pstats.dMax <= pstats.dStones[0]) return [false, false]
     let move: Move = this.doProtoMove(hex, color)
-    let suicide = !hex.stoneColor
+    let suicide = move.suicide
     let legal = !suicide || (TP.allowSuicide && move.captured.length > 0 )
     if (legal) {
       if (evalFun === false) return [legal, suicide]
@@ -193,7 +198,7 @@ export class GamePlay0 {
   }
   // similar to Planner.placeStone/unplaceStone, but with alt color for CapMarks
   doProtoMove(hex: Hex, color: StoneColor) {
-    let move = new Move(hex, color, [], this)
+    let move = this.newMove(hex, color, [], this)
     this.undoRecs.saveUndo(`iLM`).enableUndo() // before addStone in isLegalMove
     let capColor = Hex.capColor   // dynamic bind Hex.capColor
     Hex.capColor = H.capColor2
@@ -201,6 +206,7 @@ export class GamePlay0 {
     this.addStone(hex, color)     // stone on hexMap: exactly 1 undoRec (have have several undo-funcs)
     Hex.capColor = capColor
     this.incrBoard(move)          // 
+    move.suicide = !hex.stoneColor
     return move
   }
   undoProtoMove() {
@@ -466,5 +472,5 @@ export class Board {
   setRepCount(history: Move[]) {
     return this.repCount = history.filter(hmove => hmove.board === this).length
   }
-
+  get signature() { return `[${TP.mHexes}x${TP.nHexes}]${this.id}` }
 }

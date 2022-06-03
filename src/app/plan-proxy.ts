@@ -1,4 +1,4 @@
-import { stime, className } from "@thegraid/common-lib";
+import { stime, className, AT } from "@thegraid/common-lib";
 import { Hex, HexMaps, IHex } from "./hex";
 import { IMove, Move } from "./move";
 import { Planner } from "./planner";
@@ -82,13 +82,20 @@ export class PlannerProxy implements IPlanner {
     this.ll0 && console.log(stime(this, `(${this.colorn}).setParam:`), {targetName, fieldName, value})
     this.postMessage(`.setParam`, 'setParam', targetName, fieldName, value)
   }
-
+  logHistory(ident: string, history: Move[]) {
+    let l = history.length
+    console.log(stime(this, `${ident}${AT.ansiText(['bold', 'green'],'history')} =`),
+      [history.map((move, n) => `// #${(l-n).toString().padStart(3)} ${move.toString()}${move.ind()}`)]
+    )
+  }
   filHex: (hex: IHex) => void
   rejHex: (arg: any) => void
   makeMove(stoneColor: StoneColor, history: Move[], incb = 0): Promise<IHex> {
     let iHistory = history.map((m) => m.toIMove)
     // TODO: marshal iHistory to a [Transferable] bytebuffer [protobuf?]
-    /*this.ll0 &&*/ console.log(stime(this, `(${this.colorn}).makeMove: iHistory =`), iHistory)
+
+    ///*this.ll0 &&*/ console.log(stime(this, `(${this.colorn}).makeMove: iHistory =`), iHistory)
+    this.logHistory(`.makeMove(${this.colorn}) `, history)
     this.postMessage(`.makeMove:`, 'makeMove', stoneColor, iHistory, incb )
     return new Promise<IHex>((fil, rej) => {
       this.filHex = fil

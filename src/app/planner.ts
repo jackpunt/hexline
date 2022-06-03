@@ -1,8 +1,8 @@
-import { M, Obj, stime, AT } from "@thegraid/common-lib";
+import { M, stime, AT } from "@thegraid/common-lib";
 import { Move, IMove } from "./move";
-import { GamePlayD,  } from "./game-play"
-import { Hex, IHex } from "./hex";
-import { HexDir } from "./hex-intfs";
+import { GamePlay0, GamePlayD,  } from "./game-play"
+import { Hex, HSC, IHex } from "./hex";
+import { H, HexDir } from "./hex-intfs";
 import { runEventLoop } from "./event-loop"
 import { IPlanner } from "./plan-proxy";
 import { WINARY } from "./stats";
@@ -21,9 +21,15 @@ type HexState = [Hex, State]
 class MOVES extends Map<Hex,State>{}
 class PlanMove extends Move {
   state: State
+  override ind(none = ' ') { 
+    let caps = this.captured
+    return super.ind(none, this.state.fj ? (!!caps ? '-' : '!') : undefined )
+  }
 }
 interface GamePlayDH extends GamePlayD {
   history: PlanMove[];
+  newMove(hex: Hex, sc: StoneColor, caps: Hex[], gp: GamePlay0): PlanMove
+  sxInfo: SxInfo
 }
 /** 
  * After opponent's Move, where should curPlayer play? 
@@ -50,13 +56,24 @@ class State {
   bestValue: StoneColorRecord<number>; 
   bestHexState: HexState // [bestHex -> bestState -> bestValue]
   id: number; 
+  turn: number; // turn/protoTurn when this move was analyzed
   moveAry: HexState[]
-  fj: boolean 
-  get bv() { return this.bestValue[this.color]}
-  get ind() { 
-    let caps = this.move.captured
-    return this.fj ? '-' : !caps ? '!' : (caps.length > 0 ? `${caps.length}` : undefined)
+  _nMove: number
+  get nMoves() { 
+    let num = this.moveAry?.length || 0
+    return `${num}/${this._nMove || num}`
   }
+  fjx: boolean 
+  get fj () {return (this.move.captured.length == 0 && this.move.hex.isThreat(otherColor(this.color)))}
+  get bv() { return this.bestValue[this.color]}
+  get bvs() { 
+    let bv = this.bv
+    return (Number.isFinite(bv)) ? (bv == 0 ? '0.0' : bv.toString()) : bv < 0 ? ` -${H.infin}` : ` +${H.infin}`
+  }
+  ind(none = ' ') { 
+    return this.move.ind(none)
+  }
+  get mAry() { return this.moves(this.turn) }
   setBestValue(value: number) {
     if (Number.isNaN(value)) debugger;
     value = M.decimalRound(value, 4)
@@ -69,22 +86,40 @@ class State {
    * @param v0 value to stoneColor0 [lh == 0]
    * @param winAry gStats; for winAny = gameOver(...winAry) // winAry[0] == this.board
    */
-  constructor(public move: PlanMove, public color: StoneColor, v0: number, winAry: WINARY) {
-    this.v0 = v0 = M.decimalRound(v0, 4)
-    this.setBestValue(v0)
-    this.id = ++State.sid
-    this.winAry = winAry
+  constructor(public move: PlanMove, public color: StoneColor, v0: number, winAry: WINARY, copyof?: State) {
+    if (copyof) {
+      for (let [key, val] of Object.entries(copyof)) this[key] = val
+      this['copyof'] = copyof // same as this.move.state: the orig mutating State
+      if (move !== undefined) {
+        // when move is supplied, restore it. Also: inner fields are shared with 'copyof'
+        this.move = move  // suitable when state is retrieved from boardState
+      } else {
+        // a copyOf() non-mutation clone: make copies of inner Array/tuple/Record:
+        this.copyStructs(this)
+      }
+    } else {
+      this.v0 = v0 = M.decimalRound(v0, 4)
+      this.setBestValue(v0)
+      this.id = ++State.sid
+      this.winAry = winAry
+    }
+  }
+  copyStructs(otherState: State) {
+    // ASSERT: winAry is invariant, contents will not change
+    this.moveAry = otherState.moveAry?.concat()
+    this.setBestValue(otherState.bestValue[stoneColor0])
+    otherState.bestHexState && this.setBestHexState(otherState.bestHexState, 1)
+  }
+  /** cloning constructor: a non-mutating copy of this State; suitable for console.log 
+   * this.move could still mutate, as does this.move.state
+   */
+  copyOf(): State {
+    return new State(undefined, this.color, this.v0, this.winAry, this)
   }
   upState(move: PlanMove, color: StoneColor, value: number) {
     this.move = move
     this.color = color
     this.setBestValue(value)
-  }
-  /** utility for logging an non-mutating copy for State */
-  copyOf(): State {
-    let s1 = Obj.objectFromEntries(this)
-    s1['copyof'] = this
-    return s1
   }
   sortMoves(sc: StoneColor = otherColor(this.color)) {
     this.moveAry.sort(([ha, sa], [hb, sb]) => sb.bestValue[sc] - sa.bestValue[sc]) // descending
@@ -95,22 +130,35 @@ class State {
   }
 
   /** this.setBestValue(bestHexState.bestValue[sc0]) */
-  setBestHexState(bestHexState: HexState) {
+  setBestHexState(bestHexState: HexState, w = TP.pWeight) {
     let [bhex, state2] = bestHexState
     let v0 = this.bestValue[stoneColor0], v2 = state2.bestValue[stoneColor0], value = v2
     if ((Math.abs(v2) < WINMIN && Math.abs(v0) < WINMIN)) // for non-winning values:
-      value = (v2 * TP.pWeight + v0 * (1 - TP.pWeight))
+      value = (v2 * w + v0 * (1 - w))
     this.setBestValue(value)
     this.eval = state2.eval
     this.bestHexState = bestHexState
   }
 
-  logMoveAry(ident: string, tn: number, bestState = this.bestHexState[1]) {
-    let colorn = AT.ansiText(['italic', 'red'], `${TP.colorScheme[bestState.color]}#${tn}`)
-      console.log(stime(this, `${ident}(bv=${-this.bv}) moveAry(${colorn}) =`),
-      this.moveAry.map(([h, s]) => [s.move, s.eval, s.ind || (s.eval > tn ? '+' : ' '),
-      s.move.Aname, s.id, s.v0, s.bv,
-      (h == bestState?.move.hex) ? '*' : ' ', s.move.board.toString(), this.bestHexState]))
+  moves(tn: number) {
+    let bh = this.bestHexState?.[0]
+    let pad = (s: number, n = 3, d = 0) => { return `${s.toFixed(d).padStart(n)}` } // ${s >= 0 ? ' ' : ''}
+    return this.moveAry?.map(([h, s]) => [s.move,
+    `${s.move.Aname}${s.ind(s.eval > tn ? '+' : '.')} v0: ${pad(s.v0, 4, 1)}, [${pad(s.eval,2)}] ${(h == bh) ? '*' : ' '}bv: ${s.bvs}, id=${pad(s.id)}`,
+    s.move.board.toString(), s.copyOf()])
+  }
+  moves0(tn: number) {
+    let bh = this.bestHexState?.[0]
+    return this.moveAry?.map(([h, s]) => [s.move, s.eval, (h == bh) ? '*' : ' ',
+    s.move.Aname, s.ind(s.eval > tn ? '+' : '.'),
+    s.v0, s.bvs, s.id,
+    s.move.board.toString(), s.bestHexState[1].copyOf()])
+  }
+  logMoveAry(ident: string, tn: number) {
+    let color = TP.colorScheme[otherColor(this.color)]
+    let colorn = AT.ansiText(['italic', 'red'], `${color}#${tn}`)
+    let moves = this.moves(tn)
+    TP.log > -1 && console.log(stime(this, `${ident}(bv=${this.bvs}) moveAry(${colorn})[${this.nMoves}] =`), moves)
   }}
 
 /** TODO: get es2015 Iterable of Map.entries work... */
@@ -153,18 +201,20 @@ export class Planner implements IPlanner {
   moveNumber: number
   boardState: Map<string,State> = new Map<string,State>()
   get brds() { return this.gamePlay.allBoards.size;}
-
+  sxInfo: SxInfo
+  
   get skipHex() { return this.gamePlay.hexMap.skipHex }
   get resignHex() { return this.gamePlay.hexMap.resignHex }
   /** make skipState or resignState for given color (and unshift to gamePlay.history) */
-  skipMove(color: StoneColor) { return new Move(this.skipHex, color, [], this.gamePlay) as PlanMove }
-  resignMove(color: StoneColor) { return new Move(this.resignHex, color, [], this.gamePlay) as PlanMove }
+  skipMove(color: StoneColor) { return new PlanMove(this.skipHex, color, [], this.gamePlay) as PlanMove }
+  resignMove(color: StoneColor) { return new PlanMove(this.resignHex, color, [], this.gamePlay) as PlanMove }
 
   constructor(mh: number, nh: number, playerIndex: number) {
     let color = stoneColors[playerIndex], colorn = TP.colorScheme[color]
     this.myPlayerNdx = playerIndex
     this.myStoneColor = color
     this.gamePlay = new GamePlayD(mh, nh, colorn) as GamePlayDH // downgraded to GamePlayD: history, hexMap, undoRecs, allBoards, gStats
+    this.gamePlay.newMoveFunc = (hex, sc, caps, gp) => new PlanMove(hex, sc, caps, gp)
     this.myWeightVec = this.getWeightVec(color)
   }
   getWeightVec(color: StoneColor) {
@@ -208,9 +258,15 @@ export class Planner implements IPlanner {
     let maybeResign = (hexState: HexState) => {
       let [hex, state] = hexState
       if (state.bv <= -WINMIN)
-        if (state.eval <= this.moveNumber + TP.pResign)
+        if (state.eval <= this.moveNumber + TP.pResign) {
           hex = this.resignHex
-      return hex
+          let move = this.gamePlay.newMove(hex, state.color, [], this.gamePlay)
+          this.gamePlay.incrBoard(move)
+          let resign = this.evalState(move)
+          resign.bestHexState = hexState    // for the record: what we would have done if not resign
+          return [hex, resign] as HexState
+        }
+      return hexState
     }
 
     let firstMove = () => {
@@ -218,22 +274,24 @@ export class Planner implements IPlanner {
       let mhex = this.gamePlay.hexMap.district[0][0], dir = this.dir1
       while (mhex.metaLinks[dir]) mhex = mhex.metaLinks[dir]
       // Note: we don't doLocalMove; will pick it up on next syncToGame(history)
+      // OR: doLocalMove(); new HexGen().setSxInfo()
       fillMove(mhex)
     }
-
+    let state0: State
     let dispatchMove = (hexState: HexState) => {
-      let [hex, state] = hexState
-      hex = maybeResign(hexState)
+      let [hex, state] = maybeResign(hexState)
       this.doLocalMove(hex, color)  // placeStone on our hexMap & history
       this.reduceBoards(true)       // reduce & prune
-      this.boardState.clear()       // todo: keep the subset derive from current/actual Moves/board
+      this.boardState.clear()       // TODO: keep the subset derive from current/actual Moves/board
       let tn = this.moveNumber
       let dsid = State.sid - sid0, dms = Date.now() - ms0, sps = M.decimalRound(1000 * dsid / dms, 0)
       let tns = tn.toString().padStart(3), dsids = dsid.toLocaleString().padStart(10), dmss = dms.toString().padStart(7)
-      let mc = state.move.captured.length == 0 ? ' ' : 'c'
-      console.log(stime(this, `.makeMove: ${AT.ansiText(['bold', 'green'], `// #${tns} ${state.move.Aname} dms:${dmss} dsid:${dsids}`)}`),
-       { dsid: dsid.toLocaleString(), dms, sps, maxD: this.maxDepth },
-       `state=`, state.copyOf())
+      let hexstr = hex.toString(color) // like move.Aname but shows @Resign
+      let mc = state.ind()
+      this.logEvalMove(`.dispatchMove`, state0, TP.maxPlys, undefined, state)
+      console.log(stime(this, `.makeMove: ${AT.ansiText(['bold', 'green'],
+        `// #${tns} ${hexstr}${mc} dms:${dmss} dsid:${dsids} n:${state0.nMoves}`)}`),
+        { dsid: dsid.toLocaleString(), dms, sps, maxD: this.maxDepth, state: (TP.log > -1) && state.copyOf() });
       this.prevMove = this.gamePlay.history[0]
       fillMove(hex)
     }
@@ -243,13 +301,15 @@ export class Planner implements IPlanner {
     } else {
       // syncToGame has unshifted other Player's move into history[0] (and maybe changed history[1]... )
       // try get previously evaluated State & MOVES:
-      let history = this.gamePlay.history, move1 = history[1]
-      let move0 = history[0], hex0 = move0.hex, state0: State = move0.state // with doHistoryMove().eval
+      let history = this.gamePlay.history 
+      let move1 = history[1], move0 = history[0], hex0 = move0.hex
+      state0 = move0.state // with doHistoryMove().eval
       if (move1?.board?.id && move1.board.id == this.prevMove?.board?.id) { //
         // history[1] has NOT been changed! so we can use our analysis:
         state0 = move1.state.nextState(hex0) // opponent moved to a predicted & eval'd State (with a moveAry!)
-        console.log(stime(this, `.makeMove: prevMove = move1.state0:`), state0)
+        TP.log > -1 && console.log(stime(this, `.makeMove: prevMove = move1.state0:`), state0)
       }
+      if (!this.sxInfo) this.sxInfo = new SxInfo(this.gamePlay)
       let nPlys = TP.maxPlys, breadth = this.maxBreadth
       this.yieldMs = Math.max(TP.yieldMM, Math.max(20, 5 * (nPlys + breadth - 7))) // pWorker -> yieldMM
 
@@ -266,7 +326,7 @@ export class Planner implements IPlanner {
     let move0 = this.doLocalMove(hex0, moveg.stoneColor) // do actual move to hex0, setting move0.state
     if (move1) {
       // instead of searching boardState, look for existing State in move1.state:
-      let { state: state1, hex: hex1 } = move1        // as we were before moveg
+      let state1 = move1.state                        // as we were before moveg
       let state0a = state1.nextState(hex0)            // state0a may be undefined (if hex0 was not predicted & eval'd)
       let state0 = this.evalState(move0, state0a)     // make or update state0, move0.state = state0a
       // historical record: state2(move1.hex1)->state1; state1(move0.hex0)->state0
@@ -292,7 +352,7 @@ export class Planner implements IPlanner {
    */
   placeStone(hex: Hex, color: StoneColor, pushUndo?: string) {
     let gamePlay = this.gamePlay // unshift(Move), addStone, incrBoard
-    let move0 = new Move(hex, color, [], gamePlay) as PlanMove
+    let move0 = new PlanMove(hex, color, [], gamePlay) // new Move() -> gamePlay.history.unshift(move)
     if (pushUndo) this.gamePlay.undoRecs.saveUndo(pushUndo).enableUndo() // placeStone
     gamePlay.addStone(hex, color)        // may invoke captureStone() -> undoRec(Stone & capMark)
     gamePlay.incrBoard(move0)
@@ -321,7 +381,7 @@ export class Planner implements IPlanner {
     while (main.length > ours.length) {
       this.doHistoryMove(main[main.length - ours.length - 1])
     }
-    this.moveNumber = ours.length + 1
+    this.moveNumber = ours.length + 1 // iHistory.length + 1
     this.reduceBoards()  // update repCount and delete un-attained Boards
   }
   reduceBoards(prune = true) {
@@ -353,9 +413,10 @@ export class Planner implements IPlanner {
     //let [boardId, resign] = this.gamePlay.boardId 
     let state = this.boardState.get(boardId) // reuse State & bestValue
     if (state) {
-      if (!state1) state1 = state     // TODO: what to do with 'eval'
-      if (state.eval > state1.eval) {
-        state1.upState(move, color, state.bestValue[stoneColor0])
+      if (!state1) 
+        state1 = new State(move, color, state.v0, state.winAry, state) // clone it
+      else if (state.eval > state1.eval) {
+        state1.copyStructs(state)
         state1.eval = state.eval    // #of Moves to achieve this board (this.depth-1)
       }
     } else {
@@ -366,11 +427,11 @@ export class Planner implements IPlanner {
         let s1 = gStats.getSummaryStat(stoneColor1, this.myWeightVec)
         let v0 = s0 - s1 // best move for c0 will maximize value
         state1 = new State(move, color, v0, winAry) // state.move = move; state.moveAry = undefined
-        state1.eval = this.gamePlay.history.length  // #of Moves to achieve this board (this.depth-1)
+        state1.turn = state1.eval = this.gamePlay.history.length  // #of Moves to achieve this board (this.depth-1)
         //if (win !== undefined) console.log(stime(this, `.evalState: win!${win} ${state1.id} state1=`), state1)
       }
     }
-    state1.fj = (move.captured.length == 0 && move.hex.isThreat(otherColor(color)))
+    //state1.fj = (move.captured.length == 0 && move.hex.isThreat(otherColor(color)))
     this.maxDepth = Math.max(this.maxDepth, state1.eval)   // note how deep we have gone... (for logging)
     this.winState(state1)      // adjust value if win/lose (resign, stalemate)
     if (TP.pBoards && !state) this.boardState.set(boardId, state1) // avoid eval(new State)
@@ -398,16 +459,16 @@ export class Planner implements IPlanner {
     let gid1 = `${mov0.board?.id}#${mov0.board.repCount} ${TP.colorScheme[sc]}#${tn}`
     return `${gid0}: ${gid1}->`
   }
-  logEvalMove(ident: string, move: PlanMove, nPlys: number, win: StoneColor, state2?: State) {
-    if (TP.log > 0) {
-      let state1 = move.state, ind = state1.ind || ' '
+  logEvalMove(ident: string, moveOrState: PlanMove | State, nPlys: number, win: StoneColor, state2?: State) {
+    if (TP.log > 0 || nPlys == undefined) {
+      let state1 = (moveOrState instanceof State) ? moveOrState : moveOrState.state
       let winInd = (win !== undefined) ? ` --> win: ${TP.colorScheme[win]}` : ''
       let vals = (state2) ? {
-        mov1: `${state1.move.Aname}${ind}`, eval: state1.eval, bv: state1.bv, state1: state1.copyOf(),
-        mov2: `${state2.move.Aname}${state2.ind || ' '}`, state2: state2.copyOf()
+        mov1: `${state1.move.Aname}${state1.ind()}`, eval: state1.eval, bv: state1.bv, state1: state1.copyOf(),
+        mov2: `${state2.move.Aname}${state2.ind()}`, state2: state2.copyOf()
       }
-        : { move: `${state1.move.Aname}${ind}`, eval: state1.eval, bv: state1.bv, state1: state1.copyOf() }
-      console.log(stime(this, `${ident}: nPlys: ${nPlys}${winInd}`), vals)
+        : { move: `${state1.move.Aname}${state1.ind()}`, eval: state1.eval, bv: state1.bv, state1: state1.copyOf() }
+      console.log(stime(this, `${ident}: nPlys: ${nPlys || TP.maxPlys}${winInd}`), vals)
     }
   }
   logAndGC(ident: string, state0: State, sid0: number, ms0: number, nPlys: number, stoneColor: string) {
@@ -415,10 +476,10 @@ export class Planner implements IPlanner {
     if (TP.log > 0 || this.depth == this.moveNumber) {
       let dsidn = State.sid - sid0, dms = Date.now() - ms0, sps = M.decimalRound(1000 * dsidn / dms, 0)
       let dsid = dsidn.toLocaleString()
-      state0.logMoveAry(ident, this.depth, bestState)
+      state0.logMoveAry(ident, this.depth)
       let bestValue = bestState.bv, move = bestState.move
       let Aname = bestHex.toString(move.stoneColor), nBoards = this.gamePlay.allBoards.size
-      console.log(stime(this, `${ident}X:`), nPlys, stoneColor, { Aname, bestValue, sps, dsid, dms, bestState: bestState.copyOf(), sid: State.sid, nBoards })
+      //console.log(stime(this, `${ident}X:`), nPlys, stoneColor, { Aname, bestValue, sps, dsid, dms, bestState: bestState.copyOf(), sid: State.sid, nBoards })
     }
     if (TP.log == 0 && this.depth == this.moveNumber) { // delete a bunch of States:
       // moveAry[I..J].moves: [hexI, state1-I] ... [hexJ, state1-J]
@@ -426,13 +487,16 @@ export class Planner implements IPlanner {
       if (TP.pGCM) {            // TODO: run GC on our *previous*, not current move (so we can 'redo' current move)
         let bestStateMoveAry = bestState.moveAry
         for (let [hex, state1] of state0.moveAry) {
+          state1._nMove ||= state1.moveAry?.length // before TP.pGCM delete
           state1.moveAry = undefined // since we are not moving to 'hex', remove the stored analysis tree
           state1['agc'] = this.depth
         }
         bestState.moveAry = bestStateMoveAry // retain HexState tree of bestHex/bestState
+        bestState._nMove ||= bestState.moveAry.length // reset after TP.pGCM delete
       }
     }
     // other 'GC' part: (release refs to minimally evaluated HexStates)
+    state0._nMove ||= state0.moveAry?.length  // before filter
     state0.moveAry = state0.moveAry.filter(([h,s]) => s.eval > this.depth) // release un-evaluated HexStates
   }
   /** show progress in log, how much of breadth is done */
@@ -448,9 +512,9 @@ export class Planner implements IPlanner {
 
   /** allow limited dogfight analysis */
   fjCheckP(state1: State) { return state1.fj && (this.depth < this.moveNumber + TP.maxPlys + 1)}
-  /** fjCheck: even nPlys > 2, then even turnNumber */
+  /** fjCheck: even nPlys > 2, then even turnNumber - which seems biased against 'w'; (bv2+bv3)/2 is sufficient? */
   nPlysCheckE(nPlys: number, fjCheck: boolean, ) { 
-    return !fjCheck ? nPlys : Math.max(nPlys + (nPlys % 2), 2) + 1 - this.myPlayerNdx 
+    return !fjCheck ? nPlys : Math.max(nPlys + (nPlys % 2), 2)// + 1 - this.myPlayerNdx 
   }
 
   /** return the better HexState (from POV of sc) */
@@ -496,8 +560,9 @@ export class Planner implements IPlanner {
         bestHexState = state0.bestHexState // == state0.moveAry[0]
         if (nPlys > 0) {
           for (let [hex, state1a] of state0.moveAry) {                 // hex = state1a.move.hex
+            if (this.moveAryContinue(state1a, bestHexState[1])) continue; // break; //
+            if (isTop) this.nth = breadth - 1
             if (this.moveAryBreak(state1a, bestHexState[1], --breadth)) break
-            if (this.moveAryContinue(state1a, bestHexState[1])) break; //continue;
             let bestHexState1 = (nPlys > 1)
               ? await this.evalMoveInDepth(hex, stoneColor, nPlys - 1, state1a)
               : /* */ this.evalMoveShallow(hex, stoneColor, nPlys - 1, state1a)
@@ -597,8 +662,8 @@ export class Planner implements IPlanner {
         bestHexState = state0.bestHexState // == state0.moveAry[0]
         if (nPlys > 0) {
           for (let [hex, state1a] of state0.moveAry) {                 // hex = state1a.move.hex
+            if (this.moveAryContinue(state1a, bestHexState[1])) continue; // break; //
             if (this.moveAryBreak(state1a, bestHexState[1], --breadth)) break
-            if (this.moveAryContinue(state1a, bestHexState[1])) break; //continue
             let bestHexState1 = this.evalMoveShallow(hex, stoneColor, nPlys - 1, state1a) // eval move and update state1a
             bestHexState = this.maxBestValue(bestHexState1, bestHexState, stoneColor)
           }
@@ -651,7 +716,7 @@ export class Planner implements IPlanner {
   stateBefore(state: State, stateN: State) {
     let state1: State 
     while ((state1 = state.bestHexState[1]) != stateN) state = state1
-    return state1
+    return state
   }
   /** 
    * Initialize state0.moveAry with skipMove
@@ -664,8 +729,9 @@ export class Planner implements IPlanner {
    * @return with state0.moves sorted, descending from best initial value
    */
   evalAndSortMoves(state0: State, sc: StoneColor): HexState[] { // Generator<void, State, unknown>
+    const eASMS = AT.ansiText(['blue'],'.evalAndSortMoves')
     const tn = this.depth, tns = tn.toString().padStart(2), other = otherColor(sc) // <--- state0.stoneColor
-    const ident = `.evalAndSortMoves depth = ${tn} after ${state0.move.Aname}#${tn-1}`
+    const ident = `${eASMS} depth = ${tn} after ${state0.move.Aname}#${tn-1}`
     const gamePlay = this.gamePlay
     let moveAry = state0.moveAry
     let useMoveAry = TP.pMoves && moveAry?.length > 1
@@ -673,7 +739,8 @@ export class Planner implements IPlanner {
 
     const evalf = (move: PlanMove) => {
       // From isLegalMove: move = placeStone(hex, color) // ASSERT move.color == stoneColor
-      let state1 = this.evalState(move), win = gamePlay.gStats.winAny
+      let state1 = this.evalState(move) // inside eASMs.evalf()
+      let win = gamePlay.gStats.winAny
       let fjCheck = this.fjCheckP(state1)
       if (fjCheck && win === undefined) this.lookaheadShallow(state1, other, 2) // adjust state1.bestValue
       moveAry.push([move.hex, state1])
@@ -681,7 +748,7 @@ export class Planner implements IPlanner {
       let dsid = State.sid - sid0, now = Date.now(), dmc = now - this.ms0, dbd = this.brds - brd0
       let dtn = this.depth - this.moveNumber, dms = now - ms0, sps = M.decimalRound(1000 * dsid / dms, 0)
       if (dtn == 1 && (TP.log > 0 || dms > this.yieldMs)) {
-        console.log(stime(this, `.evalAndSortMoves timers:`),
+        console.log(stime(this, `${eASMS} timers:`),
           `b=${this.nth} dtn=${dtn} dmc=${dmc} dmy=${0} dbd=${dbd} dsid=${dsid} dms=${dms} sps=${sps} sid=${State.sid.toLocaleString()} tsec=${(now - this.ms00) / 1000}`)
         ms0 = now, sid0 = State.sid, brd0 = this.brds
       }
@@ -702,8 +769,9 @@ export class Planner implements IPlanner {
       evalf(skipMove)                      // eval and set into moves & moveAry
       gamePlay.shiftMove()
       // generate MOVES (of otherColor[gamePlay.history[0].color] =~= stoneColor)
-      let hexGen = new HexGen(gamePlay, evalf)
+      let hexGen = new HexGen(this, tn - this.moveNumber, evalf)
       hexGen.gen() // TODO: respond to C-c to stop! (back to yield/next?)
+      state0._nMove = state0.moveAry.length // evalSortMoves
       //let hexGenA = Array.from(hexGen) // invoke evalf(move) on each legalMove
       //TP.log > 1 && console.log(stime(this, ident), { moveAry, state0: state0.copyOf(), hexGenA })
       group && console.groupEnd()
@@ -748,21 +816,29 @@ class HexGen {
   // conversely, check for attack moves to finish-off threats that I have against otherPlayer.
 
   // assert: history[0] is valid (because first move has been done)
-  constructor(private gamePlay: GamePlayD, private evalFun?: (move: Move) => void) { 
-    this.setSXmeta()   // set statics once, when board format/signature changes
+  /**
+   * 
+   * @param planner 
+   * @param depth for debugging: conditional breakpoint
+   * @param evalFun 
+   */
+  constructor(public planner: Planner, public depth: number, public evalFun?: (move: Move) => void) { 
   }
+  gamePlay = this.planner.gamePlay
   hexes = new Set<Hex>()
+  hexMap = this.gamePlay.hexMap
   move0 = this.gamePlay.history[0]  // last move otherPlayer made
   move1 = this.gamePlay.history[1]  // last move 'curPlayer' made
   color = otherColor(this.move0.stoneColor)
   maxD = Math.min(10, Math.ceil(Math.sqrt(TP.tHexes)/2))
   hThreats = this.gamePlay.gStats.pStat(this.color).hThreats
-  depth = this.gamePlay.history.length
   attemptDist = Array<number>(TP.nDistricts).fill(0) 
   legalDists = Array<number>(TP.nDistricts).fill(0)
-  hexMap = this.gamePlay.hexMap
   moveAry: Hex[]
   otherDists: IterableIterator<number>
+
+  sxInfo: SxInfo = this.planner.sxInfo
+  isOffAxis = false
 
   gen() {
     this.moveAry = []
@@ -790,7 +866,7 @@ class HexGen {
       } else {
         // add each visited District and its immediate neighbor Districts
         districtsToCheck.add(d)
-        let mhex0 = this.gamePlay.hexMap.district[d][0]
+        let mhex0 = this.hexMap.district[d][0]
         let mlinks = mhex0.metaLinks
         for (let hex of Object.values(mlinks)) 
           districtsToCheck.add(hex.district)
@@ -803,7 +879,7 @@ class HexGen {
   /** sample n hexes Per Dist. */
   nInEachDistrict(d: number) {
     let move0 = this.gamePlay.history[0], caps = move0.captured
-    let hexAry = this.gamePlay.hexMap.district[d].filter(h => h.stoneColor == undefined && !caps.includes(h) && !this.hexes.has(h))
+    let hexAry = this.hexMap.district[d].filter(h => h.stoneColor == undefined && !caps.includes(h) && !this.hexes.has(h))
     let n = 0
     while (n++ < TP.nPerDist && hexAry.length > 0) {
       let hex = hexAry[Math.floor(Math.random() * hexAry.length)] // sample until we find nPerDist
@@ -815,15 +891,15 @@ class HexGen {
   isLegal(hex: Hex) {
     if (this.hexes.has(hex)) return false
     this.hexes.add(hex)
-    if (this.onAxis() && this.isSX(hex)) return false // if allStones are onAxis, ignore Southern
+    if (this.sxInfo.ignoreSX(hex, this)) return false // if allStones are onAxis, ignore S/SW
     this.attemptDist[hex.district]++
     // evalFun(move) will process each legal Move:
-    if (this.gamePlay.isMoveLegal(hex, this.color, this.evalFun)[0]) {
+    let legal = this.gamePlay.isMoveLegal(hex, this.color, this.evalFun)[0]
+    if (legal) {
       this.legalDists[hex.district]++ // count legal Moves into each District
       this.moveAry.push(hex)
-      return true
     }
-    return false
+    return legal
   }
 
   /** Hexes that an on-axis to the given Hex */
@@ -837,28 +913,28 @@ class HexGen {
       }
     }
   }
-  offAxis = false
-  onAxis() {
-    return this.offAxis ? true : !(this.offAxis = !!this.gamePlay.hexMap.allStones.find(hsc => !HexGen.sxMetaLine.includes(hsc[0])))
+}
+class SxInfo {
+  constructor(
+    public gamePlay: GamePlay0
+  ) {
+    this.setSxInfo()
   }
-  isSX(hex: Hex) {
-    return this.gamePlay.history.length < 2 && HexGen.sxAllMetas?.includes(this.gamePlay.hexMap.district[hex.district][0])
-  }
-  static sxSignature: string
-  static sxMetaLine: Hex[]  // a line of metaHex: from move1.hex through center Hex
-  static sxAllMetas: Hex[] // all the Metas south of the metaLineC
+  public allMetas: Hex[]    // all the Metas south of the metaLineC
+  public metaLine: string[] // a line of metaHex: from move1.hex through center Hex
+  public signature: string   // identify this board
 
   /** isSX(hex) if hex.metaLinks[Dir2] intersects the metaHexes on the axis from B[1] through District[0] (NW-SE = LR:horizontal) 
    * @param hex the Hex to test
    * @param hex0 the Hex where B[Move1]==history[0] was played
   */
-  setSXmeta() {
+  setSxInfo() {
     let move0 = this.gamePlay.history[this.gamePlay.history.length - 1] // first Move of game
-    let sig = `[${TP.mHexes}x${TP.nHexes}]${move0.board.id}`
-    if (HexGen.sxSignature != sig) {
-      let metaLine = []
+    let sig = move0.board.signature   //`[${TP.mHexes}x${TP.nHexes}]${move0.board.id}`
+    if (this.signature != sig) {
+      let metaLine: Hex[] = []
       let hex0 = move0.hex
-      let hexC = this.hexMap.district[0][0]
+      let hexC = this.gamePlay.hexMap.district[0][0]
       let axisDir = Object.keys(hex0.metaLinks).find(dir => { // axis = revDir[this.dir1]
         metaLine.splice(0, metaLine.length, hex0)             // metaLine = [hex0]
         let nhex = hex0
@@ -872,14 +948,24 @@ class HexGen {
       })
       // ASSERT: dir2 intersects dir1
       let dir2: Dir2 = 'NE'  // Note: makeDistrict/metaMap uses nsTopo (even when nh==1) 
-      let allSXMetas = this.hexMap.district.map(d => d[0]).filter((mhex, ndx, hexary) => {
+      let allSXMetas = this.gamePlay.hexMap.district.map(d => d[0]).filter((mhex, ndx, hexary) => {
         while (mhex = mhex.metaLinks[dir2])
           if (metaLine.includes(mhex)) return true
         return false
       })
-      HexGen.sxAllMetas = allSXMetas
-      HexGen.sxMetaLine = metaLine
-      HexGen.sxSignature = sig
+      this.allMetas = allSXMetas
+      this.metaLine = metaLine.map(h => h.Aname)
+      this.signature = sig
+      console.log(stime(this, `.setSXMeta: ${AT.ansiText(['green'], sig)}`), { metaLine, allSXMetas })
     }
+  }
+  ignoreSX(hex: Hex, ctx: { isOffAxis: boolean }) {
+    /** true if allStones are on axis from h[0] to Center */
+    if (ctx.isOffAxis) return false // once you're offAxis, you're always offAxis
+    let offAxis = this.gamePlay.hexMap.allStones.find((hsc: HSC) => !this.metaLine.includes(hsc.Aname))
+    ctx.isOffAxis = !!offAxis
+    if (ctx.isOffAxis) return false
+    /** AND the given Hex is in the SW: */
+    return this.allMetas.includes(this.gamePlay.hexMap.district[hex.district][0])
   }
 }

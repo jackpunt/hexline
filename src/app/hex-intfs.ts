@@ -10,6 +10,7 @@ export type NsDir = Exclude<HexDir, 'E' | 'W'>
 /** Hex things */
 export namespace H {
   export const sqrt3 = Math.sqrt(3)  // 1.7320508075688772
+  export const infin = String.fromCodePoint(0x221E)
   export const N: HexDir = "N"
   export const S: HexDir = "S"
   export const E: HexDir = "E"

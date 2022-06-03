@@ -6,7 +6,7 @@ import { otherColor, StoneColor, stoneColor0, stoneColor1, StoneColorRecord, sto
 import { GamePlay0 } from "./game-play";
 
 export const S_Resign = 'Hex@Resign'
-export const S_Skip = 'Hex@skip'
+export const S_Skip = 'Hex@skip '
 export type IHex = { Aname: string, row: number, col: number }
 
 // Note: graphics.drawPolyStar(x,y,radius, sides, pointSize, angle) will do a regular polygon
