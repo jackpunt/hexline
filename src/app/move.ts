@@ -33,11 +33,10 @@ export class Move {
     }
   }
   toString(hex = this.hex, stoneColor = this.stoneColor): string {
-    return hex.toString(stoneColor); // ${color}@[r,c] from: Hex@[r,c] OR Hex@Skip OR hex@Resign
+    return hex.toString(stoneColor); // ${color}@hex.rcs
   }
-  bString(): string {
-    let sc = (this.stoneColor); // single-char stoneColor [vs indexOf(stoneColor)]
-    return `${sc}${this.hex.Aname.substring(3)}`; // sc@[r,c]
+  get bString(): string {
+    return `${this.stoneColor}${this.hex.rcs}`; // sc[r,c]
   }
   /** reduce to serializable IMove (removes captured & board) */
   get toIMove(): IMove {

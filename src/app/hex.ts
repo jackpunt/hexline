@@ -96,6 +96,8 @@ export class Hex {
   /** color of current Stone on this Hex (or undefined) */
   stoneColor: StoneColor = undefined;
 
+  /** [row,col] OR S_Resign OR S_Skip */
+  get rcs(): string { return this.row ? `[${this.row},${this.col}]` : this.Aname.substring(4)}
   /** compute ONCE, *after* HexMap is populated with all the Hex! */
   get rc_linear(): number { return this._rcLinear || (this._rcLinear = this.map.rcLinear(this.row, this.col))}
   _rcLinear: number = undefined
@@ -135,8 +137,9 @@ export class Hex {
     this.stoneColor = undefined
     return color
   }
+  /** colorScheme(stoneColor)@rcs */
   toString(stoneColor = this.stoneColor) {
-    return `${TP.colorScheme[stoneColor]}${this.Aname.substring(3)}`
+    return `${TP.colorScheme[stoneColor]}@${this.rcs}`
   }
 
   /**

@@ -38,10 +38,10 @@ export class GamePlay0 {
   get boardId(): [string, StoneColor] {
     let move0 = this.history[0], sc = move0.stoneColor
     let resign_sc = (move0.hex.Aname === S_Resign) ? sc : undefined, caps = ''
-    move0.captured.forEach(hex => caps += hex.Aname.substring(4))// hex@[r,c] => [r,c]
+    move0.captured.forEach(hex => caps += hex.rcs)// hex@[r,c] => [r,c]
     let id = `Board(${sc},${caps})${resign_sc ? `${resign_sc}!` : ''}`
     let hexStones = this.hexMap.allStones.filter(({hex}) => hex.row !== undefined)
-    let bString = (hsc: HSC) => { return `${hsc.sc}${hsc.hex.Aname.substring(3)}` }
+    let bString = (hsc: HSC) => { return `${hsc.sc}${hsc.hex.rcs}` }
     hexStones.sort((a, b) => { return a.hex.rc_linear - b.hex.rc_linear }); // ascending row-major
     hexStones.forEach(hsc => id += bString(hsc)) // in canonical order
     return [id, resign_sc]
@@ -125,7 +125,7 @@ export class GamePlay0 {
       this.addStone(hex, stoneColor) // add Stone and Capture (& removeStone) w/addUndoRec
       move0.suicide = !hex.stoneColor
       if (move0.suicide && !TP.allowSuicide) {
-        console.warn(stime(this, `.doPlayerMove: suicidal move: ${hex.Aname}`), { hex, color: TP.colorScheme[stoneColor] })
+        console.warn(stime(this, `.doPlayerMove: suicidal move: ${move0.Aname}`), { hex, color: TP.colorScheme[stoneColor] })
         debugger; // illegal suicide
       }
     }
