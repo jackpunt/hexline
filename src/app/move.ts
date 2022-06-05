@@ -46,7 +46,7 @@ export class Move {
   ind(none = ' ', pre?: string) { 
     let caps = this.captured
     let rv = (pre || (!caps ? '?' : (caps.length > 0) ? `${caps.length}` : none) )
-    + (this.suicide ? '*' : ' ')
+    + (this.suicide ? '$' : ' ')
     return rv
   }
 }

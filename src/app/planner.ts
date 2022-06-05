@@ -1,6 +1,6 @@
 import { M, stime, AT } from "@thegraid/common-lib";
 import { Move, IMove } from "./move";
-import { GamePlay, GamePlay0, GamePlayD,  } from "./game-play"
+import { GamePlay0, GamePlayD } from "./game-play"
 import { Hex, HSC, IHex } from "./hex";
 import { H, HexDir } from "./hex-intfs";
 import { runEventLoop } from "./event-loop"
@@ -306,8 +306,8 @@ export class Planner implements IPlanner {
       let mc = state.ind()
       this.logEvalMove(`.dispatchMove`, state0, TP.maxPlys, undefined, state)
       console.log(stime(this, `.makeMove: ${AT.ansiText(['bold', 'green'],
-        `// #${tns} ${hexstr}${mc} dms:${dmss} dsid:${dsids} n:${state0.nMoves}`)}`),
-        { dsid: dsid.toLocaleString(), dms, sps, maxD: this.maxDepth, state: (TP.log > -1) && state.copyOf() });
+        `#${tns} ${hexstr}${mc} dms:${dmss} dsid:${dsids} n:${state0.nMoves} bv:${state.bv}`)}`),
+        { maxD: this.maxDepth, maxP: TP.maxPlys, nPer: TP.nPerDist, maxB: TP.maxBreadth, state: (TP.log > -1) && state.copyOf() });
       this.prevMove = this.gamePlay.history[0]
       fillMove(hex)
     }

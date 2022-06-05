@@ -19,7 +19,7 @@ export class TP {
   static pBoards = false  // true: evalState saves board->state
   static pMoves = true    // true: use predicted moveAry
   static pGCM = true      // GC state.moveAry (except bestHexState.moveAry)
-  static maxPlys = 4      // for robo-player lookahead
+  static maxPlys = 5      // for robo-player lookahead
   static maxBreadth = 7   // for robo-player lookahead
   static nPerDist = 4     // samples per district
   static Black_White = stoneColorRecord('BLACK', 'WHITE')
