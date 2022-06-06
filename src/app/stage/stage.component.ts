@@ -2,6 +2,7 @@ import { Component, Input, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { GameSetup } from '../game-setup';
 import { stime } from '@thegraid/easeljs-lib';
+import {  } from 'wicg-file-system-access'
 
 @Component({
   selector: 'stage-comp',
@@ -52,5 +53,16 @@ export class StageComponent implements OnInit {
     let extstr = urlParams.get('ext')
     let ext = !!extstr ? extstr.split(',') : []
     new GameSetup(this.mapCanvasId).startup(undefined, ext) // load images; new GameSetup
+  }
+  static enableOpenFilePicker(method: 'showOpenFilePicker' | 'showSaveFilePicker' | 'showDirectoryPicker',
+  options: OpenFilePickerOptions & { multiple?: false; } & SaveFilePickerOptions & DirectoryPickerOptions, 
+  cb: (fileHandleAry: any) => void) {
+    const picker = window[method]       // showSaveFilePicker showDirectoryPicker
+    const fsOpenButton = document.getElementById("fsOpenFileButton")
+    fsOpenButton.onclick = async () => {
+      picker(options).then((value: any) => cb(value), (rej: any) => {
+        console.warn(`showOpenFilePicker failed: `, rej)
+      });
+    }
   }
 }

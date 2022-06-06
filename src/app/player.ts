@@ -29,7 +29,7 @@ export class Player {
   }
   newGame(gamePlay: GamePlay) {
     this.planner?.terminate()
-    this.planner = newPlanner(gamePlay.hexMap, this.index)
+    this.planner = newPlanner(gamePlay.hexMap, this.index, gamePlay.logWriter)
   }
   stopMove() {
     this.planner.roboMove(false)

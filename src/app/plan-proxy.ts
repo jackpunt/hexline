@@ -1,14 +1,26 @@
 import { stime, className, AT } from "@thegraid/common-lib";
-import { Hex, HexMaps, IHex } from "./hex";
+import { HexMaps, IHex } from "./hex";
 import { IMove, Move } from "./move";
 import { Planner } from "./planner";
 import { StoneColor, stoneColors, TP } from "./table-params";
+import { ILogWriter } from "./stream-writer";
+
+import { EzPromise } from "@thegraid/ezpromise" // for FlowControl
+
+export type MsgSimple = string | number | boolean
+export type MsgArgs = (MsgSimple | IMove[]) // PlanData['args']
+export type MsgKey = keyof IPlanMsg
+export type ReplyKey = keyof IPlanReply
 
 export type PlanData = {
-  verb: string,
-  args: (string | number | boolean | IMove[])[]
+  verb: MsgKey,
+  args: MsgArgs[]
 }
-export type IPlanner = {
+export type ReplyData = {
+  verb: ReplyKey
+  args: MsgArgs[]
+}
+export interface IPlanner {
   /** enable Planner to continue searching */
   roboMove(run: boolean): void;
   /** provoke Planner to search for next Move */
@@ -16,31 +28,58 @@ export type IPlanner = {
   /** permanently stop this IPlanner */
   terminate(): void;
 }
+
+/**
+ * WorkerPlanner implements additional methods:
+ */
+export interface IPlanMsg extends IPlanner {
+  newPlanner(mh: number, nh: number, index: number): void
+  log(...args: MsgArgs[]): void
+  setParam(...args: [string, string, MsgSimple]): void
+}
+/** PlanProxy implements IPlanReply methods: */
+export type IPlanReply = {
+  newDone(args: MsgArgs[]): void
+  move(row: number, col: number, Aname: string): void
+  logFile(file: string, text: string): void
+}
+/** Message Keys */
+export class MK {
+  static log: MsgKey = 'log'
+  static newPlanner: MsgKey = 'newPlanner'
+  static setParam: MsgKey = 'setParam'
+  static roboMove: MsgKey = 'roboMove'
+  static makeMove: MsgKey = 'makeMove'
+  static terminate: MsgKey = 'terminate'
+  static newDone: ReplyKey = 'newDone'
+  static move: ReplyKey = 'move'
+  static logFile: ReplyKey = 'logFile'
+}
+
 /**
  * IPlanner factory method.
  * @param hexMap from the main GamePlay, location of Hex for makeMove
  * @param index player.index [0 -> 'b', 1 -> 'w']
  * @returns 
  */
-export function
-  newPlanner(hexMap: HexMaps, index: number): IPlanner {
-  if (TP.pWorker) {
-    return new PlannerProxy(hexMap.mh, hexMap.nh, index)
-  } else {
-    return new Planner(hexMap.mh, hexMap.nh, index)
-  }
+export function newPlanner(hexMap: HexMaps, index: number, logWriter: ILogWriter): IPlanner {
+  let planner = (TP.pWorker)
+    ? new PlannerProxy(hexMap.mh, hexMap.nh, index, logWriter)
+    : new Planner(hexMap.mh, hexMap.nh, index, logWriter);
+  return planner
 }
-export class PlannerProxy implements IPlanner {
+
+export class PlannerProxy implements IPlanner, IPlanReply {
   colorn: string
   worker: Worker 
   get ll0() { return TP.log > 0 }
 
-  constructor(public mh: number, public nh: number, private index: number) {
+  constructor(public mh: number, public nh: number, public index: number, public logWriter: ILogWriter) {
     let colorn = this.colorn = TP.colorScheme[stoneColors[index]]
     this.ll0 && console.log(stime(this, `(${this.colorn}).newPlannerProxy:`), { mh, nh, index, colorn })
     this.worker = this.makeWorker()
     this.worker['Aname'] = `Worker-${colorn}`
-    this.postMessage(`.makeWorker`, 'log', 'made worker for:', this.colorn)
+    this.postMessage(`.makeWorker`, MK.log, 'made worker for:', this.colorn)
     this.ll0 && console.log(stime(this, `(${this.colorn}).newPlannerProxy:`), { worker: this.worker })
     //setTimeout(() => {this.initiate()})
     this.initiate()
@@ -62,25 +101,26 @@ export class PlannerProxy implements IPlanner {
   }
   initiate() {
     this.ll0 && console.log(stime(this, `(${this.colorn}).initiate:`), this.worker)
-    this.postMessage(`.initiate-new:`, 'newPlanner', this.mh, this.nh, this.index)
-    this.postMessage('.initiate-log:', 'log', `initiate:`, this.colorn, this.index);
-    this.postMessage(`.initiate-set:`, 'setParam', 'TP', 'yieldMM', 500); TP.yieldMM // TP.yieldMM = 300
+    this.postMessage(`.initiate-set:`, MK.setParam, 'TP', MK.log, TP.log)
+    this.postMessage(`.initiate-new:`, MK.newPlanner, this.mh, this.nh, this.index)
+    this.postMessage('.initiate-log:', MK.log, `initiate:`, this.colorn, this.index);
+    this.postMessage(`.initiate-set:`, MK.setParam, 'TP', 'yieldMM', 500); TP.yieldMM // TP.yieldMM = 300
   }
 
   terminate() {
     this.ll0 && console.log(stime(this, `.terminate:`), this.worker)
-    this.postMessage(`.terminate:`, 'terminate')
+    this.postMessage(`.terminate:`, MK.terminate)
     setTimeout(() => this.worker.terminate())
   }
 
   roboMove(run: boolean) {
     this.ll0 && console.log(stime(this, `(${this.colorn}).roboMove: run =`), run)
-    this.postMessage(`.roboMove:`, 'roboMove', run)
+    this.postMessage(`.roboMove:`, MK.roboMove, run)
   }
   setParam(target: object, fieldName: string, value: (string | number | boolean)) {
     let targetName = target['name'] || className(target)
     this.ll0 && console.log(stime(this, `(${this.colorn}).setParam:`), {targetName, fieldName, value})
-    this.postMessage(`.setParam`, 'setParam', targetName, fieldName, value)
+    this.postMessage(`.setParam`, MK.setParam, targetName, fieldName, value)
   }
   logHistory(ident: string, history: Move[]) {
     let l = history.length
@@ -96,29 +136,37 @@ export class PlannerProxy implements IPlanner {
 
     ///*this.ll0 &&*/ console.log(stime(this, `(${this.colorn}).makeMove: iHistory =`), iHistory)
     this.logHistory(`.makeMove(${this.colorn}) `, history)
-    this.postMessage(`.makeMove:`, 'makeMove', stoneColor, iHistory, incb )
+    this.postMessage(`.makeMove:`, MK.makeMove, stoneColor, iHistory, incb )
     return new Promise<IHex>((fil, rej) => {
       this.filHex = fil
       this.rejHex = rej
     })
   }
 
-  parseMessage(data: PlanData) {
+  parseMessage(data: ReplyData) {
     this.ll0 && console.log(stime(this, `.parseMessage:`), data)
     let { verb, args } = data
-    switch (verb) {
-      case 'newDone': // reply to newPlanner
-        break;
-      case 'move':  // reply to makeMove
-        let [row, col, Aname] = args as [number, number, string]
-        let ihex = {row, col, Aname}
-        this.ll0 && console.log(stime(this, `.move:`), ihex)
-        this.filHex(ihex)
-        break;
+    let func = this[verb]
+    if (typeof func !== 'function') {
+      console.warn(stime(this, `.parseMsg.ignore: ${verb}`), args)
+    } else {
+      func.call(this, ...args)
     }
-  }  
+  };
 
-  onMessage(msg: MessageEvent<PlanData>) {
+  // reply to newPlanner
+  newDone(args: MsgArgs[]) { }
+  // reply to makeMove
+  move(row: number, col: number, Aname: string) {
+      let ihex = { row, col, Aname }
+    this.ll0 && console.log(stime(this, `.move:`), ihex)
+    this.filHex(ihex)
+  }
+  logFile(text: string) {
+    this.logWriter.writeLine(text)
+  }
+
+  onMessage(msg: MessageEvent<ReplyData>) {
     this.parseMessage(msg.data)
   }
   onError(err: ErrorEvent) {
@@ -133,8 +181,6 @@ export class PlannerProxy implements IPlanner {
     this.worker.postMessage(data)
   }
 }
-
-import { EzPromise } from "@thegraid/ezpromise"
 
 //// We think we need to manage the messages round-trip; so we don't overdrive the client.
 //// currently: only happens for newPlanner->initiate; because plannerMove has plannerRunning = true

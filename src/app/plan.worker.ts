@@ -1,15 +1,15 @@
 import { S, stime } from '@thegraid/common-lib';
 import { IMove } from './move';
-import { PlanData } from './plan-proxy';
+import { IPlanMsg, MsgArgs, MsgSimple, PlanData, MK, ReplyData, ReplyKey } from './plan-proxy';
 import { Planner } from './planner'
+import { ILogWriter } from './stream-writer';
 import { StoneColor, TP } from './table-params';
 // importScripts ('MyWorker.js')
 // https://www.html5rocks.com/en/tutorials/workers/basics/#toc-inlineworkers
 // type of Worker: https://github.com/Microsoft/TypeScript/issues/20595#issuecomment-763604612
 
-type Args = PlanData['args']
 /** RPC 'stub' to invoke methods on given Planner */
-class PlanWorker {
+class PlanWorker implements IPlanMsg {
   planner: Planner
   get ll0() { return TP.log > 0 }
   get ll1() { return TP.log > 1 }
@@ -18,61 +18,55 @@ class PlanWorker {
   }
   async init() {
     this['Aname'] = `PlanWorker-${self['A_Random']}@${stime(this, '.init')}`
-    self.addEventListener('message', (msg: MessageEvent<PlanData>) => { this.handleMsg(msg)})
+    self.addEventListener('message', (msg: MessageEvent<PlanData>) => { this.handleMsg(msg.data)})
   }
   get color() { return this.planner?.myStoneColor || '?' }
 
-  handleMsg(msg: MessageEvent<PlanData>) {
-    let { verb, args } = msg.data
-    this.ll1 && console.log(stime(this, `(${this.color}).handleMsg:`), msg.data) // [Object object]
-    switch (verb) {
-      case 'newPlanner':
-      case 'roboMove':
-      case 'makeMove':
-      case 'log':
-      case 'setParam':
-      case 'terminate':
-        let func = this[verb]
-        if (typeof func == 'function') {
-          //console.log(stime(this, `.handleMsg: invoke this[${verb}]`), func)
-          func.call(this, ...args)
-        } else {
-          console.warn(stime(this, `handleMsg.failed: this[${verb}]`), func)
-        }
-        break;
-      default:
-        console.warn(stime(this, `.handleMsg.default: ${verb}`), args)
-        //this.planner[verb](...args)
+  /** send tuple of args */
+  reply(verb: ReplyKey, ...args: MsgArgs[]) {
+    postMessage({verb, args} as ReplyData)
+  }
+
+  handleMsg(data: PlanData) {
+    let { verb, args } = data
+    this.ll1 && console.log(stime(this, `(${this.color}).handleMsg:`), data) // [Object object]
+    let func = this[verb]
+    if (typeof func !== 'function') {
+      console.warn(stime(this, `.handleMsg.ignore: ${verb}`), args)
+    } else {
+      func.call(this, ...args)
     }
   };
-  /** send tuple of args */
-  reply(verb: string, ...args: (string | number | boolean)[]) {
-    postMessage({verb, args})
-  }
+
+  /// Handle inbound messages:
+
+  /** make a Planner in Worker thread. */
   newPlanner(mh: number, nh: number, index: number) {
     TP.fnHexes(mh, nh)
+    let logWriter = { writeLine: (text: string) => { this.reply(MK.logFile, text)}}
     // this.planner.gamePlay.hexMap.mh
-    this.ll0 && console.log(stime(this, `.newPlanner:`), {mh, nh, index}) // [Object object]
-    this.planner = new Planner(mh, nh, index)
+    this.ll0 && console.log(stime(this, `.newPlanner:`), {mh, nh, index, logWriter}) // [Object object]
+    this.planner = new Planner(mh, nh, index, logWriter)
     this[S.Aname] = `PlanWorker@${stime(this, `.newPlanner(${index})`)}`
-    this.reply('newDone', this.color, this.planner.depth)
+    this.reply(MK.newDone, this.color, this.planner.depth)
   }
   roboMove(run: boolean) {
     this.planner.roboMove(run)
   }
   makeMove(stoneColor: StoneColor, iHistory: IMove[], incb = 0) {
     let movePromise = this.planner.makeMove(stoneColor, iHistory, incb)
-    movePromise.then(hex => this.reply('move', hex.row, hex.col, hex.Aname))
+    movePromise.then(hex => this.reply(MK.move, hex.row, hex.col, hex.Aname))
+    return movePromise // ignored
   }
-  log(...args: Args)  {
+  log(...args: MsgArgs[])  {
     console.log(stime(this, `.handleMsg.log:`), ...args)
   }
-  setParam(...args: [string, string, (string|number|boolean)]) {
+  setParam(...args: [string, string, MsgSimple]) {
     let [targetName, fieldName, value] = args
     /*this.ll0 &&*/ console.log(stime(this, `.setParam:`), args)
     if (targetName === 'TP') TP[fieldName] = value
   }
-  terminate(...args: Args) {
+  terminate(...args: MsgArgs[]) {
     this.ll0 && console.log(stime(this, `.handleMsg.terminate:`), args)
   }
 }

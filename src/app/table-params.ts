@@ -16,7 +16,7 @@ export class TP {
   static pWeight = 1
   static keepMoves = 4;   // number of predicted/evaluated moves to retain in State.moveAry
   static pResign = 1      // if lookahead(resignAhead).bv = -Infinity --> Resign
-  static pBoards = false  // true: evalState saves board->state
+  static pBoards = true   // true: evalState saves board->state
   static pMoves = true    // true: use predicted moveAry
   static pGCM = true      // GC state.moveAry (except bestHexState.moveAry)
   static maxPlys = 5      // for robo-player lookahead

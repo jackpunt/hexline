@@ -7,6 +7,7 @@ import { runEventLoop } from "./event-loop"
 import { IPlanner } from "./plan-proxy";
 import { WINARY } from "./stats";
 import { otherColor, StoneColor, stoneColor0, stoneColor1, StoneColorRecord, stoneColorRecord, stoneColors, TP } from "./table-params";
+import { ILogWriter } from "./stream-writer";
 
 function stoneColorValue (value: number) { return stoneColorRecord(value, -value)}
 const WINVAL = stoneColorValue(Number.POSITIVE_INFINITY)
@@ -225,7 +226,7 @@ export class Planner implements IPlanner {
   skipMove(color: StoneColor) { return new PlanMove(this.skipHex, color, [], this.gamePlay) as PlanMove }
   resignMove(color: StoneColor) { return new PlanMove(this.resignHex, color, [], this.gamePlay) as PlanMove }
 
-  constructor(mh: number, nh: number, playerIndex: number) {
+  constructor(mh: number, nh: number, playerIndex: number, public logWriter: ILogWriter) {
     let color = stoneColors[playerIndex], colorn = TP.colorScheme[color]
     this.myPlayerNdx = playerIndex
     this.myStoneColor = color
@@ -291,6 +292,7 @@ export class Planner implements IPlanner {
       while (mhex.metaLinks[dir]) mhex = mhex.metaLinks[dir]
       // Note: we don't doLocalMove; will pick it up on next syncToGame(history)
       // OR: doLocalMove(); new HexGen().setSxInfo()
+      this.doLocalMove(mhex, color)
       fillMove(mhex)
     }
     let state0: State
@@ -304,10 +306,11 @@ export class Planner implements IPlanner {
       let tns = tn.toString().padStart(3), dsids = dsid.toLocaleString().padStart(10), dmss = dms.toString().padStart(7)
       let hexstr = hex.toString(color) // like move.Aname but shows @Resign
       let mc = state.ind()
+      let text = `#${tns} ${hexstr}${mc} dms:${dmss} dsid:${dsids} n:${state0.nMoves} bv:${state.bv}`
       this.logEvalMove(`.dispatchMove`, state0, TP.maxPlys, undefined, state)
-      console.log(stime(this, `.makeMove: ${AT.ansiText(['bold', 'green'],
-        `#${tns} ${hexstr}${mc} dms:${dmss} dsid:${dsids} n:${state0.nMoves} bv:${state.bv}`)}`),
+      console.log(stime(this, `.makeMove: ${AT.ansiText(['bold', 'green'], text)}`),
         { maxD: this.maxDepth, maxP: TP.maxPlys, nPer: TP.nPerDist, maxB: TP.maxBreadth, state: (TP.log > -1) && state.copyOf() });
+      this.logWriter.writeLine(text)
       this.prevMove = this.gamePlay.history[0]
       fillMove(hex)
     }
@@ -762,8 +765,8 @@ export class Planner implements IPlanner {
     if (useMoveAry) {
       TP.log > 0 && state0.logMoveAry(`${ident}:pre-evaluated moveAry`, tn, this.historyString)
       TP.log > 0 && console.warn(stime(this, ident), ':pre-evaluated moveAry')
-      // TODO: check move.caps for moves that *were* blocked, but are not ok?
-      debugger;
+      // TODO: check move.caps for moves that *were* blocked, but are now ok?
+      //debugger;
     } else try {
       TP.log > 0 && (console.groupCollapsed(`${stime(this, ident)} -> ${TP.colorScheme[sc]}#${tn}:`), group = true)
       moveAry = state0.moveAry = []

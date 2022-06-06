@@ -24,6 +24,7 @@
     "@thegraid/easeljs-lib": "^1.1.2",
     "@thegraid/easeljs-module": "^1.1.4",
     "@thegraid/ezpromise": "^1.0.10",
+    "@types/wicg-file-system-access": "^2020.9.5",
     "moment": "^2.29.1",
     "rxjs": "~7.5.0",
     "tslib": "^2.3.0",

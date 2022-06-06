@@ -4,11 +4,12 @@ import { Hex, Hex2, HexMap, S_Resign, HSC, HexMaps } from "./hex";
 import { HexEvent } from "./hex-event";
 import { S, stime, Undo, KeyBinder } from "@thegraid/easeljs-lib";
 import { GameStats, TableStats, WINARY } from "./stats";
-import { Stone, Table } from "./table";
+import { Table } from "./table";
 import { otherColor, StoneColor, stoneColors, TP} from "./table-params"
 import { Player } from "./player";
 import { GameSetup } from "./game-setup";
 import { Move } from "./move";
+import { LogWriter } from "./stream-writer";
 
 export class GamePlay0 {
 
@@ -240,10 +241,14 @@ export class GamePlayD extends GamePlay0 {
 
 /** implement the game logic */
 export class GamePlay extends GamePlay0 {
+  readonly logWriter: LogWriter
   readonly table: Table
   override readonly gStats: TableStats
   constructor(table: Table) {
     super()            // hexMap, history, gStats...
+    let line0 = `[${TP.mHexes}x${TP.nHexes}] maxBreath ${TP.maxBreadth} maxPlys ${TP.maxPlys} nPer ${TP.nPerDist} pBoards ${TP.pBoards}`
+    this.logWriter = new LogWriter()
+    this.logWriter.writeLine(line0)
     this.allPlayers = stoneColors.map((color, ndx) => new Player(ndx, color, table))
     // setTable(table)
     this.table = table
