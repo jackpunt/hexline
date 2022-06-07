@@ -49,21 +49,16 @@ export class LogWriter implements ILogWriter {
     this.openPromise = this.newOpenPromise
   }
 
-  async wait(dms: number) { await new Promise<void>((fil, rej) => { setTimeout(() => { fil() }, dms) }) }
   async writeLine(text: string, dms = 500) {
     try {
       let line = `${text}\n`
-      let stream = (await this.openPromise) // indicates that this.writeable
+      let stream = (await this.openPromise)     // indicates writeable is ready
       await stream.seek((await this.fileHandle.getFile()).size)
       await stream.write({type: 'write', data: line});
       let closePromise = this.closeFile()       // flush to real-file
-      //await this.wait(300)
-      // new Promise for next cycle:
-      this.openPromise = this.newOpenPromise
+      this.openPromise = this.newOpenPromise    // new Promise for next cycle:
       await closePromise
-      while (!this.openPromise.value) {
-        await this.openWriteable()
-      }   
+      while (!this.openPromise.value) await this.openWriteable()
     } catch (err) {
       console.warn(stime(this, `.writeLine failed:`), err)
       throw err
