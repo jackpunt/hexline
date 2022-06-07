@@ -246,8 +246,9 @@ export class GamePlay extends GamePlay0 {
   override readonly gStats: TableStats
   constructor(table: Table) {
     super()            // hexMap, history, gStats...
-    let line0 = `[${TP.mHexes}x${TP.nHexes}] maxBreath ${TP.maxBreadth} maxPlys ${TP.maxPlys} nPer ${TP.nPerDist} pBoards ${TP.pBoards}`
-    this.logWriter = new LogWriter()
+    let time = stime('').substring(6,15), size=`${TP.mHexes}x${TP.nHexes}`
+    let line0 = `${stime(this)}[${size}] maxBreath ${TP.maxBreadth} maxPlys ${TP.maxPlys} nPer ${TP.nPerDist} pBoards ${TP.pBoards}`
+    this.logWriter = new LogWriter(`log${size}_${time}`)
     this.logWriter.writeLine(line0)
     this.allPlayers = stoneColors.map((color, ndx) => new Player(ndx, color, table))
     // setTable(table)
@@ -273,15 +274,18 @@ export class GamePlay extends GamePlay0 {
     KeyBinder.keyBinder.setKey('N', { thisArg: this, func: this.autoMove, argVal: true})
     KeyBinder.keyBinder.setKey('y', { thisArg: this, func: () => TP.yield = true })
     KeyBinder.keyBinder.setKey('u', { thisArg: this, func: () => TP.yield = false })
+    KeyBinder.keyBinder.setKey('l', { thisArg: this, func: this.openLog })
     table.undoShape.on(S.click, () => this.undoMove(), this)
     table.redoShape.on(S.click, () => this.redoMove(), this)
     table.skipShape.on(S.click, () => this.skipMove(), this)
   }
-
-  readonly allPlayers: Player[];
+  openLog() {
+    this.logWriter.clickButton()
+  }
 
   turnNumber: number = 0    // = history.lenth + 1 [by this.setNextPlayer] 
 
+  readonly allPlayers: Player[];
   curPlayer: Player;
   getPlayer(color: StoneColor): Player {
     return this.allPlayers.find(p => p.color == color)

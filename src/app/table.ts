@@ -268,8 +268,8 @@ export class Table extends EventDispatcher  {
     this.allSuicides.forEach(hex => hex.unmarkCapture())
     this.allSuicides.clear()
   }
-
-  showInf = true
+  set showInf(val) { this.gamePlay.hexMap.mapCont.infCont.visible = val }
+  get showInf() { return this.gamePlay.hexMap.mapCont.infCont.visible }
   showSui = true
   dragFunc(stone: Stone, ctx: DragInfo): void {
     const hex = this.hexUnderObj(stone)
@@ -281,7 +281,7 @@ export class Table extends EventDispatcher  {
       this.dropTarget = this.nextHex
       this.dragHex = this.nextHex   // indicate DRAG in progress
       this.markAllSuicide(stone.color)
-      Hex2.infVis = this.showInf
+      //Hex2.infVis = this.showInf
     }
     if (shiftKey != this.dragShift) {
       stone.paint(shiftKey ? color : undefined) // otherColor or orig color

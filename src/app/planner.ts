@@ -128,6 +128,7 @@ class State {
   sortMoves(sc: StoneColor = otherColor(this.color)) {
     this.moveAry.sort(([ha, sa], [hb, sb]) => sb.bestValue[sc] - sa.bestValue[sc]) // descending
   }
+  /** find state predicted by move to given hex */
   nextState(hex: Hex) {
     let hexState = this.moveAry?.find(([h, s]) => h == hex)
     return hexState && hexState[1]
@@ -285,22 +286,7 @@ export class Planner implements IPlanner {
         }
       return hexState
     }
-
-    let firstMove = () => {
-      State.sid = sid0 = 0
-      let mhex = this.gamePlay.hexMap.district[0][0], dir = this.dir1
-      while (mhex.metaLinks[dir]) mhex = mhex.metaLinks[dir]
-      // Note: we don't doLocalMove; will pick it up on next syncToGame(history)
-      // OR: doLocalMove(); new HexGen().setSxInfo()
-      this.doLocalMove(mhex, color)
-      fillMove(mhex)
-    }
-    let state0: State
-    let dispatchMove = (hexState: HexState) => {
-      let [hex, state] = maybeResign(hexState)
-      this.doLocalMove(hex, color)  // placeStone on our hexMap & history
-      this.reduceBoards(true)       // reduce & prune
-      this.boardState.clear()       // TODO: keep the subset derive from current/actual Moves/board
+    let logMove = (hex: Hex, state0: State, state: State) => {
       let tn = this.moveNumber
       let dsid = State.sid - sid0, dms = Date.now() - ms0, sps = M.decimalRound(1000 * dsid / dms, 0)
       let tns = tn.toString().padStart(3), dsids = dsid.toLocaleString().padStart(10), dmss = dms.toString().padStart(7)
@@ -311,6 +297,23 @@ export class Planner implements IPlanner {
       console.log(stime(this, `.makeMove: ${AT.ansiText(['bold', 'green'], text)}`),
         { maxD: this.maxDepth, maxP: TP.maxPlys, nPer: TP.nPerDist, maxB: TP.maxBreadth, state: (TP.log > -1) && state.copyOf() });
       this.logWriter.writeLine(text)
+    }
+
+    let firstMove = () => {
+      State.sid = sid0 = 0
+      let mhex = this.gamePlay.hexMap.district[0][0], dir = this.dir1
+      while (mhex.metaLinks[dir]) mhex = mhex.metaLinks[dir]
+      let [move0, state0] = this.doLocalMove(mhex, color)
+      logMove(mhex, state0, state0)
+      fillMove(mhex)
+    }
+    let state0: State
+    let dispatchMove = (hexState: HexState) => {
+      let [hex, state] = maybeResign(hexState)
+      this.doLocalMove(hex, color)  // placeStone on our hexMap & history
+      this.reduceBoards(true)       // reduce & prune
+      this.boardState.clear()       // TODO: keep the subset derive from current/actual Moves/board
+      logMove(hex, state0, state)
       this.prevMove = this.gamePlay.history[0]
       fillMove(hex)
     }
@@ -342,7 +345,7 @@ export class Planner implements IPlanner {
   doHistoryMove(moveg: IMove) {
     let move1 = this.gamePlay.history[0]
     let hex0 = Hex.ofMap(moveg.hex, this.gamePlay.hexMap)
-    let move0 = this.doLocalMove(hex0, moveg.stoneColor) // do actual move to hex0, setting move0.state
+    let [move0, state0] = this.doLocalMove(hex0, moveg.stoneColor) // do actual move to hex0, setting move0.state
     if (move1) {
       // instead of searching boardState, look for existing State in move1.state:
       let state1 = move1.state                        // as we were before moveg
@@ -360,11 +363,11 @@ export class Planner implements IPlanner {
    * placeStone(); closeUndo()
    * @param hex on OUR map
    */
-  doLocalMove(hex: Hex, color: StoneColor) {
+  doLocalMove(hex: Hex, color: StoneColor): [PlanMove, State] {
     let move = this.placeStone(hex, color) // NEW Move in history[0] (generally for otherPlayer's latest Move)
-    this.evalState(move) // setting move.state
+    let state = this.evalState(move) // setting move.state
     this.gamePlay.undoRecs.closeUndo()
-    return move
+    return [move, state]
   }
   /** make Move, unshift, addStone -> captured  
    * @param pushUndo if defined: push the current undoRecs, open a new undoRecs.

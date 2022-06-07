@@ -22,6 +22,7 @@ export class GameSetup {
   }
   /** C-s ==> kill game, start a new one */
   restart() {
+    this.gamePlay.logWriter.closeFile()
     this.gamePlay.forEachPlayer(p => p.endGame())
     let deContainer = (cont: Container) => {
       cont.children.forEach(dObj => {
@@ -111,8 +112,8 @@ export class GameSetup {
   }
   makeParamGUI2(table: Table, parent: Container, x: number, y: number) {
     let gui = new ParamGUIP(table, { textAlign: 'center' }, this.gamePlay)
-    gui.makeParamSpec("showInf", [true, false])
-    gui.makeParamSpec("showSui", [true, false])
+    gui.makeParamSpec("showInf", [true, false]); table.showInf
+    gui.makeParamSpec("showSui", [true, false]); table.showSui
     gui.makeParamSpec("pWeight", [1, .99, .97, .95, .9], { target: TP }) ; TP.pWeight
     gui.makeParamSpec("pWorker", [true, false], { target: TP }); TP.pWorker
     gui.makeParamSpec("pBoards", [true, false], { target: TP }); TP.pBoards

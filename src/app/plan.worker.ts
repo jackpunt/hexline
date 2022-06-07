@@ -1,6 +1,6 @@
 import { S, stime } from '@thegraid/common-lib';
 import { IMove } from './move';
-import { IPlanMsg, MsgArgs, MsgSimple, PlanData, MK, ReplyData, ReplyKey } from './plan-proxy';
+import { IPlanMsg, MsgArgs, MsgSimple, PlanData, MK, ReplyData, ReplyKey, ParamSet } from './plan-proxy';
 import { Planner } from './planner'
 import { ILogWriter } from './stream-writer';
 import { StoneColor, TP } from './table-params';
@@ -61,9 +61,9 @@ class PlanWorker implements IPlanMsg {
   log(...args: MsgArgs[])  {
     console.log(stime(this, `.handleMsg.log:`), ...args)
   }
-  setParam(...args: [string, string, MsgSimple]) {
+  setParam(...args: ParamSet) {
     let [targetName, fieldName, value] = args
-    /*this.ll0 &&*/ console.log(stime(this, `.setParam:`), args)
+    this.ll0 && console.log(stime(this, `.setParam:`), ...args)
     if (targetName === 'TP') TP[fieldName] = value
   }
   terminate(...args: MsgArgs[]) {

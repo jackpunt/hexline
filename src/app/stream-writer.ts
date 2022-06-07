@@ -1,4 +1,5 @@
 import { stime } from "@thegraid/common-lib";
+import { EzPromise } from "@thegraid/ezpromise";
 import {} from "wicg-file-system-access"
 
 export interface ILogWriter {
@@ -15,14 +16,19 @@ export interface ILogWriter {
  */
 export class LogWriter implements ILogWriter {
   fileHandle: FileSystemFileHandle;
-  writeablePromise: Promise<FileSystemWritableFileStream> = this.newWriteablePromise;
-  writerReady: (value: FileSystemWritableFileStream | PromiseLike<FileSystemWritableFileStream>) => void 
-  writerFailed: (reason?: any) => void
-  contents: string
-  get newWriteablePromise () { return new Promise<FileSystemWritableFileStream>((fil, rej)=>{
-    this.writerReady = fil; 
-    this.writerFailed = rej
-  })}
+  /** contains WriteableFileStream */
+  openPromise: EzPromise<FileSystemWritableFileStream> = this.newOpenPromise;
+
+  get newOpenPromise() {
+    return new EzPromise<FileSystemWritableFileStream>()
+  }
+  async openWriteable(fileHandle: FileSystemFileHandle = this.fileHandle,
+    options: FileSystemCreateWritableOptions = { keepExistingData: true }) {
+    let writeable = await fileHandle.createWritable(options)
+    await writeable.seek((await fileHandle.getFile()).size)
+    this.openPromise.fulfill(writeable)
+  }
+
   constructor(name = 'logFile', public buttonId = "fsOpenFileButton") {
     const options = {
       id: 'logWriter',
@@ -38,26 +44,26 @@ export class LogWriter implements ILogWriter {
     this.setButton('showSaveFilePicker', options, (value) => {
       this.fileHandle = value as FileSystemFileHandle
       console.log(stime(this, `.picked:`), this.fileHandle, value)
-      this.createWriteable()
+      this.openWriteable()
     })
-    this.writeablePromise = this.newWriteablePromise
+    this.openPromise = this.newOpenPromise
   }
-  async createWriteable(fileHandle: FileSystemFileHandle = this.fileHandle,
-    options: FileSystemCreateWritableOptions = { keepExistingData: true }) {
-    let writeable = await fileHandle.createWritable(options)
-    let offset = (await fileHandle.getFile()).size
-    writeable.seek(offset)
-    this.writerReady(writeable)
-  }
-  async writeLine(text: string) {
+
+  async wait(dms: number) { await new Promise<void>((fil, rej) => { setTimeout(() => { fil() }, dms) }) }
+  async writeLine(text: string, dms = 500) {
     try {
       let line = `${text}\n`
-      let stream = (await this.writeablePromise)
+      let stream = (await this.openPromise) // indicates that this.writeable
+      await stream.seek((await this.fileHandle.getFile()).size)
       await stream.write({type: 'write', data: line});
-      await this.closeFile()       // flush to real-file
+      let closePromise = this.closeFile()       // flush to real-file
+      //await this.wait(300)
       // new Promise for next cycle:
-      this.writeablePromise = this.newWriteablePromise
-      await this.createWriteable() // re-open in append mode
+      this.openPromise = this.newOpenPromise
+      await closePromise
+      while (!this.openPromise.value) {
+        await this.openWriteable()
+      }   
     } catch (err) {
       console.warn(stime(this, `.writeLine failed:`), err)
       throw err
@@ -65,7 +71,7 @@ export class LogWriter implements ILogWriter {
   }
   async closeFile() {
     try {
-      return (await this.writeablePromise).close();
+      return (await this.openPromise).close();
     } catch (err) {
       console.warn(stime(this, `.closeFile failed:`), err)
       throw err
@@ -84,6 +90,10 @@ export class LogWriter implements ILogWriter {
       });
     }
     return fsOpenButton
+  }
+  clickButton() {
+    const fsOpenButton = document.getElementById(this.buttonId)
+    fsOpenButton.click()
   }
 
   /** Old technique: creates a *new* file each time it saves/downloads the given Blob(text) */

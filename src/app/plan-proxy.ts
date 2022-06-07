@@ -7,8 +7,9 @@ import { ILogWriter } from "./stream-writer";
 
 import { EzPromise } from "@thegraid/ezpromise" // for FlowControl
 
+export type ParamSet = [string, string, MsgSimple]
 export type MsgSimple = string | number | boolean
-export type MsgArgs = (MsgSimple | IMove[]) // PlanData['args']
+export type MsgArgs = (MsgSimple | IMove[] | ParamSet) // PlanData['args']
 export type MsgKey = keyof IPlanMsg
 export type ReplyKey = keyof IPlanReply
 
@@ -117,7 +118,7 @@ export class PlannerProxy implements IPlanner, IPlanReply {
     this.ll0 && console.log(stime(this, `(${this.colorn}).roboMove: run =`), run)
     this.postMessage(`.roboMove:`, MK.roboMove, run)
   }
-  setParam(target: object, fieldName: string, value: (string | number | boolean)) {
+  setParam(target: object, fieldName: string, value: ParamSet ) {
     let targetName = target['name'] || className(target)
     this.ll0 && console.log(stime(this, `(${this.colorn}).setParam:`), {targetName, fieldName, value})
     this.postMessage(`.setParam`, MK.setParam, targetName, fieldName, value)
@@ -175,7 +176,7 @@ export class PlannerProxy implements IPlanner, IPlanReply {
 
   // postMessage(message: any, transfer: Transferable[]): void;
   // postMessage(message: any, options?: StructuredSerializeOptions): void;
-  async postMessage(ident: string, verb: string, ...args: (string | number | boolean | IMove[] | (string|number|boolean)[])[]) {
+  async postMessage(ident: string, verb: string, ...args: MsgArgs[]) {
     let data = {verb, args}
     this.ll0 && console.log(stime(this, `(${this.colorn})${ident} Post:`), {verb: data.verb}, data.args)
     this.worker.postMessage(data)
