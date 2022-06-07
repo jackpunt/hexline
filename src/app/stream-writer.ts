@@ -45,7 +45,7 @@ export class LogWriter implements ILogWriter {
       this.fileHandle = value as FileSystemFileHandle
       console.log(stime(this, `.picked:`), this.fileHandle, value)
       this.openWriteable()
-    })
+    }, 'SaveLog')
     this.openPromise = this.newOpenPromise
   }
 
@@ -75,10 +75,10 @@ export class LogWriter implements ILogWriter {
   /** multi-purpose picker button: (callback arg-type changes) */
   setButton(method: 'showOpenFilePicker' | 'showSaveFilePicker' | 'showDirectoryPicker',
     options: OpenFilePickerOptions & { multiple?: false; } & SaveFilePickerOptions & DirectoryPickerOptions,
-    cb: (fileHandleAry: any) => void) {
+    cb: (fileHandleAry: any) => void, inText = method.substring(4, method.length - 6)) {
     const picker = window[method]  // showSaveFilePicker showDirectoryPicker
     const fsOpenButton = document.getElementById(this.buttonId)
-    fsOpenButton.innerText = method.substring(4, method.length - 6)
+    fsOpenButton.innerText = inText
     fsOpenButton.onclick = () => {
       picker(options).then((value: any) => cb(value), (rej: any) => {
         console.warn(`showOpenFilePicker failed: `, rej)
