@@ -8,6 +8,7 @@ import { IPlanner } from "./plan-proxy";
 import { WINARY } from "./stats";
 import { otherColor, StoneColor, stoneColor0, stoneColor1, StoneColorRecord, stoneColorRecord, stoneColors, TP } from "./table-params";
 import { ILogWriter } from "./stream-writer";
+import { EzPromise } from "@thegraid/ezpromise";
 
 function stoneColorValue (value: number) { return stoneColorRecord(value, -value)}
 const WINVAL = stoneColorValue(Number.POSITIVE_INFINITY)
@@ -158,14 +159,14 @@ class State {
     let bh = this.bestHexState?.[0]
     let pad = (s: number, n = 3, d = 0) => { return `${s.toFixed(d).padStart(n)}` } // ${s >= 0 ? ' ' : ''}
     return this.moveAry?.map(([h, s]) => [s.move,
-    `${s.move.Aname}${s.ind(s.eval > tn ? '+' : '.')} v0: ${pad(s.v0, 4, 1)},`+
+    `${s.move.toString()}${s.ind(s.eval > tn ? '+' : '.')} v0: ${pad(s.v0, 4, 1)},`+
     ` [${pad(s.eval,2)}] ${(h == bh) ? '*' : ' '}bv: ${s.bvs}, id=${pad(s.id)}`,
     [historyString, s.move.board.toString()], s.copyOf()])
   }
   moves0(tn: number) {
     let bh = this.bestHexState?.[0]
     return this.moveAry?.map(([h, s]) => [s.move, s.eval, (h == bh) ? '*' : ' ',
-    s.move.Aname, s.ind(s.eval > tn ? '+' : '.'),
+    s.move.toString(), s.ind(s.eval > tn ? '+' : '.'),
     s.v0, s.bvs, s.id,
     s.move.board.toString(), s.bestHexState[1].copyOf()])
   }
@@ -185,17 +186,6 @@ function entriesArray(k: MOVES) {
   for (let m of k) { rv.push(m) }
   return rv
 }
-/**
-  dStones: number[] = Array(7);       // per-district
-  dMinControl: boolean[] = Array(7);  // per-district true if minControl of district
-  dMax: number                        // max dStones in non-central district
-  nStones: number = 0;   // total on board
-  nInf: number = 0;      // (= nStones*6 - edge effects - E/W-underlap)
-  nThreats: number = 0;  // (Hex w/ inf && [op].stone)
-  nAttacks: number = 0;  // (Hex w/ inf >= 2)
-  nAdj: number = 0;      // where 2 Hexes of same color are adjacent (times 2, a:b + b:a)
-  inControl(d: StoneColor)  { return this.gStats.inControl[this.plyr.color][d]; }
- */
 
 /**
  * Planner: eval-node: makeState, find children, for [each] child: eval-node
@@ -212,6 +202,7 @@ export class Planner implements IPlanner {
   terminate() {} // TODO: maybe run GC or summary stats?
 
   gamePlay: GamePlayDH
+  theWeightVecs: StoneColorRecord<number[]>
   myWeightVec: number[]
   prevMove: Move // previous Move
   get depth() { return this.gamePlay.history.length + 1 } // accounting for Stones we have played
@@ -227,15 +218,12 @@ export class Planner implements IPlanner {
   skipMove(color: StoneColor) { return new PlanMove(this.skipHex, color, [], this.gamePlay) as PlanMove }
   resignMove(color: StoneColor) { return new PlanMove(this.resignHex, color, [], this.gamePlay) as PlanMove }
 
-  constructor(mh: number, nh: number, playerIndex: number, public logWriter: ILogWriter) {
-    let color = stoneColors[playerIndex], colorn = TP.colorScheme[color]
-    this.myPlayerNdx = playerIndex
-    this.myStoneColor = color
-    this.gamePlay = new GamePlayD(mh, nh, colorn) as GamePlayDH // downgraded to GamePlayD: history, hexMap, undoRecs, allBoards, gStats
+  constructor(mh: number, nh: number, public logWriter: ILogWriter) {
+    this.gamePlay = new GamePlayD(mh, nh) as GamePlayDH // downgraded to GamePlayD: history, hexMap, undoRecs, allBoards, gStats
     this.gamePlay.newMoveFunc = (hex, sc, caps, gp) => new PlanMove(hex, sc, caps, gp)
-    this.myWeightVec = this.getWeightVec(color)
+    this.setWeightVecs()
   }
-  getWeightVec(color: StoneColor) {
+  setWeightVecs() {
     // compatible with statVector in stats.ts
     let nDist = TP.ftHexes(TP.mHexes)  // each MetaHex is a District
     let dStoneM0 = new Array<number>(nDist).fill(1, 0, nDist); dStoneM0[0] = 1
@@ -246,21 +234,20 @@ export class Planner implements IPlanner {
     let dStoneM1 = new Array<number>(nDist).fill(1, 0, nDist); dStoneM1[0] = .8
     let scoreM1 = 1.4, dMaxM1 = .9, nStonesM1 = 1.0, nInfM1 = .25, nThreatsM1 = .30, nAttacksM1 = .6, nAdjM1 = .2
     let wv1 = dStoneM1.concat([scoreM1, dMaxM1, nStonesM1, nInfM1, nThreatsM1, nAttacksM1, nAdjM1])
-    return stoneColorRecord(wv0, wv1)[color]
+    return (this.theWeightVecs = stoneColorRecord(wv0, wv1))
   }
   /** time at last yield (or initial makeMove) */
   ms0: number
   ms00: number
   yieldMs: number      // compute for this long before doing a voluntary yield
   maxDepth: number
-  myPlayerNdx: number // my Player.index
-  myStoneColor: StoneColor // from myPlayerIndex
   readonly scMul = stoneColorRecord(1, -1)
   readonly dir1: Dir1 = 'NW'
   maxBreadth = TP.maxBreadth
 
   /** play this Stone, Player is stone.color */
   makeMove(color: StoneColor, iHistory: IMove[], incb = 0): Promise<IHex> {
+    this.myWeightVec = this.theWeightVecs[color]
     this.ms0 = this.ms00 = Date.now()
     this.maxBreadth = TP.maxBreadth + incb     // on request: look at more [or fewer] Moves
     this.maxDepth = Number.NEGATIVE_INFINITY
@@ -269,10 +256,9 @@ export class Planner implements IPlanner {
     // NOW: we are sync'd with mainGame...
     let sid0 = State.sid, ms0 = Date.now() - 1
 
-    let fillMove: (hex: Hex | PromiseLike<Hex>) => void, failMove: (reason?: any) => void 
-    let movePromise = new Promise<Hex>((fil, rej) => {
-      fillMove = fil; failMove = rej
-    })
+    let movePromise = new EzPromise<Hex>()
+    let fillMove: (hex: Hex | PromiseLike<Hex>) => void = (hex) => { movePromise.fulfill(hex)}
+    let failMove: (reason?: any) => void = (reason) => { movePromise.reject(reason)}
     let maybeResign = (hexState: HexState) => {
       let [hex, state] = hexState
       if (state.bv <= -WINMIN)
@@ -290,7 +276,7 @@ export class Planner implements IPlanner {
       let tn = this.moveNumber
       let dsid = State.sid - sid0, dms = Date.now() - ms0, sps = M.decimalRound(1000 * dsid / dms, 0)
       let tns = tn.toString().padStart(3), dsids = dsid.toLocaleString().padStart(10), dmss = dms.toString().padStart(7)
-      let hexstr = hex.toString(color) // like move.Aname but shows @Resign
+      let hexstr = hex.rcspString(color) // space filled, fix-length
       let mc = state.ind()
       let text = `#${tns} ${hexstr}${mc} dms:${dmss} dsid:${dsids} n:${state0.nMoves} bv:${state.bv}`
       this.logEvalMove(`.dispatchMove`, state0, TP.maxPlys, undefined, state)
@@ -486,10 +472,10 @@ export class Planner implements IPlanner {
       let state1 = (moveOrState instanceof State) ? moveOrState : moveOrState.state
       let winInd = (win !== undefined) ? ` --> win: ${TP.colorScheme[win]}` : ''
       let vals = (state2) ? {
-        mov1: `${state1.move.Aname}${state1.ind()}`, eval: state1.eval, bv: state1.bv, state1: state1.copyOf(),
-        mov2: `${state2.move.Aname}${state2.ind()}`, state2: state2.copyOf()
+        mov1: `${state1.move.toString()}${state1.ind()}`, eval: state1.eval, bv: state1.bv, state1: state1.copyOf(),
+        mov2: `${state2.move.toString()}${state2.ind()}`, state2: state2.copyOf()
       }
-        : { move: `${state1.move.Aname}${state1.ind()}`, eval: state1.eval, bv: state1.bv, state1: state1.copyOf() }
+        : { move: `${state1.move.toString()}${state1.ind()}`, eval: state1.eval, bv: state1.bv, state1: state1.copyOf() }
       console.log(stime(this, `${ident}: nPlys: ${nPlys || TP.maxPlys}${winInd}`), vals)
     }
   }
@@ -950,6 +936,20 @@ class HexGen {
     }
   }
 }
+class PlannerPool extends Planner{
+  override roboMove(run: boolean): void {
+    throw new Error("Method not implemented.");
+  }
+  override makeMove(stoneColor: "b" | "w", iHistory: IMove[], incb?: number): Promise<IHex> {
+    let movePromise = super.makeMove(stoneColor, iHistory)
+    return movePromise
+  }
+  override terminate(): void {
+    throw new Error("Method not implemented.");
+  }
+  
+}
+
 class SxInfo {
   constructor(
     public gamePlay: GamePlay0

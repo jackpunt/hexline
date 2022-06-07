@@ -3,7 +3,7 @@ import { IMove } from './move';
 import { IPlanMsg, MsgArgs, MsgSimple, PlanData, MK, ReplyData, ReplyKey, ParamSet } from './plan-proxy';
 import { Planner } from './planner'
 import { ILogWriter } from './stream-writer';
-import { StoneColor, TP } from './table-params';
+import { StoneColor, stoneColors, TP } from './table-params';
 // importScripts ('MyWorker.js')
 // https://www.html5rocks.com/en/tutorials/workers/basics/#toc-inlineworkers
 // type of Worker: https://github.com/Microsoft/TypeScript/issues/20595#issuecomment-763604612
@@ -14,13 +14,13 @@ class PlanWorker implements IPlanMsg {
   get ll0() { return TP.log > 0 }
   get ll1() { return TP.log > 1 }
   constructor() {
-    stime.anno = (obj) => { return ` ${this.color}` }
+    stime.anno = (obj) => { return ` ${this.color || '?'}` }
   }
   async init() {
     this['Aname'] = `PlanWorker-${self['A_Random']}@${stime(this, '.init')}`
     self.addEventListener('message', (msg: MessageEvent<PlanData>) => { this.handleMsg(msg.data)})
   }
-  get color() { return this.planner?.myStoneColor || '?' }
+  color: StoneColor
 
   /** send tuple of args */
   reply(verb: ReplyKey, ...args: MsgArgs[]) {
@@ -40,14 +40,16 @@ class PlanWorker implements IPlanMsg {
 
   /// Handle inbound messages:
 
-  /** make a Planner in Worker thread. */
+  /** make a Planner in Worker thread: HexMap(mh, nh) 
+   * @param index show stoneColors[index] in the stime.anno
+  */
   newPlanner(mh: number, nh: number, index: number) {
+    this.color = stoneColors[index]
     TP.fnHexes(mh, nh)
-    let logWriter = { writeLine: (text: string) => { this.reply(MK.logFile, text)}}
-    // this.planner.gamePlay.hexMap.mh
-    this.ll0 && console.log(stime(this, `.newPlanner:`), {mh, nh, index, logWriter}) // [Object object]
-    this.planner = new Planner(mh, nh, index, logWriter)
-    this[S.Aname] = `PlanWorker@${stime(this, `.newPlanner(${index})`)}`
+    let logWriter: ILogWriter = { writeLine: (text: string) => { this.reply(MK.logFile, text)}}
+    this.ll0 && console.log(stime(this, `.newPlanner:`), { mh, nh, index, logWriter }) // [Object object]
+    this.planner = new Planner(mh, nh, logWriter)
+    this[S.Aname] = `PlanWorker@${stime(this, `.newPlanner(${this.color})`)}`
     this.reply(MK.newDone, this.color, this.planner.depth)
   }
   roboMove(run: boolean) {

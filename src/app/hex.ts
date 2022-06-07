@@ -97,7 +97,11 @@ export class Hex {
   stoneColor: StoneColor = undefined;
 
   /** [row,col] OR S_Resign OR S_Skip */
-  get rcs(): string { return this.row ? `[${this.row},${this.col}]` : this.Aname.substring(4)}
+  get rcs(): string { return (this.row !== undefined) ? `[${this.row},${this.col}]` : this.Aname.substring(4)}
+  get rowsp() { return this.row.toString().padStart(2)}
+  get colsp() { return this.col.toString().padStart(2)}
+  /** [row,col] OR S_Resign OR S_Skip */
+  get rcsp(): string { return (this.row !== undefined) ? `[${this.rowsp},${this.colsp}]` : this.Aname.substring(4).padEnd(7)}
   /** compute ONCE, *after* HexMap is populated with all the Hex! */
   get rc_linear(): number { return this._rcLinear || (this._rcLinear = this.map.rcLinear(this.row, this.col))}
   _rcLinear: number = undefined
@@ -139,7 +143,11 @@ export class Hex {
   }
   /** colorScheme(stoneColor)@rcs */
   toString(stoneColor = this.stoneColor) {
-    return `${TP.colorScheme[stoneColor]}@${this.rcs}`
+    return `${TP.colorScheme[stoneColor]}@${this.rcs}` // hex.toString => COLOR@[r,c] | COLOR@Skip , COLOR@Resign
+  }
+  /** hex.rcspString => COLOR@[ r, c] | 'COLOR@Skip   ' , 'COLOR@Resign ' */
+  rcspString(sc = this.stoneColor) {
+    return `${TP.colorScheme[sc]}@${this.rcsp}`
   }
 
   /**

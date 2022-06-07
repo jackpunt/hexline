@@ -39,10 +39,10 @@ export class GamePlay0 {
   get boardId(): [string, StoneColor] {
     let move0 = this.history[0], sc = move0.stoneColor
     let resign_sc = (move0.hex.Aname === S_Resign) ? sc : undefined, caps = ''
-    move0.captured.forEach(hex => caps += hex.rcs)// hex@[r,c] => [r,c]
+    move0.captured.forEach(hex => caps += hex.rcs)// [r,c] of each capture
     let id = `Board(${sc},${caps})${resign_sc ? `${resign_sc}!` : ''}`
-    let hexStones = this.hexMap.allStones.filter(({hex}) => hex.row !== undefined)
-    let bString = (hsc: HSC) => { return `${hsc.sc}${hsc.hex.rcs}` }
+    let hexStones = this.hexMap.allStones.filter(({hex}) => hex.row !== undefined) // skip
+    let bString = (hsc: HSC) => { return `${hsc.sc}${hsc.hex.rcs}` } // sc[r,c] for each occupied hex
     hexStones.sort((a, b) => { return a.hex.rc_linear - b.hex.rc_linear }); // ascending row-major
     hexStones.forEach(hsc => id += bString(hsc)) // in canonical order
     return [id, resign_sc]
@@ -162,11 +162,11 @@ export class GamePlay0 {
     this.removeStone(nhex)   // decrInfluence(nhex, nhex.color)
   }
   /** used for diagnosing undoRecs. */
-  logMoveRecs(ident: string, move: Move) {
+  logUndoRecs(ident: string, move: Move) {
     TP.log > 1 && console.log(stime(this, ident), { 
       movedepth: this.history.length+1, 
       //hex12_color: this.hexMap[1][2].stoneColor ? this.hexMap[1][2].stoneColor : ' ', 
-      move, Aname: move? move.Aname : '',
+      move, Aname: move?.Aname || '',
       undoRecs: this.undoRecs.concat(), 
       undoLast: this.undoRecs[this.undoRecs.length-1]?.concat(), 
       openRec: this.undoRecs.openRec.concat(), })
@@ -231,9 +231,9 @@ export class GamePlayD extends GamePlay0 {
   static sid = 0
   readonly id = GamePlayD.sid++
   override hexMap: HexMaps;
-  constructor(mh: number, nh: number, colorn: string) {
+  constructor(mh: number, nh: number) {
     super()
-    this.hexMap[S.Aname] = `GamePlayD#${this.id}-${colorn}`
+    this.hexMap[S.Aname] = `GamePlayD#${this.id}`
     this.hexMap.makeAllDistricts(mh, nh)
     return
   }
@@ -274,13 +274,11 @@ export class GamePlay extends GamePlay0 {
     KeyBinder.keyBinder.setKey('N', { thisArg: this, func: this.autoMove, argVal: true})
     KeyBinder.keyBinder.setKey('y', { thisArg: this, func: () => TP.yield = true })
     KeyBinder.keyBinder.setKey('u', { thisArg: this, func: () => TP.yield = false })
-    KeyBinder.keyBinder.setKey('l', { thisArg: this, func: this.openLog })
+    KeyBinder.keyBinder.setKey('l', { thisArg: this.logWriter, func: this.logWriter.clickButton })
+    KeyBinder.keyBinder.setKey('L', { thisArg: this.logWriter, func: this.logWriter.showBacklog })
     table.undoShape.on(S.click, () => this.undoMove(), this)
     table.redoShape.on(S.click, () => this.redoMove(), this)
     table.skipShape.on(S.click, () => this.skipMove(), this)
-  }
-  openLog() {
-    this.logWriter.clickButton()
   }
 
   turnNumber: number = 0    // = history.lenth + 1 [by this.setNextPlayer] 

@@ -66,7 +66,7 @@ export class MK {
 export function newPlanner(hexMap: HexMaps, index: number, logWriter: ILogWriter): IPlanner {
   let planner = (TP.pWorker)
     ? new PlannerProxy(hexMap.mh, hexMap.nh, index, logWriter)
-    : new Planner(hexMap.mh, hexMap.nh, index, logWriter);
+    : new Planner(hexMap.mh, hexMap.nh, logWriter);
   return planner
 }
 
@@ -164,7 +164,7 @@ export class PlannerProxy implements IPlanner, IPlanReply {
     this.filHex(ihex)
   }
   logFile(text: string) {
-    this.logWriter.writeLine(text)
+    this.logWriter.writeLine(text) // from worker's logWriter.writeLine()
   }
 
   onMessage(msg: MessageEvent<ReplyData>) {

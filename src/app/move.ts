@@ -1,5 +1,5 @@
 import { Hex, IHex } from "./hex";
-import { StoneColor } from "./table-params";
+import { StoneColor, TP } from "./table-params";
 import { Board, GamePlay0 } from "./game-play";
 
 /** Historical record of each move made. */
@@ -24,7 +24,7 @@ export class Move {
    * @param gamePlay optional: unshift Move to gamePlay.history
    */
   constructor(hex: Hex, stoneColor: StoneColor, captured: Hex[] = [], gamePlay?: GamePlay0) {
-    this.Aname = this.toString(hex, stoneColor); // for debug..
+    this.Aname = hex.toString(stoneColor); // for debug ==> move.toString()
     this.stoneColor = stoneColor;
     this.hex = hex;
     this.captured = captured;
@@ -32,8 +32,9 @@ export class Move {
       gamePlay.history.unshift(this);
     }
   }
+  /** fixed format: 'COLOR@[ r, c]' | 'COLOR@Resign ' */
   toString(hex = this.hex, stoneColor = this.stoneColor): string {
-    return hex.toString(stoneColor); // ${color}@hex.rcs
+    return `${TP.colorScheme[stoneColor]}@${this.hex.rcsp}`; // Move.toString => hex.toString => COLOR@rcs || S_Skip/S_Resign
   }
   get bString(): string {
     return `${this.stoneColor}${this.hex.rcs}`; // sc[r,c]
