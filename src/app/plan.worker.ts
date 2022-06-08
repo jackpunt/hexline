@@ -42,22 +42,23 @@ class PlanWorker implements IPlanMsg {
 
   /** make a Planner in Worker thread: HexMap(mh, nh) 
    * @param index show stoneColors[index] in the stime.anno
-  */
+   */
   newPlanner(mh: number, nh: number, index: number) {
+    let ident = MK.newPlanner           // new Planner(mh, nh, logWriter)
     this.color = stoneColors[index]
     TP.fnHexes(mh, nh)
     let logWriter: ILogWriter = { writeLine: (text: string) => { this.reply(MK.logFile, text)}}
-    this.ll0 && console.log(stime(this, `.newPlanner:`), { mh, nh, index, logWriter }) // [Object object]
+    this.ll0 && console.log(stime(this, `.${ident}:`), { mh, nh, index, logWriter }) // [Object object]
     this.planner = new Planner(mh, nh, logWriter)
-    this[S.Aname] = `PlanWorker@${stime(this, `.newPlanner(${this.color})`)}`
+    this[S.Aname] = `PlanWorker@${stime(this, `.${ident}(${this.color})`)}`
     this.reply(MK.newDone, this.color, this.planner.depth)
   }
   roboMove(run: boolean) {
-    this.planner.roboMove(run)
+    this.planner[MK.roboMove](run)
   }
   makeMove(stoneColor: StoneColor, iHistory: IMove[], incb = 0) {
-    let movePromise = this.planner.makeMove(stoneColor, iHistory, incb)
-    movePromise.then(hex => this.reply(MK.move, hex.row, hex.col, hex.Aname))
+    let movePromise = this.planner[MK.makeMove](stoneColor, iHistory, incb)
+    movePromise.then(hex => this.reply(MK.sendMove, hex.row, hex.col, hex.Aname))
     return movePromise // ignored
   }
   log(...args: MsgArgs[])  {

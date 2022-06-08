@@ -50,7 +50,8 @@ export class Player {
   plannerMove(stone: Stone, table: Table, incb = 0) {
     this.planner.roboMove(true)
     this.plannerRunning = true
-    this.planner.makeMove(stone.color, table.gamePlay.history, incb).then((ihex: IHex) => {
+    let iHistory = table.gamePlay.history.map(move => move.toIMove)
+    this.planner.makeMove(stone.color, iHistory, incb).then((ihex: IHex) => {
       this.plannerRunning = false
       let hex = Hex.ofMap(ihex, table.hexMap)
       table.hexMap.showMark(hex)

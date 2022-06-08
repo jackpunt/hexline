@@ -41,7 +41,7 @@ export interface IPlanMsg extends IPlanner {
 /** PlanProxy implements IPlanReply methods: */
 export type IPlanReply = {
   newDone(args: MsgArgs[]): void
-  move(row: number, col: number, Aname: string): void
+  sendMove(row: number, col: number, Aname: string): void
   logFile(file: string, text: string): void
 }
 /** Message Keys */
@@ -53,7 +53,7 @@ export class MK {
   static makeMove: MsgKey = 'makeMove'
   static terminate: MsgKey = 'terminate'
   static newDone: ReplyKey = 'newDone'
-  static move: ReplyKey = 'move'
+  static sendMove: ReplyKey = 'sendMove'
   static logFile: ReplyKey = 'logFile'
 }
 
@@ -102,7 +102,7 @@ export class PlannerProxy implements IPlanner, IPlanReply {
   }
   initiate() {
     this.ll0 && console.log(stime(this, `(${this.colorn}).initiate:`), this.worker)
-    this.postMessage(`.initiate-set:`, MK.setParam, 'TP', MK.log, TP.log)
+    this.postMessage(`.initiate-set:`, MK.setParam, 'TP', 'log', TP.log)
     this.postMessage(`.initiate-new:`, MK.newPlanner, this.mh, this.nh, this.index)
     this.postMessage('.initiate-log:', MK.log, `initiate:`, this.colorn, this.index);
     this.postMessage(`.initiate-set:`, MK.setParam, 'TP', 'yieldMM', 500); TP.yieldMM // TP.yieldMM = 300
@@ -123,25 +123,18 @@ export class PlannerProxy implements IPlanner, IPlanReply {
     this.ll0 && console.log(stime(this, `(${this.colorn}).setParam:`), {targetName, fieldName, value})
     this.postMessage(`.setParam`, MK.setParam, targetName, fieldName, value)
   }
-  logHistory(ident: string, history: Move[]) {
+  logHistory(ident: string, history: IMove[]) {
     let l = history.length
     console.log(stime(this, `${ident}${AT.ansiText(['bold', 'green'],'history')} =`),
-      [history.map((move, n) => `// #${(l-n).toString().padStart(3)} ${move.toString()}${move.ind()}`)]
+      [history.map((move, n) => `${move.Aname}#${l-n}`)]
     )
   }
-  filHex: (hex: IHex) => void
-  rejHex: (arg: any) => void
-  makeMove(stoneColor: StoneColor, history: Move[], incb = 0): Promise<IHex> {
-    let iHistory = history.map((m) => m.toIMove)
-    // TODO: marshal iHistory to a [Transferable] bytebuffer [protobuf?]
-
+  movePromise: EzPromise<IHex>
+  makeMove(stoneColor: StoneColor, iHistory: IMove[], incb = 0): Promise<IHex> {
     ///*this.ll0 &&*/ console.log(stime(this, `(${this.colorn}).makeMove: iHistory =`), iHistory)
-    this.logHistory(`.makeMove(${this.colorn}) `, history)
+    this.logHistory(`.makeMove(${this.colorn}) `, iHistory)
     this.postMessage(`.makeMove:`, MK.makeMove, stoneColor, iHistory, incb )
-    return new Promise<IHex>((fil, rej) => {
-      this.filHex = fil
-      this.rejHex = rej
-    })
+    return this.movePromise = new EzPromise<IHex>()
   }
 
   parseMessage(data: ReplyData) {
@@ -158,10 +151,10 @@ export class PlannerProxy implements IPlanner, IPlanReply {
   // reply to newPlanner
   newDone(args: MsgArgs[]) { }
   // reply to makeMove
-  move(row: number, col: number, Aname: string) {
-      let ihex = { row, col, Aname }
+  sendMove(row: number, col: number, Aname: string) {
+    let ihex = { row, col, Aname }
     this.ll0 && console.log(stime(this, `.move:`), ihex)
-    this.filHex(ihex)
+    this.movePromise.fulfill(ihex)
   }
   logFile(text: string) {
     this.logWriter.writeLine(text) // from worker's logWriter.writeLine()
