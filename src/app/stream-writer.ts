@@ -40,11 +40,11 @@ export class LogWriter implements ILogWriter {
           accept: { 'text/plain': ['.txt'], },
         }, ],
     };
-    console.log(stime(this, `.new LogWriter:`), { file: this.fileHandle })
+    // console.log(stime(this, `.new LogWriter:`), { file: this.fileHandle })
     // Note return type changes: [FileHandle], [DirHandle], FileHandle
     this.setButton('showSaveFilePicker', options, (value) => {
       this.fileHandle = value as FileSystemFileHandle
-      console.log(stime(this, `${this.ident}.picked:`), this.fileHandle, value)
+      console.log(stime(this, `${this.ident}.picked:`), value)
       this.openStream()
     }, 'SaveLog')
     this.streamPromise = this.newOpenPromise

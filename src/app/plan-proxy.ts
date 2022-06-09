@@ -10,6 +10,7 @@ import { EzPromise } from "@thegraid/ezpromise" // for FlowControl
 export type ParamSet = [string, string, MsgSimple]
 export type MsgSimple = string | number | boolean
 export type MsgArgs = (MsgSimple | IMove[] | ParamSet) // PlanData['args']
+export type ReplyArgs = (MsgSimple | IHex) // PlanData['args']
 export type MsgKey = keyof IPlanMsg
 export type ReplyKey = keyof IPlanReply
 
@@ -19,7 +20,7 @@ export type PlanData = {
 }
 export type ReplyData = {
   verb: ReplyKey
-  args: MsgArgs[]
+  args: ReplyArgs[]
 }
 export interface IPlanner {
   /** enable Planner to continue searching */
@@ -36,15 +37,16 @@ export interface IPlanner {
 export interface IPlanMsg extends IPlanner {
   newPlanner(mh: number, nh: number, index: number): void
   log(...args: MsgArgs[]): void
-  setParam(...args: [string, string, MsgSimple]): void
+  setParam(...args: ParamSet): void
 }
 /** PlanProxy implements IPlanReply methods: */
 export type IPlanReply = {
   newDone(args: MsgArgs[]): void
-  sendMove(row: number, col: number, Aname: string): void
+  sendMove(ihex: IHex): void
   logFile(file: string, text: string): void
+  terminateDone(): void
 }
-/** Message Keys */
+/** Message Keys; methods of IPlanMsg/IPlanner or IPlanReply */
 export class MK {
   static log: MsgKey = 'log'
   static newPlanner: MsgKey = 'newPlanner'
@@ -55,6 +57,7 @@ export class MK {
   static newDone: ReplyKey = 'newDone'
   static sendMove: ReplyKey = 'sendMove'
   static logFile: ReplyKey = 'logFile'
+  static terminateDone: ReplyKey = 'terminateDone'
 }
 
 /**
@@ -100,28 +103,36 @@ export class PlannerProxy implements IPlanner, IPlanReply {
     }
     return undefined
   }
+  onMessage(msg: MessageEvent<ReplyData>) {
+    this.parseMessage(msg.data)
+  }
+  onError(err: ErrorEvent) {
+    console.error(stime(this, `.onError:`), err)
+  }
   initiate() {
     this.ll0 && console.log(stime(this, `(${this.colorn}).initiate:`), this.worker)
-    this.postMessage(`.initiate-set:`, MK.setParam, 'TP', 'log', TP.log)
+    this.postMessage(`.initiate-set:`, MK.setParam, 'TP', 'log', TP.log) // so newPlanner can log
     this.postMessage(`.initiate-new:`, MK.newPlanner, this.mh, this.nh, this.index)
     this.postMessage('.initiate-log:', MK.log, `initiate:`, this.colorn, this.index);
     this.postMessage(`.initiate-set:`, MK.setParam, 'TP', 'yieldMM', 500); TP.yieldMM // TP.yieldMM = 300
   }
 
   terminate() {
-    this.ll0 && console.log(stime(this, `.terminate:`), this.worker)
-    this.postMessage(`.terminate:`, MK.terminate)
-    setTimeout(() => this.worker.terminate())
+    let ident = `.${MK.terminate}:`
+    this.ll0 && console.log(stime(this, ident), this.worker)
+    this.postMessage(ident, MK.terminate)
+  }
+  terminateDone(): void {
+    MK.terminateDone; this.worker.terminate()
   }
 
   roboMove(run: boolean) {
     this.ll0 && console.log(stime(this, `(${this.colorn}).roboMove: run =`), run)
     this.postMessage(`.roboMove:`, MK.roboMove, run)
   }
-  setParam(target: object, fieldName: string, value: ParamSet ) {
-    let targetName = target['name'] || className(target)
-    this.ll0 && console.log(stime(this, `(${this.colorn}).setParam:`), {targetName, fieldName, value})
-    this.postMessage(`.setParam`, MK.setParam, targetName, fieldName, value)
+  setParam(...args: ParamSet) {
+    this.ll0 && console.log(stime(this, `(${this.colorn}).setParam:`), args)
+    this.postMessage(`.setParam`, MK.setParam, ...args)
   }
   logHistory(ident: string, history: IMove[]) {
     let l = history.length
@@ -151,20 +162,12 @@ export class PlannerProxy implements IPlanner, IPlanReply {
   // reply to newPlanner
   newDone(args: MsgArgs[]) { }
   // reply to makeMove
-  sendMove(row: number, col: number, Aname: string) {
-    let ihex = { row, col, Aname }
-    this.ll0 && console.log(stime(this, `.move:`), ihex)
+  sendMove(ihex: IHex) {
+      this.ll0 && console.log(stime(this, `.${MK.sendMove}:`), ihex)
     this.movePromise.fulfill(ihex)
   }
   logFile(text: string) {
     this.logWriter.writeLine(text) // from worker's logWriter.writeLine()
-  }
-
-  onMessage(msg: MessageEvent<ReplyData>) {
-    this.parseMessage(msg.data)
-  }
-  onError(err: ErrorEvent) {
-    console.error(stime(this, `.onError:`), err)
   }
 
   // postMessage(message: any, transfer: Transferable[]): void;

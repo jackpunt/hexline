@@ -19,11 +19,12 @@ export class ParamGUIP extends ParamGUIy {
   override setValue(item: ParamItem, target = this.target): void { 
     super.setValue(item, target)
     if (!this.gamePlay) return
-    console.log(stime(this, `.setValue`), `${target['name'] || className(target)}[${item.fieldName}] = ${item.value}`)
+    let targetName = target['name'] || className(target)
+    console.log(stime(this, `.setValue`), `${targetName}[${item.fieldName}] = ${item.value}`)
     this.gamePlay.forEachPlayer(p => {
       let planner = p.planner
       if (planner instanceof PlannerProxy) {
-        planner.setParam(target, item.fieldName, item.value)
+        planner.setParam(targetName, item.fieldName, item.value)
       }
     })
   }

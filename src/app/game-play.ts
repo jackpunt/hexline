@@ -248,7 +248,9 @@ export class GamePlay extends GamePlay0 {
     super()            // hexMap, history, gStats...
     let time = stime('').substring(6,15), size=`${TP.mHexes}x${TP.nHexes}`
     let line0 = `${stime(this)}[${size}] maxBreath ${TP.maxBreadth} maxPlys ${TP.maxPlys} nPer ${TP.nPerDist} pBoards ${TP.pBoards}`
-    this.logWriter = new LogWriter(`log${size}_${time}`)
+    let logFile = `log${size}_${time}`
+    console.log(stime(this, `.startup: -------------- New Game: ${line0} --------------`))
+    this.logWriter = new LogWriter(logFile)
     this.logWriter.writeLine(line0)
     this.allPlayers = stoneColors.map((color, ndx) => new Player(ndx, color, table))
     // setTable(table)

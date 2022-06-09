@@ -137,6 +137,7 @@ export class Table extends EventDispatcher  {
       h.cont.rotation = rotH; h.cont.scaleX = h.cont.scaleY = .985
     })
     parent.addChild(mapCont)
+    mapCont.visible = (TP.nHexes > 1) 
   }
 
   layoutTable(gamePlay: GamePlay) {

@@ -52,6 +52,7 @@ export class Player {
     this.plannerRunning = true
     let iHistory = table.gamePlay.history.map(move => move.toIMove)
     this.planner.makeMove(stone.color, iHistory, incb).then((ihex: IHex) => {
+      // console.log(stime(this, `.plannerMove.done:`), ihex)
       this.plannerRunning = false
       let hex = Hex.ofMap(ihex, table.hexMap)
       table.hexMap.showMark(hex)

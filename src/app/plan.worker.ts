@@ -1,6 +1,6 @@
 import { S, stime } from '@thegraid/common-lib';
 import { IMove } from './move';
-import { IPlanMsg, MsgArgs, MsgSimple, PlanData, MK, ReplyData, ReplyKey, ParamSet } from './plan-proxy';
+import { IPlanMsg, MsgArgs, MsgSimple, PlanData, MK, ReplyData, ReplyKey, ParamSet, ReplyArgs } from './plan-proxy';
 import { Planner } from './planner'
 import { ILogWriter } from './stream-writer';
 import { StoneColor, stoneColors, TP } from './table-params';
@@ -14,22 +14,22 @@ class PlanWorker implements IPlanMsg {
   get ll0() { return TP.log > 0 }
   get ll1() { return TP.log > 1 }
   constructor() {
-    stime.anno = (obj) => { return ` ${this.color || '?'}` }
+    stime.anno = (obj) => { return ` ${this.annoColor}` }
   }
   async init() {
     this['Aname'] = `PlanWorker-${self['A_Random']}@${stime(this, '.init')}`
     self.addEventListener('message', (msg: MessageEvent<PlanData>) => { this.handleMsg(msg.data)})
   }
-  color: StoneColor
+  annoColor: string = '?'
 
   /** send tuple of args */
-  reply(verb: ReplyKey, ...args: MsgArgs[]) {
+  reply(verb: ReplyKey, ...args: ReplyArgs[]) {
     postMessage({verb, args} as ReplyData)
   }
 
   handleMsg(data: PlanData) {
     let { verb, args } = data
-    this.ll1 && console.log(stime(this, `(${this.color}).handleMsg:`), data) // [Object object]
+    this.ll1 && console.log(stime(this, `(${this.annoColor}).handleMsg:`), data) // [Object object]
     let func = this[verb]
     if (typeof func !== 'function') {
       console.warn(stime(this, `.handleMsg.ignore: ${verb}`), args)
@@ -38,39 +38,42 @@ class PlanWorker implements IPlanMsg {
     }
   };
 
-  /// Handle inbound messages:
+  /// Handle inbound command messages:
 
   /** make a Planner in Worker thread: HexMap(mh, nh) 
    * @param index show stoneColors[index] in the stime.anno
    */
   newPlanner(mh: number, nh: number, index: number) {
     let ident = MK.newPlanner           // new Planner(mh, nh, logWriter)
-    this.color = stoneColors[index]
+    this.annoColor = stoneColors[index]
     TP.fnHexes(mh, nh)
     let logWriter: ILogWriter = { writeLine: (text: string) => { this.reply(MK.logFile, text)}}
     this.ll0 && console.log(stime(this, `.${ident}:`), { mh, nh, index, logWriter }) // [Object object]
-    this.planner = new Planner(mh, nh, logWriter)
-    this[S.Aname] = `PlanWorker@${stime(this, `.${ident}(${this.color})`)}`
-    this.reply(MK.newDone, this.color, this.planner.depth)
+    MK.newPlanner; this.planner = new Planner(mh, nh, logWriter)
+    this[S.Aname] = `PlanWorker@${stime(this, `.${ident}(${this.annoColor})`)}`
+    this.reply(MK.newDone, this.annoColor, this.planner.depth)
   }
   roboMove(run: boolean) {
-    this.planner[MK.roboMove](run)
+    MK.roboMove; this.planner.roboMove(run)
   }
   makeMove(stoneColor: StoneColor, iHistory: IMove[], incb = 0) {
-    let movePromise = this.planner[MK.makeMove](stoneColor, iHistory, incb)
-    movePromise.then(hex => this.reply(MK.sendMove, hex.row, hex.col, hex.Aname))
+    MK.makeMove; let movePromise = this.planner.makeMove(stoneColor, iHistory, incb)
+    movePromise.then(ihex => this.reply(MK.sendMove, ihex))
     return movePromise // ignored
   }
   log(...args: MsgArgs[])  {
-    console.log(stime(this, `.handleMsg.log:`), ...args)
+    MK.log; console.log(stime(this, `.${MK.log}:`), ...args)
   }
   setParam(...args: ParamSet) {
     let [targetName, fieldName, value] = args
-    this.ll0 && console.log(stime(this, `.setParam:`), ...args)
-    if (targetName === 'TP') TP[fieldName] = value
+    if (targetName == 'Worker') return (this[fieldName] = value, undefined)// this.color --> stime.anno()
+    // If we have a Planner, update its params; (TP.log = 1) may precede newPlanner
+    MK.setParam; this.planner?.setParam(...args) 
   }
   terminate(...args: MsgArgs[]) {
     this.ll0 && console.log(stime(this, `.handleMsg.terminate:`), args)
+    MK.terminate; this.planner.terminate()
+    MK.terminateDone; this.reply(MK.terminateDone)
   }
 }
 

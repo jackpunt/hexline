@@ -40,7 +40,7 @@ export class GameSetup {
    * @param ext Extensions from URL
    */
   startup(gs: GameSetup = this, ext: string[] = []) {
-    let table = new Table(this.stage) // EventDispatcher, ScaleCont
+    let table = new Table(this.stage) // EventDispatcher, ScaleCont, GUI-Player
     let gamePlay = new GamePlay(table) // hexMap, players, gStats, mouse/keyboard->GamePlay
     this.gamePlay = gamePlay
     gamePlay.hexMap[S.Aname] = `mainMap`
@@ -51,7 +51,9 @@ export class GameSetup {
     let statsPanel = this.makeStatsPanel(gamePlay.gStats, table.scaleCont, statsx, statsy)
     table.statsPanel = statsPanel
     let guiy = statsPanel.y + statsPanel.ymax
+    console.groupCollapsed('initParamGUI')
     let [gui, gui2] = this.makeParamGUI(table, table.scaleCont, statsx, guiy) // modify TP.params...
+    console.groupEnd()
     table.miniMap.mapCont.y = Math.max(gui.ymax, gui2.ymax)+gui.y + table.miniMap.wh.height/2
     table.startGame()
   }
@@ -84,7 +86,7 @@ export class GameSetup {
     const schemeAry = TP.schemeNames.map(n => { return { text: n, value: TP[n] } })
     let nHex = (mH: number, nH: number) => { TP.fnHexes(mH, nH); restart && this.restart.call(this) }
     gui.makeParamSpec("log", [-1, 0, 1, 2], { style: { textAlign: 'left' }, target: TP }); TP.log
-    gui.makeParamSpec("mHexes", [2, 3, 4, 5, 6]) // TODO: limit nHexes for mH > 4
+    gui.makeParamSpec("mHexes", [2, 3, 4, 5, 6, 7, 8, 9, 10]) // TODO: limit nHexes for mH > 4
     gui.makeParamSpec("nHexes", [1, 2, 3, 4, 5, 6])
     gui.makeParamSpec("maxPlys", [1, 2, 3, 4, 5, 6, 7, 8]); TP.maxPlys
     gui.makeParamSpec("maxBreadth", [5, 6, 7, 8, 9, 10]); TP.maxBreadth
