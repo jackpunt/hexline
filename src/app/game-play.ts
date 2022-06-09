@@ -216,13 +216,17 @@ export class GamePlay0 {
   }
   /** undoRecs.pop(): with logging collapsed */
   undoStones() {
-    let undoNdx = this.undoRecs.length -1;
+    let undoNdx = this.undoRecs.length - 1
     let popRec = (undoNdx >= 0) ? this.undoRecs[undoNdx].concat() : [] // copy undoRecs[] so it is stable in log
-    console.groupCollapsed(`${stime(this)}:undoIt-${undoNdx}`)
-    console.log(stime(this, `.undoStones: undoRec[${undoNdx}] =`), popRec);
+    if (TP.log > -1) {
+      console.groupCollapsed(`${stime(this)}:undoIt-${undoNdx}`)
+      console.log(stime(this, `.undoStones: undoRec[${undoNdx}] =`), popRec);
+    }
     this.undoRecs.pop(); // remove/replace Stones
-    console.log(stime(this, `.undoIt: after[${undoNdx}]`), { allHSC: this.hexMap.allStones.concat(), undo: this.undoRecs });
-    console.groupEnd()   // "undoIt-ndx"
+    if (TP.log > -1) {
+      console.log(stime(this, `.undoIt: after[${undoNdx}]`), { allHSC: this.hexMap.allStones.concat(), undo: this.undoRecs });
+      console.groupEnd()   // "undoIt-ndx"
+    }
   }
 }
 

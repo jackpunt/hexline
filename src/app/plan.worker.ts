@@ -1,7 +1,7 @@
 import { S, stime } from '@thegraid/common-lib';
 import { IMove } from './move';
 import { IPlanMsg, MsgArgs, MsgSimple, PlanData, MK, ReplyData, ReplyKey, ParamSet, ReplyArgs } from './plan-proxy';
-import { Planner } from './planner'
+import { ParallelPlanner, Planner } from './planner'
 import { ILogWriter } from './stream-writer';
 import { StoneColor, stoneColors, TP } from './table-params';
 // importScripts ('MyWorker.js')
@@ -45,11 +45,11 @@ class PlanWorker implements IPlanMsg {
    */
   newPlanner(mh: number, nh: number, index: number) {
     let ident = MK.newPlanner           // new Planner(mh, nh, logWriter)
-    this.annoColor = stoneColors[index]
+    this.annoColor = stoneColors[index] || `x${-index}`
     TP.fnHexes(mh, nh)
     let logWriter: ILogWriter = { writeLine: (text: string) => { this.reply(MK.logFile, text)}}
-    this.ll0 && console.log(stime(this, `.${ident}:`), { mh, nh, index, logWriter }) // [Object object]
-    MK.newPlanner; this.planner = new Planner(mh, nh, logWriter)
+    /*this.ll0 &&*/ console.log(stime(this, `.${ident}:`), { mh, nh, index, logWriter, pPlaner: TP.pPlaner }) // [Object object]
+    MK.newPlanner; this.planner = new Planner(mh, nh, index % 2, logWriter)
     this[S.Aname] = `PlanWorker@${stime(this, `.${ident}(${this.annoColor})`)}`
     this.reply(MK.newDone, this.annoColor, this.planner.depth)
   }
@@ -67,8 +67,13 @@ class PlanWorker implements IPlanMsg {
   setParam(...args: ParamSet) {
     let [targetName, fieldName, value] = args
     if (targetName == 'Worker') return (this[fieldName] = value, undefined)// this.color --> stime.anno()
-    // If we have a Planner, update its params; (TP.log = 1) may precede newPlanner
-    MK.setParam; this.planner?.setParam(...args) 
+    // If we have a Planner, let *IT* setParams; Note: setParams may precede newPlanner [eg: (TP.log = 1)]
+    if (this.planner) {
+      MK.setParam; this.planner?.setParam(...args) 
+    } else {
+      TP.log > 0 && console.log(stime(this, `.setParam:`), ...args)
+      if (targetName === 'TP') TP[fieldName] = value      
+    }
   }
   terminate(...args: MsgArgs[]) {
     this.ll0 && console.log(stime(this, `.handleMsg.terminate:`), args)

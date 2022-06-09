@@ -50,7 +50,7 @@ export class GameSetup {
 
     let statsPanel = this.makeStatsPanel(gamePlay.gStats, table.scaleCont, statsx, statsy)
     table.statsPanel = statsPanel
-    let guiy = statsPanel.y + statsPanel.ymax
+    let guiy = statsPanel.y + statsPanel.ymax + statsPanel.lead * 2
     console.groupCollapsed('initParamGUI')
     let [gui, gui2] = this.makeParamGUI(table, table.scaleCont, statsx, guiy) // modify TP.params...
     console.groupEnd()
@@ -85,7 +85,7 @@ export class GameSetup {
     const gui = new ParamGUIP(TP, { textAlign: 'right'}, this.gamePlay)
     const schemeAry = TP.schemeNames.map(n => { return { text: n, value: TP[n] } })
     let nHex = (mH: number, nH: number) => { TP.fnHexes(mH, nH); restart && this.restart.call(this) }
-    gui.makeParamSpec("log", [-1, 0, 1, 2], { style: { textAlign: 'left' }, target: TP }); TP.log
+    gui.makeParamSpec("log", [-1, 0, 1, 2], { style: { textAlign: 'right' }, target: TP }); TP.log
     gui.makeParamSpec("mHexes", [2, 3, 4, 5, 6, 7, 8, 9, 10]) // TODO: limit nHexes for mH > 4
     gui.makeParamSpec("nHexes", [1, 2, 3, 4, 5, 6])
     gui.makeParamSpec("maxPlys", [1, 2, 3, 4, 5, 6, 7, 8]); TP.maxPlys
@@ -115,9 +115,9 @@ export class GameSetup {
   makeParamGUI2(table: Table, parent: Container, x: number, y: number) {
     let gui = new ParamGUIP(table, { textAlign: 'center' }, this.gamePlay)
     gui.makeParamSpec("showInf", [true, false]); table.showInf
-    gui.makeParamSpec("showSui", [true, false]); table.showSui
     gui.makeParamSpec("pWeight", [1, .99, .97, .95, .9], { target: TP }) ; TP.pWeight
     gui.makeParamSpec("pWorker", [true, false], { target: TP }); TP.pWorker
+    gui.makeParamSpec("pPlaner", [true, false], { target: TP, name: "parallel" }); TP.pPlaner
     gui.makeParamSpec("pBoards", [true, false], { target: TP }); TP.pBoards
     gui.makeParamSpec("pMoves",  [true, false], { target: TP }); TP.pMoves
     gui.makeParamSpec("pGCM",    [true, false], { target: TP }); TP.pGCM

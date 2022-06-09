@@ -1,7 +1,7 @@
-import { stime, className, AT } from "@thegraid/common-lib";
+import { stime, AT } from "@thegraid/common-lib";
 import { HexMaps, IHex } from "./hex";
-import { IMove, Move } from "./move";
-import { Planner } from "./planner";
+import { IMove } from "./move";
+import { ParallelPlanner } from "./planner";
 import { StoneColor, stoneColors, TP } from "./table-params";
 import { ILogWriter } from "./stream-writer";
 
@@ -22,6 +22,7 @@ export type ReplyData = {
   verb: ReplyKey
   args: ReplyArgs[]
 }
+/** Local/Direct methods of Planner */
 export interface IPlanner {
   /** enable Planner to continue searching */
   roboMove(run: boolean): void;
@@ -32,7 +33,7 @@ export interface IPlanner {
 }
 
 /**
- * WorkerPlanner implements additional methods:
+ * Remote/Worker methods of PlanWorker
  */
 export interface IPlanMsg extends IPlanner {
   newPlanner(mh: number, nh: number, index: number): void
@@ -48,12 +49,14 @@ export type IPlanReply = {
 }
 /** Message Keys; methods of IPlanMsg/IPlanner or IPlanReply */
 export class MK {
-  static log: MsgKey = 'log'
-  static newPlanner: MsgKey = 'newPlanner'
-  static setParam: MsgKey = 'setParam'
   static roboMove: MsgKey = 'roboMove'
   static makeMove: MsgKey = 'makeMove'
   static terminate: MsgKey = 'terminate'
+
+  static log: MsgKey = 'log'
+  static newPlanner: MsgKey = 'newPlanner'
+  static setParam: MsgKey = 'setParam'
+
   static newDone: ReplyKey = 'newDone'
   static sendMove: ReplyKey = 'sendMove'
   static logFile: ReplyKey = 'logFile'
@@ -61,30 +64,33 @@ export class MK {
 }
 
 /**
- * IPlanner factory method.
+ * IPlanner factory method, invoked from Player.newGame()
  * @param hexMap from the main GamePlay, location of Hex for makeMove
  * @param index player.index [0 -> 'b', 1 -> 'w']
- * @returns 
+ * @returns Planner or PlannerProxy 
  */
 export function newPlanner(hexMap: HexMaps, index: number, logWriter: ILogWriter): IPlanner {
-  let planner = (TP.pWorker)
-    ? new PlannerProxy(hexMap.mh, hexMap.nh, index, logWriter)
-    : new Planner(hexMap.mh, hexMap.nh, logWriter);
+  let planner = TP.pWorker
+    ? new PlannerProxy(hexMap.mh, hexMap.nh, index, logWriter)    // -> Remote Planner [no Parallel]
+    : new ParallelPlanner(hexMap.mh, hexMap.nh, index, logWriter) // -> Local ParallelPlanner *or* Planner
   return planner
 }
 
+/** Each PlannerProxy is bound to a Worker; the Worker make newPlanner -> Planner (or ParrellelPlanner)  */
 export class PlannerProxy implements IPlanner, IPlanReply {
+  static id = 0
+  id = ++PlannerProxy.id
   colorn: string
   worker: Worker 
   get ll0() { return TP.log > 0 }
 
   constructor(public mh: number, public nh: number, public index: number, public logWriter: ILogWriter) {
-    let colorn = this.colorn = TP.colorScheme[stoneColors[index]]
+    let colorn = this.colorn = TP.colorScheme[stoneColors[index]] || `SC-${index}`
     this.ll0 && console.log(stime(this, `(${this.colorn}).newPlannerProxy:`), { mh, nh, index, colorn })
     this.worker = this.makeWorker()
     this.worker['Aname'] = `Worker-${colorn}`
     this.postMessage(`.makeWorker`, MK.log, 'made worker for:', this.colorn)
-    this.ll0 && console.log(stime(this, `(${this.colorn}).newPlannerProxy:`), { worker: this.worker })
+    this.ll0 && console.log(stime(this, `(${this.colorn}#${this.id}).newPlannerProxy:`), { worker: this.worker })
     //setTimeout(() => {this.initiate()})
     this.initiate()
   }
@@ -112,18 +118,21 @@ export class PlannerProxy implements IPlanner, IPlanReply {
   initiate() {
     this.ll0 && console.log(stime(this, `(${this.colorn}).initiate:`), this.worker)
     this.postMessage(`.initiate-set:`, MK.setParam, 'TP', 'log', TP.log) // so newPlanner can log
+    this.postMessage(`.initiate-set:`, MK.setParam, 'TP', 'pPlaner', TP.pPlaner)
     this.postMessage(`.initiate-new:`, MK.newPlanner, this.mh, this.nh, this.index)
-    this.postMessage('.initiate-log:', MK.log, `initiate:`, this.colorn, this.index);
+    this.postMessage('.initiate-log:', MK.log, `initiated:`, this.colorn, this.index);
     this.postMessage(`.initiate-set:`, MK.setParam, 'TP', 'yieldMM', 500); TP.yieldMM // TP.yieldMM = 300
   }
-
+  waitForAck: EzPromise<void> = new EzPromise<void>().fulfill()
   terminate() {
-    let ident = `.${MK.terminate}:`
+    let ident = `.(#${this.id})${MK.terminate}:`
     this.ll0 && console.log(stime(this, ident), this.worker)
     this.postMessage(ident, MK.terminate)
+    this.waitForAck = new EzPromise<void>()
   }
   terminateDone(): void {
     MK.terminateDone; this.worker.terminate()
+    this.waitForAck.fulfill()
   }
 
   roboMove(run: boolean) {
@@ -131,25 +140,25 @@ export class PlannerProxy implements IPlanner, IPlanReply {
     this.postMessage(`.roboMove:`, MK.roboMove, run)
   }
   setParam(...args: ParamSet) {
-    this.ll0 && console.log(stime(this, `(${this.colorn}).setParam:`), args)
+    this.ll0 && console.log(stime(this, `(${this.colorn}#${this.id}).setParam:`), args)
     this.postMessage(`.setParam`, MK.setParam, ...args)
   }
   logHistory(ident: string, history: IMove[]) {
     let l = history.length
-    console.log(stime(this, `${ident}${AT.ansiText(['bold', 'green'],'history')} =`),
-      [history.map((move, n) => `${move.Aname}#${l-n}`)]
+    this.ll0 && console.log(stime(this, `${ident}${AT.ansiText(['bold', 'green'], 'history')} =`),
+      `${history[0]?.Aname || ''}#${l}`, [history.map((move, n) => `${move.Aname}#${l - n}`)]
     )
   }
   movePromise: EzPromise<IHex>
   makeMove(stoneColor: StoneColor, iHistory: IMove[], incb = 0): Promise<IHex> {
     ///*this.ll0 &&*/ console.log(stime(this, `(${this.colorn}).makeMove: iHistory =`), iHistory)
-    this.logHistory(`.makeMove(${this.colorn}) `, iHistory)
+    this.logHistory(`.makeMove(${this.colorn}#${this.id}) `, iHistory)
     this.postMessage(`.makeMove:`, MK.makeMove, stoneColor, iHistory, incb )
     return this.movePromise = new EzPromise<IHex>()
   }
 
   parseMessage(data: ReplyData) {
-    this.ll0 && console.log(stime(this, `.parseMessage:`), data)
+    this.ll0 && console.log(stime(this, `(#${this.id}).parseMessage:`), data)
     let { verb, args } = data
     let func = this[verb]
     if (typeof func !== 'function') {
@@ -173,8 +182,12 @@ export class PlannerProxy implements IPlanner, IPlanReply {
   // postMessage(message: any, transfer: Transferable[]): void;
   // postMessage(message: any, options?: StructuredSerializeOptions): void;
   async postMessage(ident: string, verb: string, ...args: MsgArgs[]) {
+    let wait = this.waitForAck.resolved // BUT: we dispose/replace this PlanProxy when we terminate its Worker!
+    if (!wait) console.log(stime(this, `.(${this.id})postMessage: waitForAck WAIT`), this.waitForAck.resolved)
+    await this.waitForAck
+    if (!wait) console.log(stime(this, `.(${this.id})postMessage: waitForAck DONE`), this.waitForAck.resolved)
     let data = {verb, args}
-    this.ll0 && console.log(stime(this, `(${this.colorn})${ident} Post:`), {verb: data.verb}, data.args)
+    this.ll0 && console.log(stime(this, `(${this.colorn}#${this.id})${ident} Post:`), {verb: data.verb}, data.args)
     this.worker.postMessage(data)
   }
 }

@@ -7,7 +7,7 @@ import { GamePlay0 } from "./game-play";
 
 export const S_Resign = 'Hex@Resign'
 export const S_Skip = 'Hex@skip '
-export type IHex = { Aname: string, row: number, col: number, bv0?: number }
+export type IHex = { Aname: string, row: number, col: number }
 
 // Note: graphics.drawPolyStar(x,y,radius, sides, pointSize, angle) will do a regular polygon
 
@@ -95,7 +95,7 @@ export class Hex {
   readonly Aname: string
   /** color of current Stone on this Hex (or undefined) */
   stoneColor: StoneColor = undefined;
-  iHex(bv0?: number): IHex { return { row: this.row, col: this.col, Aname: this.Aname, bv0 } }
+  get iHex(): IHex { return { row: this.row, col: this.col, Aname: this.Aname } }
   /** [row,col] OR S_Resign OR S_Skip */
   get rcs(): string { return (this.row !== undefined) ? `[${this.row},${this.col}]` : this.Aname.substring(4)}
   get rowsp() { return this.row.toString().padStart(2)}
