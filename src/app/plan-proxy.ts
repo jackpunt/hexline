@@ -24,6 +24,8 @@ export type ReplyData = {
 }
 /** Local/Direct methods of Planner */
 export interface IPlanner {
+  pause(): void
+  resume():void
   /** enable Planner to continue searching */
   roboMove(run: boolean): void;
   /** provoke Planner to search for next Move */
@@ -52,6 +54,8 @@ export class MK {
   static roboMove: MsgKey = 'roboMove'
   static makeMove: MsgKey = 'makeMove'
   static terminate: MsgKey = 'terminate'
+  static pause: MsgKey = 'pause'
+  static resume: MsgKey = 'resume'
 
   static log: MsgKey = 'log'
   static newPlanner: MsgKey = 'newPlanner'
@@ -134,7 +138,8 @@ export class PlannerProxy implements IPlanner, IPlanReply {
     MK.terminateDone; this.worker.terminate()
     this.waitForAck.fulfill()
   }
-
+  pause() { this.postMessage(`.pause`, MK.pause) }
+  resume() { this.postMessage(`.resume`, MK.resume) }
   roboMove(run: boolean) {
     this.ll0 && console.log(stime(this, `(${this.colorn}).roboMove: run =`), run)
     this.postMessage(`.roboMove:`, MK.roboMove, run)
@@ -143,10 +148,10 @@ export class PlannerProxy implements IPlanner, IPlanReply {
     this.ll0 && console.log(stime(this, `(${this.colorn}#${this.id}).setParam:`), args)
     this.postMessage(`.setParam`, MK.setParam, ...args)
   }
-  logHistory(ident: string, history: IMove[]) {
-    let l = history.length
+  logHistory(ident: string, iHistory: IMove[]) {
+    let l = iHistory.length
     this.ll0 && console.log(stime(this, `${ident}${AT.ansiText(['bold', 'green'], 'history')} =`),
-      `${history[0]?.Aname || ''}#${l}`, [history.map((move, n) => `${move.Aname}#${l - n}`)]
+      `${iHistory[0]?.Aname || ''}#${l}`, [iHistory.map((move, n) => `${move.Aname}#${l - n}`)]
     )
   }
   movePromise: EzPromise<IHex>
@@ -175,8 +180,9 @@ export class PlannerProxy implements IPlanner, IPlanReply {
       this.ll0 && console.log(stime(this, `.${MK.sendMove}:`), ihex)
     this.movePromise.fulfill(ihex)
   }
+  /** writeLine from Worker */
   logFile(text: string) {
-    this.logWriter.writeLine(text) // from worker's logWriter.writeLine()
+    this.logWriter.writeLine(`     ${text}`) // from worker's logWriter.writeLine()
   }
 
   // postMessage(message: any, transfer: Transferable[]): void;

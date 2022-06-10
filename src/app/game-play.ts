@@ -86,7 +86,7 @@ export class GamePlay0 {
     }
     if (!this.undoRecs.isUndoing) {
       this.addUndoRec(this, `removeStone(${hex.Aname}:${stoneColor})`, () => this.removeStone(hex)) // remove for undo
-      if (hex.isAttack(otherColor(stoneColor))) this.removeStone(hex) // apparently: legalSuicide
+      if (hex.isAttack(otherColor(stoneColor))) this.removeStone(hex) // legalSuicide --> clearColor
     }
     return rv
   }
@@ -178,7 +178,7 @@ export class GamePlay0 {
    * @param evalFun if false then leave protoMove in place; if function invoke evalFun(move)
    * @returns [isLegal, isSuicide]
    */
-  isMoveLegal(hex: Hex, color: StoneColor, evalFun: boolean | ((move: Move) => void)  = true): [boolean, boolean] {
+  isMoveLegal(hex: Hex, color: StoneColor, evalFun: (boolean | ((move: Move) => void)) = true): [boolean, boolean] {
     if (hex.stoneColor !== undefined) return [false, false]
     let move0 = this.history[0]
     // true if nHex is unplayable because it was captured by other player's previous Move
@@ -260,15 +260,15 @@ export class GamePlay extends GamePlay0 {
     // setTable(table)
     this.table = table
     this.gStats = new TableStats(this, table) // reset gStats AFTER allPlayers are defined so can set pStats
-    let roboPause = () => { pauseGenR(); this.table.nextHex.markCapture(); this.hexMap.update(); console.log("Paused") }
-    let roboResume = () => { resumeGenR(); this.table.nextHex.unmarkCapture(); this.hexMap.update(); console.log("Resume") }
-    KeyBinder.keyBinder.setKey('C-p', { thisArg: this, func: roboPause })
-    KeyBinder.keyBinder.setKey('C-r', { thisArg: this, func: roboResume })
+    let roboPause = () => { this.curPlayer.planner?.pause(); this.table.nextHex.markCapture(); this.hexMap.update(); console.log("Paused") }
+    let roboResume = () => { this.curPlayer.planner?.resume(); this.table.nextHex.unmarkCapture(); this.hexMap.update(); console.log("Resume") }
+    KeyBinder.keyBinder.setKey('p', { thisArg: this, func: roboPause })
+    KeyBinder.keyBinder.setKey('r', { thisArg: this, func: roboResume })
     KeyBinder.keyBinder.setKey(/1-9/, { thisArg: this, func: (e: string) => { TP.maxBreadth = Number.parseInt(e) } })
 
     KeyBinder.keyBinder.setKey('M-z', { thisArg: this, func: this.undoMove })
     KeyBinder.keyBinder.setKey('b', { thisArg: this, func: this.undoMove })
-    KeyBinder.keyBinder.setKey('r', { thisArg: this, func: this.redoMove })
+    KeyBinder.keyBinder.setKey('f', { thisArg: this, func: this.redoMove })
     KeyBinder.keyBinder.setKey('t', { thisArg: this, func: this.skipMove }) // next Turn
     KeyBinder.keyBinder.setKey('M-K', { thisArg: this, func: this.resignMove })// S-M-k
     KeyBinder.keyBinder.setKey('Escape', {thisArg: table, func: table.stopDragging}) // Escape
@@ -341,18 +341,20 @@ export class GamePlay extends GamePlay0 {
     this.table.stopDragging() // drop on nextHex (no Move)
     let move: Move = this.shiftMove() // remove last Move
     if (!!move) {
+      let history = this.history
       this.redoMoves.unshift(move)  // redoMoves[0] == move0
       this.undoStones()             // remove last Stone, replace captures
       this.undoCapMarks(move.captured) // unmark
-      move.board.setRepCount(this.history)
+      move.board.setRepCount(history)
       if (undoTurn) {
         this.setNextPlayer()
       }
       let move0 = this.history[0]  // the new, latest 'move'
       if (!!move0) {
-        move0.board.setRepCount(this.history) // undo: decrement repCount; because: shift()
+        move0.board.setRepCount(history) // undo: decrement repCount; because: shift()
       }
       this.gStats.updateStats(move0?.board)   // reset stats: inControl & score & repCount check for 'win'
+      this.logWriter.writeLine(`undo: #${history.length+1} ${move.Aname} -> ${move0?.Aname||'[0]'}`)
     }
     this.showRedoMark()
     this.hexMap.update()

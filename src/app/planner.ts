@@ -567,6 +567,14 @@ export class Planner implements IPlanner {
     return false
   }
 
+  pauseP = new EzPromise<void>().fulfill()
+  pause() { if (this.pauseP.resolved) this.pauseP = new EzPromise() }
+  resume() { this.pauseP.fulfill() }
+  async waitPaused() { if (!this.pauseP.resolved) { 
+    console.log(stime(this, `.waitPaused: waiting...`))
+    await this.pauseP 
+  } }
+
   /** show progress in log, how much of breadth is done */
   nth = 0;
   lookaheadTop(state0: State, stoneColor: StoneColor, nPlys?: number, breadth = TP.maxBreadth) {
@@ -590,6 +598,7 @@ export class Planner implements IPlanner {
   async lookaheadInDepth(state0: State, stoneColor: StoneColor, nPlys?: number, breadth = TP.maxBreadth, isTop = false): Promise<HexState> {
     if (isTop) this.nth = breadth
     let group = false
+    await this.waitPaused()
     try {
       TP.log > 0 && (console.groupCollapsed(`${stime(this, `.lookaheadInDepth: `)}${this.logId(state0, nPlys)}`), group = true)
       let sid0 = State.sid, ms0 = Date.now(), brd0 = this.brds // current state id
@@ -622,8 +631,8 @@ export class Planner implements IPlanner {
       if (TP.log > 0 || dmy > -1) console.log(stime(this, `.lookaheadInDepth timers:`),
         `b=${this.nth} dtn=${dtn} dmc=${dmc} dmy=${dmy} dbd=${dbd} dsid=${dsid} dms=${dms} sps=${sps} sid=${dsidt.toLocaleString()} tsec=${(now - this.ms00) / 1000}`)
 
-      // returning a State tells allowEventLoop to terminate with: dispatchMove(bestState)
       group && console.groupEnd()
+      await this.waitPaused()
       return state0.bestHexState
     } catch (err) {
       group && console.groupEnd()
@@ -850,7 +859,8 @@ export class ParallelPlanner extends Planner {
   setAnnoColor(planProxy: PlannerProxy, annoColor: string) {
     this.setPlannerParam(`.setAnnoColor`, planProxy, ['Worker', 'annoColor', annoColor])
   }
-
+  override pause() { super.pause(); this.plannerAry.forEach(p => p.pause()) }
+  override resume() { super.resume(); this.plannerAry.forEach(p => p.resume()) }
   override lookaheadTop(state0: State, color: "b" | "w", nPlys?: number, breadth?: number): Promise<HexState> {
     if (!TP.pPlaner)
       return this.lookaheadInDepth(state0, color, nPlys, breadth, true)
@@ -860,6 +870,7 @@ export class ParallelPlanner extends Planner {
   // TODO: get dsid from sub-planners; Why does it play so badly?
   async lookaheadInParallel(state0: State, color: StoneColor, nPlys?: number, breadth?: number, isTop?: boolean) {
     let sid0 = State.sid, ms0 = Date.now()
+    await this.waitPaused()
     if (!this.alreadyEvaluated(state0, nPlys)) {
       let oc = otherColor(color), planner = this
       let mh = this.gamePlay.hexMap.mh, nh = this.gamePlay.hexMap.nh

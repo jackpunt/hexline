@@ -75,6 +75,8 @@ class PlanWorker implements IPlanMsg {
       if (targetName === 'TP') TP[fieldName] = value      
     }
   }
+  pause():void { MK.pause; this.planner.pause() }
+  resume(): void { MK.resume; this.planner.resume() }
   terminate(...args: MsgArgs[]) {
     this.ll0 && console.log(stime(this, `.handleMsg.terminate:`), args)
     MK.terminate; this.planner.terminate()

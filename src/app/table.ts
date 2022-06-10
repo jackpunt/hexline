@@ -189,7 +189,7 @@ export class Table extends EventDispatcher  {
     const history = this.gamePlay.history
     const tn = this.gamePlay.turnNumber
     const lm = history[0]
-    const prev = lm?.Aname || ""
+    const prev = lm ? `${lm.Aname}${lm.ind()}` : ""
     const capd = lm?.captured || [] //this.gamePlay.lastCaptured 
     const board = !!this.hexMap.allStones[0] && lm?.board // TODO: hexMap.allStones>0 but history.len == 0
     const robo = curPlayer.useRobo ? "robo" : "----"
