@@ -34,8 +34,14 @@ export class GameStats {
   readonly pStats: StoneColorRecord<PlayerStats>
   readonly inControl: StoneColor[] = Array(TP.ftHexes(TP.mHexes)) // (nStones[color] - nStones[oc] >= TP.diffControl) -> [district]=color
   winVP: StoneColor = undefined;
-  dn: number
-  ds: number
+  get s0() { return this.score(stoneColor0) }
+  get s1() { return this.score(stoneColor1) }
+  get ds() { return this.score(stoneColor0) - this.score(stoneColor1) }
+
+  get n0() { return this.pStats[stoneColor0].nStones }
+  get n1() { return this.pStats[stoneColor1].nStones }
+  get dn() { return this.pStats[stoneColor0].nStones - this.pStats[stoneColor1].nStones }
+
   winAny: StoneColor = undefined;
   score(color: StoneColor): number {
     return this.inControl.filter(ic => ic == color).length
@@ -113,8 +119,6 @@ export class GameStats {
       })
     }
     this.winVP = winVP
-    this.ds = this.score(stoneColor0) - this.score(stoneColor1)
-    this.dn = this.pStats[stoneColor0].nStones - this.pStats[stoneColor1].nStones
     let winAry: WINARY = [board, this.winVP, this.ds, this.dn]
     let win = this.gameOver(...winAry)
     board && (board.winAry = winAry)

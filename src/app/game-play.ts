@@ -1,6 +1,6 @@
 import { H } from "./hex-intfs";
-import { pauseGenR, resumeGenR, } from "./event-loop";
-import { Hex, Hex2, HexMap, S_Resign, HSC, HexMaps } from "./hex";
+import { AT, json } from "@thegraid/common-lib"
+import { Hex, Hex2, HexMap, S_Resign, HSC, HexMaps, S_Skip } from "./hex";
 import { HexEvent } from "./hex-event";
 import { S, stime, Undo, KeyBinder } from "@thegraid/easeljs-lib";
 import { GameStats, TableStats, WINARY } from "./stats";
@@ -9,7 +9,7 @@ import { otherColor, StoneColor, stoneColors, TP} from "./table-params"
 import { Player } from "./player";
 import { GameSetup } from "./game-setup";
 import { Move } from "./move";
-import { LogWriter } from "./stream-writer";
+import { LogReader, LogWriter } from "./stream-writer";
 
 export class GamePlay0 {
 
@@ -32,16 +32,13 @@ export class GamePlay0 {
     this.undoRecs.addUndoRec(obj, name, value); 
   }  
 
-  doPlayerSkip(hex: Hex, stoneColor: StoneColor) {  }  // doPlayerMove records history; override sets undoSkip 
-  doPlayerResign(hex: Hex, stoneColor: StoneColor) { } // doPlayerMove records history
-
   /** compute Board.id _after_ addStone sets move.captures */
   get boardId(): [string, StoneColor] {
     let move0 = this.history[0], sc = move0.stoneColor
     let resign_sc = (move0.hex.Aname === S_Resign) ? sc : undefined, caps = ''
     move0.captured.forEach(hex => caps += hex.rcs)// [r,c] of each capture
     let id = `Board(${sc},${caps})${resign_sc ? `${resign_sc}!` : ''}`
-    let hexStones = this.hexMap.allStones.filter(({hex}) => hex.row !== undefined) // skip
+    let hexStones = this.hexMap.allStones.filter(({hex}) => hex.row >= 0)   // skip does not change board
     let bString = (hsc: HSC) => { return `${hsc.sc}${hsc.hex.rcs}` } // sc[r,c] for each occupied hex
     hexStones.sort((a, b) => { return a.hex.rc_linear - b.hex.rc_linear }); // ascending row-major
     hexStones.forEach(hsc => id += bString(hsc)) // in canonical order
@@ -79,7 +76,7 @@ export class GamePlay0 {
   /** addStone to setStone(hex)->hex.setStone(color); assertInfluence & Captured; addUndoRec (no stats) */
   addStone(hex: Hex, stoneColor: StoneColor) {
     let rv = hex
-    if (hex.row !== undefined) {            // skipHex || resignHex do not have color or influence.
+    if (hex.row !== -1) {                   // skipHex || resignHex do not have color or influence.
       rv = hex.setColor(stoneColor)         // move Stone onto Hex & HexMap [hex.stone = stone]
       this.gStats.afterSetColor(hex)
       this.incrInfluence(hex, stoneColor)
@@ -98,7 +95,7 @@ export class GamePlay0 {
    * assert influence of color on each axis from Hex (w/o stone on hex)
    */
   removeStone(hex: Hex) {
-    if (hex.row !== undefined) {                 // skipHex and resignHex have no influence
+    if (hex.row !== -1) {                        // skipHex and resignHex have no influence
       this.gStats.beforeClearColor(hex)          // adjust dStones & dMax
       let stoneColor = hex.clearColor()          // Hex2.stone = undefined; remove HSC from allStones
       this.decrInfluence(hex, stoneColor)        // adjust influence from removed Stone
@@ -115,16 +112,20 @@ export class GamePlay0 {
   }
 
 
+  doPlayerSkip(hex: Hex, stoneColor: StoneColor) {  }  // doPlayerMove records history; override sets undoSkip 
+  doPlayerResign(hex: Hex, stoneColor: StoneColor) { } // doPlayerMove records history
+
   /** remove captured Stones, from placing Stone on Hex */
   doPlayerMove(hex: Hex, stoneColor: StoneColor): StoneColor {
     let move0 = this.newMove(hex, stoneColor, [], this) // new Move(); addStone(); incrBoard(); updateStates()
-    if (hex == this.hexMap.skipHex) {
+    if (hex == this.hexMap.skipHex) {      // or: hex.Aname == S_skip
       this.doPlayerSkip(hex, stoneColor)
     } else if (hex == this.hexMap.resignHex) {
-      this.doPlayerResign(hex, stoneColor) // incrBoard will detect
+      this.doPlayerResign(hex, stoneColor) // incrBoard will detect // TODO: maybe need to ensure setNextPlayer?
     } else {
       this.addStone(hex, stoneColor) // add Stone and Capture (& removeStone) w/addUndoRec
       move0.suicide = !hex.stoneColor
+      //if (move0.suicide) console.log(AT.ansiText(['red', 'bold'], `suicide: move0`), move0)
       if (move0.suicide && !TP.allowSuicide) {
         console.warn(stime(this, `.doPlayerMove: suicidal move: ${move0.Aname}`), { hex, color: TP.colorScheme[stoneColor] })
         debugger; // illegal suicide
@@ -205,9 +206,9 @@ export class GamePlay0 {
     Hex.capColor = H.capColor2
     // addUndoRec(removeStone), incrInfluence [& undoInf] -> captureStone() -> undoRec(addStone & capMark)
     this.addStone(hex, color)     // stone on hexMap: exactly 1 undoRec (have have several undo-funcs)
+    move.suicide = !hex.stoneColor
     Hex.capColor = capColor
     this.incrBoard(move)          // 
-    move.suicide = !hex.stoneColor
     return move
   }
   undoProtoMove() {
@@ -251,11 +252,13 @@ export class GamePlay extends GamePlay0 {
   constructor(table: Table) {
     super()            // hexMap, history, gStats...
     let time = stime('').substring(6,15), size=`${TP.mHexes}x${TP.nHexes}`
-    let line0 = `${stime(this)}[${size}] maxBreath ${TP.maxBreadth} maxPlys ${TP.maxPlys} nPer ${TP.nPerDist} pBoards ${TP.pBoards}`
+    let line = {time: stime.fs(), mh: TP.mHexes, nh: TP.nHexes, maxBreadth: TP.maxBreadth, 
+      maxPlys: TP.maxPlys, nPerDist: TP.nPerDist, pBoards: TP.pBoards, pMoves: TP.pMoves, pWeight: TP.pWeight}
+    let jline = json(line, false)
     let logFile = `log${size}_${time}`
-    console.log(stime(this, `.startup: -------------- New Game: ${line0} --------------`))
+    console.log(stime(this, `.startup: -------------- New Game: ${jline} --------------`))
     this.logWriter = new LogWriter(logFile)
-    this.logWriter.writeLine(line0)
+    this.logWriter.writeLine(jline)
     this.allPlayers = stoneColors.map((color, ndx) => new Player(ndx, color, table))
     // setTable(table)
     this.table = table
@@ -269,10 +272,10 @@ export class GamePlay extends GamePlay0 {
     KeyBinder.keyBinder.setKey('M-z', { thisArg: this, func: this.undoMove })
     KeyBinder.keyBinder.setKey('b', { thisArg: this, func: this.undoMove })
     KeyBinder.keyBinder.setKey('f', { thisArg: this, func: this.redoMove })
-    KeyBinder.keyBinder.setKey('t', { thisArg: this, func: this.skipMove }) // next Turn
+    KeyBinder.keyBinder.setKey('s', { thisArg: this, func: this.skipMove })
     KeyBinder.keyBinder.setKey('M-K', { thisArg: this, func: this.resignMove })// S-M-k
     KeyBinder.keyBinder.setKey('Escape', {thisArg: table, func: table.stopDragging}) // Escape
-    KeyBinder.keyBinder.setKey('C-s', { thisArg: GameSetup.setup, func: GameSetup.setup.restart })// C-s START
+    KeyBinder.keyBinder.setKey('C-s', { thisArg: GameSetup.setup, func: () => {GameSetup.setup.restart()} })// C-s START
     KeyBinder.keyBinder.setKey('C-c', { thisArg: this, func: this.stopPlayer })// C-c Stop Planner
     KeyBinder.keyBinder.setKey('m', { thisArg: this, func: this.makeMove, argVal: true })
     KeyBinder.keyBinder.setKey('M', { thisArg: this, func: this.makeMoveAgain, argVal: true })
@@ -280,8 +283,10 @@ export class GamePlay extends GamePlay0 {
     KeyBinder.keyBinder.setKey('N', { thisArg: this, func: this.autoMove, argVal: true})
     KeyBinder.keyBinder.setKey('y', { thisArg: this, func: () => TP.yield = true })
     KeyBinder.keyBinder.setKey('u', { thisArg: this, func: () => TP.yield = false })
-    KeyBinder.keyBinder.setKey('l', { thisArg: this.logWriter, func: this.logWriter.clickButton })
+    KeyBinder.keyBinder.setKey('l', { thisArg: this.logWriter, func: this.logWriter.pickLogFile })
     KeyBinder.keyBinder.setKey('L', { thisArg: this.logWriter, func: this.logWriter.showBacklog })
+    KeyBinder.keyBinder.setKey('M-l', { thisArg: this.logWriter, func: () => { this.logWriter.closeFile() } }) // void vs Promise<void>
+    KeyBinder.keyBinder.setKey('C-l', { thisArg: this, func: () => { this.readGameFile() } }) // void vs Promise<void>
     table.undoShape.on(S.click, () => this.undoMove(), this)
     table.redoShape.on(S.click, () => this.redoMove(), this)
     table.skipShape.on(S.click, () => this.skipMove(), this)
@@ -354,7 +359,8 @@ export class GamePlay extends GamePlay0 {
         move0.board.setRepCount(history) // undo: decrement repCount; because: shift()
       }
       this.gStats.updateStats(move0?.board)   // reset stats: inControl & score & repCount check for 'win'
-      this.logWriter.writeLine(`undo: #${history.length+1} ${move.Aname} -> ${move0?.Aname||'[0]'}`)
+      let n = history.length, n1 = (n+1).toString().padStart(3), n0 = n.toString().padStart(3)
+      this.logWriter.writeLine(`{"p":"${move.stoneColor}", "undo": ${n+1} }#${n1} ${move.Aname} -> #${n0} ${move0?.Aname||'[0]'}`)
     }
     this.showRedoMark()
     this.hexMap.update()
@@ -400,10 +406,12 @@ export class GamePlay extends GamePlay0 {
     this.addStoneEvent(new HexEvent(S.add, this.hexMap.resignHex, this.table.nextHex.stoneColor)) // move Stone to table.resignHex
   }
   override doPlayerSkip(hex: Hex, stoneColor: StoneColor) {
+    super.doPlayerSkip(hex, stoneColor)
     // undo-skip: clear other Player's Stone from this.table.nextHex
     this.addUndoRec(this.table, 'clearNextHex', () => this.table.nextHex.clearColor()) // undo-skip
   }
   override doPlayerResign(hex: Hex, stoneColor: StoneColor): void {
+    super.doPlayerResign(hex, stoneColor)
     this.addUndoRec(this.table, 'clearNextHex', () => this.table.nextHex.clearColor()) // undo-resign
   }
   /** unmarkCapture (& capMarks if Hex2), reset current capture to history[0] */
@@ -423,18 +431,16 @@ export class GamePlay extends GamePlay0 {
     let win = super.doPlayerMove(hex, color) // incrInfluence -> captureStone -> mark new Captures, closeUndo
     this.hexMap.update()
     if (win !== undefined) {
-      // addStoneEvent will NOT invoke this.setNextPlayer()
       this.autoMove(false)  // disable robots
-      this.setNextPlayer0()
-      this.table.logCurPlayer(this.curPlayer) // log for next move, but do not PutButtonOnPlayer(curPlayer)
-
     }
     return win
   }
-  setNextPlayer(plyr?: Player): Player {
+  setNextPlayer(plyr?: Player) {
     this.setNextPlayer0(plyr)
     this.hexMap.update()
-    return this.table.setNextPlayer()
+    this.curPlayer.planner.waitPaused().then(() => {
+      this.table.setNextPlayer()
+    })
   }
   endCurPlayer(): void {
     // IFF stone is [still] ON nextHex: Hex2.clearColor() 
@@ -452,12 +458,41 @@ export class GamePlay extends GamePlay0 {
     if (!!redo && redo.hex !== hev.hex) this.redoMoves.splice(0, this.redoMoves.length)
     // extract the StoneColor, ignore the Stone (thank you for your service!)
     hev.stone?.parent?.removeChild(hev.stone)    // remove nxtStone
-    let win = this.doPlayerMove(hev.hex, hev.stoneColor)
-    if (win === undefined) this.setNextPlayer()
-    else this.endCurPlayer()
+    this.doPlayerMove(hev.hex, hev.stoneColor)
+    this.setNextPlayer()
   }
   removeStoneEvent(hev: HexEvent) {
     throw new Error("Method not implemented.");
+  }
+
+  async readGameFile(delay = 4) {
+    let logReader = new LogReader()
+    let filep = logReader.pickFileToRead()
+    let file = await filep
+    console.log(stime(this, `.readGameFile: File =`), file.name)
+    let gameString = await logReader.readPickedFile(filep) // the WHOLE file contents!
+    let lineAry = gameString.split('\n')
+    let header = JSON.parse(lineAry.shift())
+    console.log(stime(this, `.readGameFile: header =`), header)
+    let { time, mh, nh, maxBreadth, maxPlys, nPerDist, pBoards } = header
+    let gamePlay = GameSetup.setup.restart(mh, nh)
+    gamePlay.runGameFromLog(lineAry, delay)
+  }
+  async runGameFromLog(lineAry: string[], delay = 0) {
+    for (let line of lineAry) {
+      if (delay > 0) await new Promise((ok) => setTimeout(ok, delay));
+      if (line.length < 3) continue
+      let str = line.split('#')[0]
+      console.log(`move=`, str)
+      let { undo, r, c, p } = JSON.parse(str)
+      if (undo != undefined) {
+        this.undoMove()
+      } else {
+        let hex = Hex.ofMap({row: r, col: c, Aname: Hex.aname(r,c)}, this.hexMap)
+        this.doPlayerMove(hex, p)
+        //this.setNextPlayer()
+      }
+    }
   }
 }
 

@@ -1,4 +1,4 @@
-import { M, stime, AT, Obj } from "@thegraid/common-lib";
+import { M, stime, AT } from "@thegraid/common-lib";
 import { Move, IMove } from "./move";
 import { GamePlay0, GamePlayD } from "./game-play"
 import { Hex, HSC, IHex } from "./hex";
@@ -9,7 +9,6 @@ import { WINARY } from "./stats";
 import { otherColor, StoneColor, stoneColor0, stoneColor1, StoneColorRecord, stoneColorRecord, stoneColors, TP } from "./table-params";
 import { ILogWriter } from "./stream-writer";
 import { EzPromise } from "@thegraid/ezpromise";
-import { state } from "@angular/animations";
 
 type pStat = { bv0: number, eval: number, dsid: number}
 type pHex = IHex & pStat
@@ -18,7 +17,7 @@ const WINVAL = stoneColorValue(Number.POSITIVE_INFINITY)
 const RESVAL = stoneColorValue(Number.POSITIVE_INFINITY)
 const STALEV = stoneColorValue(Number.POSITIVE_INFINITY)
 let WINLIM = WINVAL[stoneColor0] // stop searching if Move achieves WINLIM[sc0]
-let WINMIN = STALEV[stoneColor0] // stop searching if Move achieves WINLIM[sc0]
+let WINMIN = STALEV[stoneColor0] // stop searching if Move achieves WINLIM[sc0] TODO: WINLIM=RESVAL<STALEV<WINVAL
 
 type Dir1 = 'NW' | 'SE' // Axis for firstMove
 type Dir2 = Exclude<HexDir, Dir1> // intersecting axes for isSX
@@ -182,7 +181,8 @@ class State {
       let bhn = this.bestHexState?.[0].toString(otherColor(this.color))
       let colorn = AT.ansiText(['italic', 'red'], `${bhn}#${tn}`)
       let moves = this.moves(tn, historyString)
-      console.log(stime(this, `${ident}(bv=${this.bvs}) moveAry(${colorn})[${this.nMoves}] =`), moves, historyString)
+      console.log(stime(this, `${ident}(bv=${this.bvs}) moveAry(${colorn})[${this.nMoves}] =`), 
+        moves, TP.log > 1 ? historyString : '')
     }
   }
 }
@@ -202,7 +202,7 @@ function entriesArray(k: MOVES) {
 // presumably can check history[0] to find "the move that got us here"
 // but this way when a State is achieved by different means, we can use it.
 // Note... board identity requires that [caps] are also the same; but not last-move
-export class Planner implements IPlanner {
+export class SubPlanner implements IPlanner {
   roboRun = true  // set to FALSE to break the search.
   /** enable Planner to continue searching */
   roboMove(run = true) { this.roboRun = run }
@@ -292,22 +292,7 @@ export class Planner implements IPlanner {
         }
       return hexState
     }
-    let logMove = (hex: Hex, state0: State, state: State) => {
-      let tn = this.moveNumber
-      let dsid = State.sid - this.sidt0, dms = Date.now() - this.mst0 
-      let sps = M.decimalRound(1000 * dsid / dms, 0), spsn = sps.toString().padStart(5)
-      let tns = tn.toString().padStart(3), dsids = dsid.toLocaleString().padStart(10), dmss = dms.toString().padStart(7)
-      let hexstr = hex.rcspString(color) // space filled, fix-length
-      let mc = state.ind(), nM = state0.nMoves.padStart(5), bvs = state.bvs0.padStart(5)
-      let dn = this.gamePlay.gStats.dn.toString().padStart(2), ds = this.gamePlay.gStats.ds.toString().padStart(4)
-      let text = `#${tns} ${hexstr}${mc} dms:${dmss} dsid:${dsids} sps:${spsn} n:${nM} bv:${bvs} dn:${dn}, ds:${ds}`
-      this.logEvalMove(`.dispatchMove`, state0, TP.maxPlys, undefined, state)
-      if (this.index <= 1) {
-        console.log(stime(this, `.makeMove: ${AT.ansiText(['bold', 'green'], text)}`),
-          { maxD: this.maxDepth, maxP: TP.maxPlys, nPer: TP.nPerDist, maxB: TP.maxBreadth, state: (TP.log > -1) && state.copyOf() });
-        this.logWriter.writeLine(text)
-      }
-    }
+
     let pHex = (state0: State, hex: Hex): pHex => {
       let ihex = hex.iHex
       let pstat: pStat = { bv0: state0.bv0, eval: state0.eval, dsid: State.sid - this.sidt0 }
@@ -320,7 +305,7 @@ export class Planner implements IPlanner {
       while (mhex.metaLinks[dir]) mhex = mhex.metaLinks[dir]
       let [move, state] = this.doLocalMove(mhex, color)
       state0 = state
-      logMove(mhex, state0, state)
+      this.logMove(mhex, state0, state)
       fillMove(pHex(state0, mhex))
     }
     let state0: State
@@ -330,7 +315,7 @@ export class Planner implements IPlanner {
       this.prevMove = move          // this.gamePlay.history[9]
       this.reduceBoards(true)       // reduce & prune
       this.boardState.clear()       // TODO: keep the subset derive from current/actual Moves/board
-      logMove(hex, state0, state)
+      this.logMove(hex, state0, state)
       fillMove(pHex(state0, hex)) // history[0]
     }
     //let [win, winAry] = gamePlay.gStats.updateStats() // unused? set baseline for lookahead ??
@@ -395,6 +380,7 @@ export class Planner implements IPlanner {
     if (pushUndo) this.gamePlay.undoRecs.saveUndo(pushUndo).enableUndo() // placeStone
     gamePlay.addStone(hex, color)        // may invoke captureStone() -> undoRec(Stone & capMark)
     gamePlay.incrBoard(move0)
+    move0.suicide = !hex.stoneColor
     return move0
   }
   /** 
@@ -487,8 +473,38 @@ export class Planner implements IPlanner {
     }
     return win
   }
+  logMove(hex: Hex, state0: State, state: State) {
 
-
+  }
+  /**
+   * Play hex0 from state0, achieving state1
+   * @param hex0 play Stone(state1.color) to hex0
+   * @param state0 
+   * @param state1 
+   */
+  logMove0(hex0: Hex, state0: State, state1: State) {
+    let tn = this.moveNumber
+    let dsid = State.sid - this.sidt0, dms = Date.now() - this.mst0
+    let sps = M.decimalRound(1000 * dsid / dms, 0)
+    let mc = state1.ind(), nM = state0.nMoves 
+    let gs = this.gamePlay.gStats, dn = gs.dn, ds = gs.ds, s0=gs.s0, s1=gs.s1, n0=gs.n0, n1=gs.n1
+    let hex = hex0.json(state1.color)
+    // let val = { tn, hex, mc, dms, dsid, sps, nM, bv: state.bv, s0, s1, n0, n1 }
+    // space filled, fix-length
+    let pad = (s: number, n = 3, d = 0) => { return `${s.toFixed(d).padStart(n)}` }
+    let tns = pad(tn), hexstr = hex0.rcspString(state1.color)
+    let dmss = pad(dms,7), dsids = dsid.toLocaleString().padStart(10) 
+    let spsn = pad(sps, 5)
+    let nMs = nM.padStart(5), bvs = state1.bvs0.padStart(5)
+    let dns = pad(dn), dss = pad(ds)
+    let s0s = pad(s0), s1s = pad(s1), n0s = pad(n0), n1s = pad(n1)
+    let text0 = `${hex}#${tns} ${hexstr}${mc} dms:${dmss} dsid:${dsids} sps:${spsn} n:${nMs} bv:${bvs} dn:${dns}, ds:${dss}`
+    let text = `${hex}#${tns} ${hexstr}${mc} dms:${dmss} dsid:${dsids} sps:${spsn} n:${nMs} bv:${bvs} n0:${n0s}, n1:${n1s}, s0:${s0s}, s1:${s1s}`
+    this.logEvalMove(`.logMove0`, state0, TP.maxPlys, undefined, state1)
+    console.log(stime(this, `.makeMove: ${AT.ansiText(['bold', 'green'], text)}`),
+      { maxD: this.maxDepth, maxP: TP.maxPlys, nPer: TP.nPerDist, maxB: TP.maxBreadth, state: (TP.log > -1) && state1.copyOf() });
+    this.logWriter.writeLine(text)
+  }
   /** used in groupCollapsed(lookahead) */
   logId(state0: State, nPlys: number) {
     let tn = this.depth, sc = otherColor(state0.color), mn = this.moveNumber
@@ -570,10 +586,12 @@ export class Planner implements IPlanner {
   pauseP = new EzPromise<void>().fulfill()
   pause() { if (this.pauseP.resolved) this.pauseP = new EzPromise() }
   resume() { this.pauseP.fulfill() }
-  async waitPaused() { if (!this.pauseP.resolved) { 
-    console.log(stime(this, `.waitPaused: waiting...`))
-    await this.pauseP 
-  } }
+  async waitPaused() {
+    if (!this.pauseP.resolved) {
+      console.log(stime(this, `.waitPaused: waiting...`))
+      await this.pauseP
+    }
+  }
 
   /** show progress in log, how much of breadth is done */
   nth = 0;
@@ -819,7 +837,7 @@ export class Planner implements IPlanner {
   }
 }
 
-export class ParallelPlanner extends Planner {
+export class Planner extends SubPlanner {
   /** PlanWorker -> IPlanner; makeMove -> IHex */
   plannerAry: PlannerProxy[] = []
 
@@ -866,12 +884,18 @@ export class ParallelPlanner extends Planner {
       return this.lookaheadInDepth(state0, color, nPlys, breadth, true)
     return this.lookaheadInParallel(state0, color, nPlys, breadth, true)
   }
+  override logMove(hex: Hex, state0: State, state: State) {
+    this.logMove0(hex, state0, state)
+  }
 
+  lastProxy: PlannerProxy   // 
   // TODO: get dsid from sub-planners; Why does it play so badly?
   async lookaheadInParallel(state0: State, color: StoneColor, nPlys?: number, breadth?: number, isTop?: boolean) {
     let sid0 = State.sid, ms0 = Date.now()
     await this.waitPaused()
-    if (!this.alreadyEvaluated(state0, nPlys)) {
+    if (this.alreadyEvaluated(state0, nPlys)) {
+      console.log(stime(this, `.${AT.ansiText(['red'],'lookaheadInParallel: alreadyEvaluated')}`), state0.copyOf())
+    } else {
       let oc = otherColor(color), planner = this
       let mh = this.gamePlay.hexMap.mh, nh = this.gamePlay.hexMap.nh
       let moveAry = planner.evalAndSortMoves(state0, color)
@@ -893,7 +917,10 @@ export class ParallelPlanner extends Planner {
         state.eval = ihex.eval
         state.setBestValue(ihex.bv0)
       })
-      state0.setBestHexState(hexStates.reduce((pv, cv) => { return cv[1].bv > pv[1].bv ? cv : pv }, hexStates[0]))
+      let bndx = 0 // index of pv=Max(hexStates[ndx][1])
+      let bhs = hexStates.reduce((pv, cv, ndx) => { return cv[1].bv > pv[1].bv ? (bndx = ndx, cv) : pv }, hexStates[0])
+      state0.setBestHexState(bhs)
+      this.lastProxy = planner.plannerAry[bndx]   // planner that forecast OP's best move TODO: use this next turn
     }
     this.logAndGC(`.lookaheadParallel:`, state0, sid0, ms0, nPlys, color)
     return state0.bestHexState
@@ -936,7 +963,7 @@ class HexGen {
    * @param depth for debugging: conditional breakpoint
    * @param evalFun 
    */
-  constructor(public planner: Planner, public evalFun?: (move: Move) => void) { 
+  constructor(public planner: SubPlanner, public evalFun?: (move: Move) => void) { 
   }
   gamePlay = this.planner.gamePlay
   plys = this.planner.depth - this.planner.moveNumber // for debugging conditional breakpoint

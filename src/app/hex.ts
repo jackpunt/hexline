@@ -78,7 +78,10 @@ class HexCont extends Container {
  */
 export class Hex {
   static capColor = H.capColor1 // dynamic set
-  constructor(map: HexMaps, row?: number, col?: number, name = `Hex@[${row},${col}]`) {
+  static aname(row: number, col: number) { 
+    return (row >= 0) ? `Hex@[${row},${col}]` : col == -1 ? S_Skip : S_Resign
+  }
+  constructor(map: HexMaps, row?: number, col?: number, name = Hex.aname(row, col)) {
     this.Aname = name
     this.map = map
     this.row = row
@@ -97,11 +100,12 @@ export class Hex {
   stoneColor: StoneColor = undefined;
   get iHex(): IHex { return { row: this.row, col: this.col, Aname: this.Aname } }
   /** [row,col] OR S_Resign OR S_Skip */
-  get rcs(): string { return (this.row !== undefined) ? `[${this.row},${this.col}]` : this.Aname.substring(4)}
-  get rowsp() { return this.row.toString().padStart(2)}
-  get colsp() { return this.col.toString().padStart(2)}
+  get rcs(): string { return (this.row >= 0) ? `[${this.row},${this.col}]` : this.Aname.substring(4)}
+  get rowsp() { return (this.row?.toString() || '-1').padStart(2) }
+  get colsp() { return (this.col?.toString() || '-1').padStart(2) } // col== -1 ? S_Skip; -2 ? S_Resign
+  json(sc = this.stoneColor) { return `{"p":"${sc || 'u'}","r":${this.rowsp},"c":${this.colsp}}` }
   /** [row,col] OR S_Resign OR S_Skip */
-  get rcsp(): string { return (this.row !== undefined) ? `[${this.rowsp},${this.colsp}]` : this.Aname.substring(4).padEnd(7)}
+  get rcsp(): string { return (this.row >= 0) ? `[${this.rowsp},${this.colsp}]` : this.Aname.substring(4).padEnd(7)}
   /** compute ONCE, *after* HexMap is populated with all the Hex! */
   get rc_linear(): number { return this._rcLinear || (this._rcLinear = this.map.rcLinear(this.row, this.col))}
   _rcLinear: number = undefined
@@ -272,7 +276,7 @@ export class Hex2 extends Hex {
     this.stoneIdText = new Text('', F.fontSpec(26))
     this.stoneIdText.textAlign = 'center'; this.stoneIdText.regY = -20
 
-    if (row === undefined || col === undefined) return
+    if (row === undefined || col === undefined) return // args not supplied: nextHex
     let [x, y, w, h] = this.xywh(row, col, this.radius)
     this.x += x
     this.y += y
@@ -474,8 +478,8 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
     this.height = radius * H.sqrt3
     this.width = radius * 1.5
     CapMark.capSize = this.width/2
-    this.skipHex = new Hex(this, undefined, undefined, S_Skip)
-    this.resignHex = new Hex(this, undefined, undefined, S_Resign)
+    this.skipHex = new Hex(this, -1, -1, S_Skip)
+    this.resignHex = new Hex(this, -1, -2, S_Resign)
     if (addToMapCont) this.addToCont()
   }
 
@@ -503,7 +507,7 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
     // If we have an on-screen Container, then use Hex2: (addToCont *before* makeAllDistricts)
     let hex = !!this.mapCont.hexCont ? new Hex2(this, row, col) : new Hex(this, row, col)
     hex.district = district // and set Hex2.districtText
-    if (this[row] === undefined) {
+    if (this[row] === undefined) {  // create new row array
       this[row] = new Array<Hex>()
       if (this.minRow === undefined || row < this.minRow) this.minRow = row
     }

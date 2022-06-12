@@ -20,8 +20,8 @@ export class GameSetup {
     this.stage = makeStage(canvasId, false)
     GameSetup.setup = this
   }
-  /** C-s ==> kill game, start a new one */
-  restart() {
+  /** C-s ==> kill game, start a new one, possibly with new (mh,nh) */
+  restart(mh = TP.mHexes, nh= TP.nHexes) {
     this.gamePlay.logWriter.closeFile()
     this.gamePlay.forEachPlayer(p => p.endGame())
     let deContainer = (cont: Container) => {
@@ -32,7 +32,8 @@ export class GameSetup {
       cont.removeAllChildren()
     }
     deContainer(this.stage)
-    this.startup()
+    TP.fnHexes(mh, nh)
+    return this.startup()
   }
   /**
    * 
@@ -56,6 +57,7 @@ export class GameSetup {
     console.groupEnd()
     table.miniMap.mapCont.y = Math.max(gui.ymax, gui2.ymax)+gui.y + table.miniMap.wh.height/2
     table.startGame()
+    return gamePlay
   }
   makeStatsPanel(gStats: TableStats, parent: Container, x: number, y: number): StatsPanel {
     let noArrow = { arrowColor: 'transparent' }
@@ -84,7 +86,7 @@ export class GameSetup {
     let restart = false 
     const gui = new ParamGUIP(TP, { textAlign: 'right'}, this.gamePlay)
     const schemeAry = TP.schemeNames.map(n => { return { text: n, value: TP[n] } })
-    let nHex = (mH: number, nH: number) => { TP.fnHexes(mH, nH); restart && this.restart.call(this) }
+    let nHex = (mh: number, nh: number) => { restart && this.restart.call(this, mh, nh) }
     gui.makeParamSpec("log", [-1, 0, 1, 2], { style: { textAlign: 'right' }, target: TP }); TP.log
     gui.makeParamSpec("mHexes", [2, 3, 4, 5, 6, 7, 8, 9, 10]) // TODO: limit nHexes for mH > 4
     gui.makeParamSpec("nHexes", [1, 2, 3, 4, 5, 6])

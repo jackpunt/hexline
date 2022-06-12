@@ -1,7 +1,7 @@
 import { stime, AT } from "@thegraid/common-lib";
 import { HexMaps, IHex } from "./hex";
 import { IMove } from "./move";
-import { ParallelPlanner } from "./planner";
+import { Planner } from "./planner";
 import { StoneColor, stoneColors, TP } from "./table-params";
 import { ILogWriter } from "./stream-writer";
 
@@ -23,7 +23,12 @@ export type ReplyData = {
   args: ReplyArgs[]
 }
 /** Local/Direct methods of Planner */
-export interface IPlanner {
+export interface IPlanner extends IPlannerMethods {
+  waitPaused():Promise<void>
+}
+
+/** Local & Remote methods of Planner */
+interface IPlannerMethods {
   pause(): void
   resume():void
   /** enable Planner to continue searching */
@@ -35,14 +40,14 @@ export interface IPlanner {
 }
 
 /**
- * Remote/Worker methods of PlanWorker
+ * Remote/Worker message methods of PlanWorker
  */
-export interface IPlanMsg extends IPlanner {
+export interface IPlanMsg extends IPlannerMethods {
   newPlanner(mh: number, nh: number, index: number): void
   log(...args: MsgArgs[]): void
   setParam(...args: ParamSet): void
 }
-/** PlanProxy implements IPlanReply methods: */
+/** PlanProxy implements IPlanReply message methods: */
 export type IPlanReply = {
   newDone(args: MsgArgs[]): void
   sendMove(ihex: IHex): void
@@ -76,7 +81,7 @@ export class MK {
 export function newPlanner(hexMap: HexMaps, index: number, logWriter: ILogWriter): IPlanner {
   let planner = TP.pWorker
     ? new PlannerProxy(hexMap.mh, hexMap.nh, index, logWriter)    // -> Remote Planner [no Parallel]
-    : new ParallelPlanner(hexMap.mh, hexMap.nh, index, logWriter) // -> Local ParallelPlanner *or* Planner
+    : new Planner(hexMap.mh, hexMap.nh, index, logWriter) // -> Local ParallelPlanner *or* Planner
   return planner
 }
 
@@ -138,8 +143,17 @@ export class PlannerProxy implements IPlanner, IPlanReply {
     MK.terminateDone; this.worker.terminate()
     this.waitForAck.fulfill()
   }
-  pause() { this.postMessage(`.pause`, MK.pause) }
-  resume() { this.postMessage(`.resume`, MK.resume) }
+  pauseP = new EzPromise<void>().fulfill()
+  pause0() { if (this.pauseP.resolved) this.pauseP = new EzPromise() }
+  resume0() { this.pauseP.fulfill() }
+  async waitPaused() {
+    if (!this.pauseP.resolved) {
+      console.log(stime(this, `.waitPaused: waiting...`))
+      await this.pauseP
+    }
+  }
+  pause() { this.postMessage(`.pause`, MK.pause); this.pause0() }
+  resume() { this.postMessage(`.resume`, MK.resume); this.resume0() }
   roboMove(run: boolean) {
     this.ll0 && console.log(stime(this, `(${this.colorn}).roboMove: run =`), run)
     this.postMessage(`.roboMove:`, MK.roboMove, run)
@@ -182,7 +196,7 @@ export class PlannerProxy implements IPlanner, IPlanReply {
   }
   /** writeLine from Worker */
   logFile(text: string) {
-    this.logWriter.writeLine(`     ${text}`) // from worker's logWriter.writeLine()
+    this.logWriter.writeLine(`${text}`) // from worker's logWriter.writeLine()
   }
 
   // postMessage(message: any, transfer: Transferable[]): void;
