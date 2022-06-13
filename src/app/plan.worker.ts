@@ -1,7 +1,7 @@
 import { S, stime } from '@thegraid/common-lib';
 import { IMove } from './move';
-import { IPlanMsg, MsgArgs, MsgSimple, PlanData, MK, ReplyData, ReplyKey, ParamSet, ReplyArgs } from './plan-proxy';
-import { Planner, SubPlanner } from './planner'
+import { IPlanMsg, MsgArgs, PlanData, MK, ReplyData, ReplyKey, ParamSet, ReplyArgs } from './plan-proxy';
+import { SubPlanner } from './planner'
 import { ILogWriter } from './stream-writer';
 import { StoneColor, stoneColors, TP } from './table-params';
 // importScripts ('MyWorker.js')
@@ -9,7 +9,7 @@ import { StoneColor, stoneColors, TP } from './table-params';
 // type of Worker: https://github.com/Microsoft/TypeScript/issues/20595#issuecomment-763604612
 
 /** RPC 'stub' to invoke methods on given Planner */
-class PlanWorker implements IPlanMsg {
+export class PlanWorker implements IPlanMsg {
   planner: SubPlanner
   get ll0() { return TP.log > 0 }
   get ll1() { return TP.log > 1 }
@@ -48,8 +48,8 @@ class PlanWorker implements IPlanMsg {
     this.annoColor = stoneColors[index] || `x${-index}`
     TP.fnHexes(mh, nh)
     let logWriter: ILogWriter = { writeLine: (text: string) => { this.reply(MK.logFile, text)}}
-    /*this.ll0 &&*/ console.log(stime(this, `.${ident}:`), { mh, nh, index, logWriter, pPlaner: TP.pPlaner }) // [Object object]
-    MK.newPlanner; this.planner = new SubPlanner(mh, nh, index % 2, logWriter)
+    this.ll0 && console.log(stime(this, `.${ident}:`), { mh, nh, index, logWriter, pPlaner: TP.pPlaner }) // [Object object]
+    MK.newPlanner; this.planner = new SubPlanner(mh, nh, index % 2, logWriter, this)
     this[S.Aname] = `PlanWorker@${stime(this, `.${ident}(${this.annoColor})`)}`
     this.reply(MK.newDone, this.annoColor, this.planner.depth)
   }

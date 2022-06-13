@@ -1,6 +1,6 @@
 import { H } from "./hex-intfs";
 import { AT, json } from "@thegraid/common-lib"
-import { Hex, Hex2, HexMap, S_Resign, HSC, HexMaps, S_Skip } from "./hex";
+import { Hex, Hex2, HexMap, S_Resign, HSC, HexMaps, IHex } from "./hex";
 import { HexEvent } from "./hex-event";
 import { S, stime, Undo, KeyBinder } from "@thegraid/easeljs-lib";
 import { GameStats, TableStats, WINARY } from "./stats";
@@ -22,6 +22,7 @@ export class GamePlay0 {
   readonly redoMoves: Move[] = []
   readonly allBoards = new BoardRegister()
   readonly gStats: GameStats       // 'readonly' (set once by clone constructor)
+  get iHistory() { return this.history.map(move => move.toIMove) }
   
   newMoveFunc: (hex: Hex, sc: StoneColor, caps: Hex[], gp: GamePlay0) => Move 
   newMove(hex: Hex, sc: StoneColor, caps: Hex[], gp: GamePlay0) {
@@ -243,10 +244,24 @@ export class GamePlayD extends GamePlay0 {
     return
   }
 }
+export type Progress = { b?: number, tsec?: number, tn?: number}
+class ProgressLogWriter extends LogWriter {
+  onProgress: (progress: Progress) => void = (progress) => {}
+  override writeLine(text?: string): void {
+      if (text.endsWith('*progress*')) {
+        // show progress
+        let str = text.split('#')[0]
+        let pv = JSON.parse(str) as Progress
+        this.onProgress(pv)
+      } else {
+        super.writeLine(text)
+      }
+  }
+}
 
 /** implement the game logic */
 export class GamePlay extends GamePlay0 {
-  readonly logWriter: LogWriter
+  readonly logWriter: ProgressLogWriter
   readonly table: Table
   override readonly gStats: TableStats
   constructor(table: Table) {
@@ -254,25 +269,35 @@ export class GamePlay extends GamePlay0 {
     let time = stime('').substring(6,15), size=`${TP.mHexes}x${TP.nHexes}`
     let line = {time: stime.fs(), mh: TP.mHexes, nh: TP.nHexes, maxBreadth: TP.maxBreadth, 
       maxPlys: TP.maxPlys, nPerDist: TP.nPerDist, pBoards: TP.pBoards, pMoves: TP.pMoves, pWeight: TP.pWeight}
-    let jline = json(line, false)
+    let line0 = json(line, false)
     let logFile = `log${size}_${time}`
-    console.log(stime(this, `.startup: -------------- New Game: ${jline} --------------`))
-    this.logWriter = new LogWriter(logFile)
-    this.logWriter.writeLine(jline)
+    console.log(stime(this, `.startup: -------------- New Game: ${line0} --------------`))
+    this.logWriter = new ProgressLogWriter(logFile)
+    this.logWriter.writeLine(line0)
+    this.logWriter.onProgress = (progress) =>{ 
+      this.table.progressMarker[this.curPlayer.color].update(progress)
+    }
     this.allPlayers = stoneColors.map((color, ndx) => new Player(ndx, color, table))
     // setTable(table)
     this.table = table
     this.gStats = new TableStats(this, table) // reset gStats AFTER allPlayers are defined so can set pStats
-    let roboPause = () => { this.curPlayer.planner?.pause(); this.table.nextHex.markCapture(); this.hexMap.update(); console.log("Paused") }
-    let roboResume = () => { this.curPlayer.planner?.resume(); this.table.nextHex.unmarkCapture(); this.hexMap.update(); console.log("Resume") }
+    let roboPause = (p = this.curPlayer) => { p.planner?.pause(); this.table.nextHex.markCapture(); this.hexMap.update(); console.log("Paused") }
+    let roboResume = (p = this.curPlayer) => { p.planner?.resume(); this.table.nextHex.unmarkCapture(); this.hexMap.update(); console.log("Resume") }
+    let roboStep = () => { 
+      let p = this.curPlayer, op = this.otherPlayer(p)
+      roboPause(op); roboResume(p);
+    }
+    let roboStep2 = () => { roboResume(); setTimeout(() => roboPause(), 2) }
     KeyBinder.keyBinder.setKey('p', { thisArg: this, func: roboPause })
     KeyBinder.keyBinder.setKey('r', { thisArg: this, func: roboResume })
+    KeyBinder.keyBinder.setKey('s', { thisArg: this, func: roboStep })
+    KeyBinder.keyBinder.setKey('q', { thisArg: this, func: this.readerStop })
     KeyBinder.keyBinder.setKey(/1-9/, { thisArg: this, func: (e: string) => { TP.maxBreadth = Number.parseInt(e) } })
 
     KeyBinder.keyBinder.setKey('M-z', { thisArg: this, func: this.undoMove })
     KeyBinder.keyBinder.setKey('b', { thisArg: this, func: this.undoMove })
     KeyBinder.keyBinder.setKey('f', { thisArg: this, func: this.redoMove })
-    KeyBinder.keyBinder.setKey('s', { thisArg: this, func: this.skipMove })
+    KeyBinder.keyBinder.setKey('S', { thisArg: this, func: this.skipMove })
     KeyBinder.keyBinder.setKey('M-K', { thisArg: this, func: this.resignMove })// S-M-k
     KeyBinder.keyBinder.setKey('Escape', {thisArg: table, func: table.stopDragging}) // Escape
     KeyBinder.keyBinder.setKey('C-s', { thisArg: GameSetup.setup, func: () => {GameSetup.setup.restart()} })// C-s START
@@ -328,10 +353,10 @@ export class GamePlay extends GamePlay0 {
   }
   /** provoke Player (GUI or Planner) to respond with addStoneEvent */
   makeMove(auto?: boolean, ev?: any, incb = 0) {
-    let stone = this.table.nextHex.stone
+    let sc = this.table.nextHex.stone.color
     let player = (this.turnNumber > 1) ? this.curPlayer : this.otherPlayer(this.curPlayer)
     if (auto === undefined) auto = player.useRobo
-    player.playerMove(stone, auto, incb) // make one robo move
+    player.playerMove(sc, auto, incb) // make one robo move
   }
   /** if useRobo == true, then Player delegates to robo-player immediately. */
   autoMove(useRobo: boolean = false) {
@@ -369,14 +394,13 @@ export class GamePlay extends GamePlay0 {
     this.table.stopDragging() // drop on nextHex (no Move)
     let move = this.redoMoves[0]// addStoneEvent will .shift() it off
     if (!move) return
-    this.table.dispatchEvent(new HexEvent(S.add, move.hex, move.stoneColor))
+    this.table.doTableMove({row: move.hex.row, col: move.hex.col, Aname: move.hex.Aname}, move.stoneColor)
     this.showRedoMark()
     this.hexMap.update()
   }
-  showRedoMark() {
-    let move0 = this.redoMoves[0]
-    if (!!move0) {
-      this.hexMap.showMark(move0.hex) // unless Skip or Resign...
+  showRedoMark(hex: IHex | Hex = this.redoMoves[0]?.hex) {
+    if (!!hex) { // unless Skip or Resign...
+      this.hexMap.showMark((hex instanceof Hex) ? hex : Hex.ofMap(hex, this.hexMap))
     }    
   }
   /** addUndoRec to [re-]setStoneId() */
@@ -465,6 +489,11 @@ export class GamePlay extends GamePlay0 {
     throw new Error("Method not implemented.");
   }
 
+  readerStop() {
+    this.readerBreak = true
+    this.curPlayer.planner.resume()
+  }
+  readerBreak = false
   async readGameFile(delay = 4) {
     let logReader = new LogReader()
     let filep = logReader.pickFileToRead()
@@ -475,22 +504,30 @@ export class GamePlay extends GamePlay0 {
     let header = JSON.parse(lineAry.shift())
     console.log(stime(this, `.readGameFile: header =`), header)
     let { time, mh, nh, maxBreadth, maxPlys, nPerDist, pBoards } = header
-    let gamePlay = GameSetup.setup.restart(mh, nh)
+    let gamePlay = GameSetup.setup.restart(mh, nh)  // NEW GamePlay: new LogWriter()
     gamePlay.runGameFromLog(lineAry, delay)
   }
   async runGameFromLog(lineAry: string[], delay = 0) {
+    this.readerBreak = false
+    this.curPlayer.planner.pause() // start paused!
     for (let line of lineAry) {
-      if (delay > 0) await new Promise((ok) => setTimeout(ok, delay));
       if (line.length < 3) continue
       let str = line.split('#')[0]
       console.log(`move=`, str)
-      let { undo, r, c, p } = JSON.parse(str)
+      let { undo, r, c, p } = JSON.parse(str) as { undo?: number, r?: number, c?: number, p: StoneColor }
+
+      if (delay > 0) await new Promise((ok) => setTimeout(ok, delay));
       if (undo != undefined) {
+        this.showRedoMark(this.history[0]?.hex); this.hexMap.update()
+        await this.curPlayer.planner.waitPaused()
+        if (this.readerBreak) return
         this.undoMove()
       } else {
-        let hex = Hex.ofMap({row: r, col: c, Aname: Hex.aname(r,c)}, this.hexMap)
-        this.doPlayerMove(hex, p)
-        //this.setNextPlayer()
+        let ihex = {row: r, col: c, Aname: Hex.aname(r,c)} as IHex
+        this.showRedoMark(ihex); this.hexMap.update()
+        await this.curPlayer.planner.waitPaused()
+        if (this.readerBreak) return
+        this.table.doTableMove(ihex, p)
       }
     }
   }

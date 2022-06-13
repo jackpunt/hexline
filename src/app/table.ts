@@ -1,12 +1,13 @@
 import { Stage, EventDispatcher, Container, Shape, Text, DisplayObject, MouseEvent } from "@thegraid/easeljs-module";
-import { F, S, stime, Dragger, DragInfo, KeyBinder, ScaleableContainer, XY, C, WH } from "@thegraid/easeljs-lib"
-import { GamePlay } from "./game-play";
+import { F, S, stime, Dragger, DragInfo, KeyBinder, ScaleableContainer, XY, C, WH, AT } from "@thegraid/easeljs-lib"
+import { GamePlay, Progress } from "./game-play";
 import { Player } from "./player"
-import { Hex, Hex2, HexMap, } from "./hex";
+import { Hex, Hex2, HexMap, IHex, } from "./hex";
 import { HexEvent } from "./hex-event";
 import { StatsPanel } from "./stats";
-import { TP, StoneColor, otherColor, stoneColor0, stoneColor1 } from "./table-params";
+import { TP, StoneColor, otherColor, stoneColor0, stoneColor1, StoneColorRecord, stoneColorRecord, stoneColorRecordF } from "./table-params";
 import { H, XYWH } from "./hex-intfs";
+import { TablePlanner } from "./planner";
 
 
 /**
@@ -40,6 +41,42 @@ export class Stone extends Shape {
     this.cache(-rad, -rad, 2*rad, 2*rad) // Stone
   }
 }
+
+class ProgressMarker extends Container {
+  static yoff = stoneColorRecord(40, 40)
+  static xoff = stoneColorRecord(-120, 100)
+  static make(sc: StoneColor, parent: Container) {
+    let p0 = { b: 0, tsec: 0, tn: 0 } as Progress
+    let pm = new ProgressMarker(p0)
+    pm.x = ProgressMarker.xoff[sc]
+    pm.y = ProgressMarker.yoff[sc]
+    parent.addChild(pm)
+    return pm
+  }
+  // Container with series of Text arranged vertically.
+  // update fills the Text.text with the given values.
+  texts: Record<string, Text> = {}
+  constructor(p0: Progress, font: string = F.fontSpec(36), color = C.BLACK) {
+    super()
+    let y = 0, lead = 5
+    for (let pk in p0) {
+      let val = p0[pk].toString()
+      let text = new Text(val, font, color)
+      this.texts[pk] = text
+      text.y = y
+      this.addChild(text)
+      y += text.getMeasuredHeight() + lead
+    }
+  }
+  update(progress: Progress) {
+    for (let pk in progress) {
+      this.texts[pk].text = progress[pk]?.toString() || ''
+    }
+    this.stage.update()
+  }
+}
+
+
 /** layout display components, setup callbacks to GamePlay */
 export class Table extends EventDispatcher  {
 
@@ -59,6 +96,7 @@ export class Table extends EventDispatcher  {
   winText: Text = new Text('', F.fontSpec(40), 'lightgrey')
 
   dragger: Dragger
+  progressMarker: StoneColorRecord<ProgressMarker>
 
   constructor(stage: Stage) {
     super();
@@ -155,21 +193,22 @@ export class Table extends EventDispatcher  {
     let high = this.hexMap.height, wide = this.hexMap.width // h=rad*1.5; w=rad*r(3)
     let miny = hexRect.y - high, minx = hexRect.x - wide
     let { width, height } = this.hexMap.wh
-    let bgr: XYWH = { x: 0, y: 0, w: width, h: height}
+    let bgr: XYWH = { x: 0, y: 0, w: width, h: height + high}
     // align center of mapCont(0,0) == hexMap(center) with center of background
     mapCont.x = (bgr.w) / 2
     mapCont.y = (bgr.h) / 2
 
     this.nextHex = new Hex2(this.hexMap, undefined, undefined, 'nextHex')
     this.nextHex.cont.scaleX = this.nextHex.cont.scaleY = 2
-    this.nextHex.x = minx + 2 * wide; this.nextHex.y = miny + 2.0 * high;
+    this.nextHex.x = minx + 2 * wide; this.nextHex.y = miny + 1.4 * high;
     // tweak when hexMap is tiny:
     let nh = TP.nHexes, mh = TP.mHexes
-    if (nh == 1 || nh + mh <= 5) { bgr.w += 3*wide; mapCont.x += 3*wide; this.nextHex.x = minx - .87*wide }
+    if (nh == 1 || nh + mh <= 5) { bgr.w += 3*wide; mapCont.x += 3*wide; this.nextHex.x = minx - H.sqrt3/2*wide }
     this.nextHex.x = Math.round(this.nextHex.x); this.nextHex.y = Math.round(this.nextHex.y)
     this.undoCont.x = this.nextHex.x
     this.undoCont.y = this.nextHex.y + 100
     this.hexMap.mapCont.markCont.addChild(this.undoCont)
+    this.progressMarker = stoneColorRecordF((sc) => ProgressMarker.make(sc, this.undoCont))
 
     this.bgRect = this.setBackground(this.scaleCont, bgr) // bounded by bgr
     let p00 = this.scaleCont.localToLocal(0, 0, this.hexMap.mapCont.hexCont) 
@@ -189,12 +228,12 @@ export class Table extends EventDispatcher  {
     const history = this.gamePlay.history
     const tn = this.gamePlay.turnNumber
     const lm = history[0]
-    const prev = lm ? `${lm.Aname}${lm.ind()}` : ""
+    const prev = lm ? `${lm.Aname}${lm.ind()}#${tn-1}` : ""
     const capd = lm?.captured || [] //this.gamePlay.lastCaptured 
     const board = !!this.hexMap.allStones[0] && lm?.board // TODO: hexMap.allStones>0 but history.len == 0
-    const robo = curPlayer.useRobo ? "robo" : "----"
-    const info = { turn: tn, plyr: curPlayer.name, prev, capd, gamePlay: this.gamePlay, board }
-    console.log(stime(this, `.setNextPlayer ----${robo}----`), info);
+    const robo = curPlayer.useRobo ? AT.ansiText(['red','bold'],"robo") : "----"
+    const info = { turn: `#${tn}`, plyr: curPlayer.name, prev, capd, gamePlay: this.gamePlay, board }
+    console.log(stime(this, `.setNextPlayer --${robo}--`), info);
   }
   showRedoUndoCount() {
     this.undoText.text = `${this.gamePlay.undoRecs.length}`
@@ -321,7 +360,21 @@ export class Table extends EventDispatcher  {
     stone.y = target.y
     if (target === this.nextHex) return
     this.dragger.stopDragable(stone)
-    this.dispatchEvent(new HexEvent(S.add, target, stone)) // gamePlay.doPlayerMove()
+    this.doTableMove(target.iHex, stone.color) // TODO: migrate to doTableMove vs dispatchEVent
+  }
+  tablePlanner: TablePlanner
+  /** TablePlanner.logMove(); then dispatchEvent() --> gamePlay.doPlayerMove() */
+  doTableMove(ihex: IHex, sc = this.gamePlay.curPlayer.color) {
+    if (sc != this.gamePlay.curPlayer.color) debugger;
+    if (!this.tablePlanner) 
+      this.tablePlanner = new TablePlanner(this.hexMap.mh, this.hexMap.nh, 0, this.gamePlay.logWriter)
+    let iHistory = this.gamePlay.iHistory
+    this.tablePlanner.doMove(ihex, sc, iHistory).then(ihex => this.moveStoneToHex(ihex, sc))
+  }
+  moveStoneToHex(ihex: IHex, sc: StoneColor) {
+    let hex = Hex.ofMap(ihex, this.hexMap)
+    this.hexMap.showMark(hex)
+    this.dispatchEvent(new HexEvent(S.add, hex, sc))
   }
  
   /** default scaling-up value */

@@ -1,9 +1,8 @@
 import { stime, S } from "@thegraid/common-lib"
 import { GamePlay } from "./game-play"
-import { Hex, IHex } from "./hex"
-import { HexEvent } from "./hex-event"
+import { IHex } from "./hex"
 import { IPlanner, newPlanner } from "./plan-proxy"
-import { Stone, Table } from "./table"
+import { Table } from "./table"
 import { StoneColor, TP } from "./table-params"
 
 export class Player {
@@ -35,28 +34,27 @@ export class Player {
     this.planner.roboMove(false)
   }
   /** if Planner is not running, maybe start it; else wait for GUI */ // TODO: move Table.dragger to HumanPlanner
-  playerMove(stone: Stone, useRobo = this.useRobo, incb = 0) {
+  playerMove(sc: StoneColor, useRobo = this.useRobo, incb = 0) {
     let running = this.plannerRunning
     // feedback for KeyMove:
-    console.log(stime(this, `(${this.colorn}).makeMove(${useRobo}): useRobo=${this.useRobo}, running=${running}`))
+    TP.log > -1 && console.log(stime(this, `(${this.colorn}).makeMove(${useRobo}): useRobo=${this.useRobo}, running=${running}`))
     if (running) return
     if (useRobo || this.useRobo) {
       // start planner from top of stack:
-      setTimeout(() => this.plannerMove(stone, this.table))
+      setTimeout(() => this.plannerMove(sc, this.table))
     }
     return      // robo or GUI will invoke gamePlay.doPlayerMove(...)
   }
   plannerRunning = false
-  plannerMove(stone: Stone, table: Table, incb = 0) {
+  plannerMove(sc: StoneColor, table: Table, incb = 0) {
     this.planner.roboMove(true)
     this.plannerRunning = true
-    let iHistory = table.gamePlay.history.map(move => move.toIMove)
-    this.planner.makeMove(stone.color, iHistory, incb).then((ihex: IHex) => {
+    let iHistory = table.gamePlay.iHistory
+    let ihexPromise = this.planner.makeMove(sc, iHistory, incb)
+    ihexPromise.then((ihex: IHex) => {
       // console.log(stime(this, `.plannerMove.done:`), ihex)
       this.plannerRunning = false
-      let hex = Hex.ofMap(ihex, table.hexMap)
-      table.hexMap.showMark(hex)
-      table.dispatchEvent(new HexEvent(S.add, hex, stone))
+      table.moveStoneToHex(ihex, sc)
     })
   }
 }

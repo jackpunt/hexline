@@ -1,4 +1,4 @@
-import { stime, AT } from "@thegraid/common-lib";
+import { stime, AT, json } from "@thegraid/common-lib";
 import { HexMaps, IHex } from "./hex";
 import { IMove } from "./move";
 import { Planner } from "./planner";
@@ -6,11 +6,12 @@ import { StoneColor, stoneColors, TP } from "./table-params";
 import { ILogWriter } from "./stream-writer";
 
 import { EzPromise } from "@thegraid/ezpromise" // for FlowControl
+import { Progress } from "./game-play";
 
 export type ParamSet = [string, string, MsgSimple]
 export type MsgSimple = string | number | boolean
 export type MsgArgs = (MsgSimple | IMove[] | ParamSet) // PlanData['args']
-export type ReplyArgs = (MsgSimple | IHex) // PlanData['args']
+export type ReplyArgs = (MsgSimple | IHex | Progress) // PlanData['args']
 export type MsgKey = keyof IPlanMsg
 export type ReplyKey = keyof IPlanReply
 
@@ -52,6 +53,7 @@ export type IPlanReply = {
   newDone(args: MsgArgs[]): void
   sendMove(ihex: IHex): void
   logFile(file: string, text: string): void
+  progress(pv: Progress): void
   terminateDone(): void
 }
 /** Message Keys; methods of IPlanMsg/IPlanner or IPlanReply */
@@ -69,6 +71,7 @@ export class MK {
   static newDone: ReplyKey = 'newDone'
   static sendMove: ReplyKey = 'sendMove'
   static logFile: ReplyKey = 'logFile'
+  static progress: ReplyKey = 'progress'
   static terminateDone: ReplyKey = 'terminateDone'
 }
 
@@ -92,13 +95,14 @@ export class PlannerProxy implements IPlanner, IPlanReply {
   colorn: string
   worker: Worker 
   get ll0() { return TP.log > 0 }
+  get ll1() { return TP.log > 1 }
 
   constructor(public mh: number, public nh: number, public index: number, public logWriter: ILogWriter) {
     let colorn = this.colorn = TP.colorScheme[stoneColors[index]] || `SC-${index}`
     this.ll0 && console.log(stime(this, `(${this.colorn}).newPlannerProxy:`), { mh, nh, index, colorn })
     this.worker = this.makeWorker()
     this.worker['Aname'] = `Worker-${colorn}`
-    this.postMessage(`.makeWorker`, MK.log, 'made worker for:', this.colorn)
+    this.ll1 && this.postMessage(`.makeWorker`, MK.log, 'made worker for:', this.colorn)
     this.ll0 && console.log(stime(this, `(${this.colorn}#${this.id}).newPlannerProxy:`), { worker: this.worker })
     //setTimeout(() => {this.initiate()})
     this.initiate()
@@ -129,7 +133,7 @@ export class PlannerProxy implements IPlanner, IPlanReply {
     this.postMessage(`.initiate-set:`, MK.setParam, 'TP', 'log', TP.log) // so newPlanner can log
     this.postMessage(`.initiate-set:`, MK.setParam, 'TP', 'pPlaner', TP.pPlaner)
     this.postMessage(`.initiate-new:`, MK.newPlanner, this.mh, this.nh, this.index)
-    this.postMessage('.initiate-log:', MK.log, `initiated:`, this.colorn, this.index);
+    this.ll1 && this.postMessage('.initiate-log:', MK.log, `initiated:`, this.colorn, this.index);
     this.postMessage(`.initiate-set:`, MK.setParam, 'TP', 'yieldMM', 500); TP.yieldMM // TP.yieldMM = 300
   }
   waitForAck: EzPromise<void> = new EzPromise<void>().fulfill()
@@ -177,7 +181,7 @@ export class PlannerProxy implements IPlanner, IPlanReply {
   }
 
   parseMessage(data: ReplyData) {
-    this.ll0 && console.log(stime(this, `(#${this.id}).parseMessage:`), data)
+    this.ll1 && console.log(stime(this, `(#${this.id}:${this.index}).parseMessage:`), data)
     let { verb, args } = data
     let func = this[verb]
     if (typeof func !== 'function') {
@@ -197,6 +201,11 @@ export class PlannerProxy implements IPlanner, IPlanReply {
   /** writeLine from Worker */
   logFile(text: string) {
     this.logWriter.writeLine(`${text}`) // from worker's logWriter.writeLine()
+  }
+
+  progress(pv: Progress) {
+    MK.progress; let text = json(pv, false)
+    this.logWriter.writeLine(`${text}#*progress*`) // marked *progress*, not a Move
   }
 
   // postMessage(message: any, transfer: Transferable[]): void;
