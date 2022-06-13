@@ -8,6 +8,7 @@ import { StatsPanel } from "./stats";
 import { TP, StoneColor, otherColor, stoneColor0, stoneColor1, StoneColorRecord, stoneColorRecord, stoneColorRecordF } from "./table-params";
 import { H, XYWH } from "./hex-intfs";
 import { TablePlanner } from "./planner";
+import { Move } from "./move";
 
 
 /**
@@ -44,7 +45,7 @@ export class Stone extends Shape {
 
 class ProgressMarker extends Container {
   static yoff = stoneColorRecord(40, 40)
-  static xoff = stoneColorRecord(-120, 100)
+  static xoff = stoneColorRecord(-120, 80)
   static make(sc: StoneColor, parent: Container) {
     let p0 = { b: 0, tsec: 0, tn: 0 } as Progress
     let pm = new ProgressMarker(p0)
@@ -93,7 +94,7 @@ export class Table extends EventDispatcher  {
   redoShape: Shape = new Shape(); 
   undoText: Text = new Text('', F.fontSpec(30));  // length of undo stack
   redoText: Text = new Text('', F.fontSpec(30));  // length of history stack
-  winText: Text = new Text('', F.fontSpec(40), 'lightgrey')
+  winText: Text = new Text('', F.fontSpec(40), 'green')
 
   dragger: Dragger
   progressMarker: StoneColorRecord<ProgressMarker>
@@ -119,7 +120,7 @@ export class Table extends EventDispatcher  {
     undoC.addChild(this.undoText); this.undoText.y = -14;
     undoC.addChild(this.redoText); this.redoText.y = -14;
     undoC.addChild(this.winText);
-    this.bgRect.parent.localToLocal(bgr.w/2, 30, undoC, this.winText)
+    this.bgRect.parent.localToLocal(bgr.w/2, 140, undoC, this.winText) // TODO: align with nextHex(x & y)
     this.undoText.mouseEnabled = this.redoText.mouseEnabled = false
     this.enableHexInspector(52)
   }
@@ -228,7 +229,7 @@ export class Table extends EventDispatcher  {
     const history = this.gamePlay.history
     const tn = this.gamePlay.turnNumber
     const lm = history[0]
-    const prev = lm ? `${lm.Aname}${lm.ind()}#${tn-1}` : ""
+    const prev = lm ? `${lm.Aname}${lm.ind}#${tn-1}` : ""
     const capd = lm?.captured || [] //this.gamePlay.lastCaptured 
     const board = !!this.hexMap.allStones[0] && lm?.board // TODO: hexMap.allStones>0 but history.len == 0
     const robo = curPlayer.useRobo ? AT.ansiText(['red','bold'],"robo") : "----"
@@ -291,18 +292,23 @@ export class Table extends EventDispatcher  {
   allSuicides: Set<Hex2> = new Set()
   markAllSuicide(color: StoneColor) {
     if (!this.showSui) return
-    let capColor = Hex.capColor
-    Hex.capColor = TP.allowSuicide ? H.suiColor1 : H.capColor1
+    this.tablePlanner.syncToGame(this.gamePlay.iHistory)
+    let tmap = this.tablePlanner.gamePlay.hexMap
+    let capColor = TP.allowSuicide ? H.suiColor1 : H.capColor1
     this.hexMap.forEachHex((hex: Hex2) => {
       if (hex.stoneColor !== undefined) return
       if (this.gamePlay.history[0]?.captured.includes(hex)) return
-      let [legal, suicide] = this.gamePlay.isMoveLegal(hex, color)
+      let [legal, suicide] = this.gamePlay.isMoveLegal(hex, color, (move) => {
+        if (!move.suicide && move.isFreeJeopardy && this.tablePlanner.isWastedMove(move)) {
+          this.allSuicides.add(hex) // not actual suicide: will unmarkCapture()
+          hex.markCapture(H.fjColor)
+        }
+      })
       if (suicide) {
         this.allSuicides.add(hex)
-        hex.markCapture()
+        hex.markCapture(capColor)
       }
     })
-    Hex.capColor = capColor
   }
   unmarkAllSuicide() {
     this.allSuicides.forEach(hex => hex.unmarkCapture())
@@ -362,12 +368,14 @@ export class Table extends EventDispatcher  {
     this.dragger.stopDragable(stone)
     this.doTableMove(target.iHex, stone.color) // TODO: migrate to doTableMove vs dispatchEVent
   }
-  tablePlanner: TablePlanner
+  _tablePlanner: TablePlanner
+  get tablePlanner() { 
+    return this._tablePlanner || 
+    (this._tablePlanner = new TablePlanner(this.gamePlay))
+  }
   /** TablePlanner.logMove(); then dispatchEvent() --> gamePlay.doPlayerMove() */
   doTableMove(ihex: IHex, sc = this.gamePlay.curPlayer.color) {
     if (sc != this.gamePlay.curPlayer.color) debugger;
-    if (!this.tablePlanner) 
-      this.tablePlanner = new TablePlanner(this.hexMap.mh, this.hexMap.nh, 0, this.gamePlay.logWriter)
     let iHistory = this.gamePlay.iHistory
     this.tablePlanner.doMove(ihex, sc, iHistory).then(ihex => this.moveStoneToHex(ihex, sc))
   }

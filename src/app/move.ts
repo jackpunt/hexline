@@ -1,5 +1,5 @@
 import { Hex, IHex } from "./hex";
-import { StoneColor, TP } from "./table-params";
+import { otherColor, StoneColor, TP } from "./table-params";
 import { Board, GamePlay0 } from "./game-play";
 
 /** Historical record of each move made. */
@@ -16,6 +16,10 @@ export class Move {
   board: Board;
   /**  */
   suicide: boolean
+
+  get isFreeJeopardy() {
+    return this.captured.length == 0 && this.hex.isThreat(otherColor(this.stoneColor))
+  }
   /**
    *
    * @param hex
@@ -34,7 +38,7 @@ export class Move {
   }
   /** fixed format: 'COLOR@[ r, c]' | 'COLOR@Resign ' */
   toString(hex = this.hex, stoneColor = this.stoneColor): string {
-    return `${TP.colorScheme[stoneColor]}@${this.hex.rcsp}`; // Move.toString => hex.toString => COLOR@rcs || S_Skip/S_Resign
+    return `${TP.colorScheme[stoneColor]}@${this.hex.rcsp}${this.ind}`; // Move.toString => hex.toString => COLOR@rcs || S_Skip/S_Resign
   }
   get bString(): string {
     return `${this.stoneColor}${this.hex.rcs}`; // sc[r,c]
@@ -44,10 +48,9 @@ export class Move {
     return { Aname: this.Aname, stoneColor: this.stoneColor, hex: this.hex.toIHex };
   }
   /** override in PlanMove to indicate move.state.fj */
-  ind(none = ' ', pre?: string) { 
-    let caps = this.captured
-    let rv = (pre || (!caps ? '?' : (caps.length > 0) ? `${caps.length}` : none) )
-    + (this.suicide ? '$' : ' ')
+  get ind() { 
+    let caps = this.captured, cp = caps.length > 0, atk = this.hex.isThreat(otherColor(this.stoneColor))
+    let rv = (this.suicide ? '$' : !atk ? ' ' : cp ? '-' : '!') + (cp ? `${caps.length}` : atk ? '!' : ' ')
     return rv
   }
 }

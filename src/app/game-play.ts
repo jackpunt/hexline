@@ -12,6 +12,8 @@ import { Move } from "./move";
 import { LogReader, LogWriter } from "./stream-writer";
 
 export class GamePlay0 {
+  static gpid = 0
+  readonly id = GamePlay0.gpid++
 
   constructor() {
     this.gStats = new GameStats(this.hexMap) // AFTER allPlayers are defined so can set pStats
@@ -209,7 +211,7 @@ export class GamePlay0 {
     this.addStone(hex, color)     // stone on hexMap: exactly 1 undoRec (have have several undo-funcs)
     move.suicide = !hex.stoneColor
     Hex.capColor = capColor
-    this.incrBoard(move)          // 
+    this.incrBoard(move)          // set move.board
     return move
   }
   undoProtoMove() {
@@ -234,8 +236,6 @@ export class GamePlay0 {
 
 /** GamePlayD is compatible 'copy' with original, but does not share components */
 export class GamePlayD extends GamePlay0 {
-  static sid = 0
-  readonly id = GamePlayD.sid++
   override hexMap: HexMaps;
   constructor(mh: number, nh: number) {
     super()
@@ -244,7 +244,7 @@ export class GamePlayD extends GamePlay0 {
     return
   }
 }
-export type Progress = { b?: number, tsec?: number, tn?: number}
+export type Progress = { b?: number, tsec?: number|string, tn?: number}
 class ProgressLogWriter extends LogWriter {
   onProgress: (progress: Progress) => void = (progress) => {}
   override writeLine(text?: string): void {

@@ -1,6 +1,6 @@
 import { M, stime, AT, json } from "@thegraid/common-lib";
 import { Move, IMove } from "./move";
-import { GamePlay0, GamePlayD, Progress } from "./game-play"
+import { Board, GamePlay, GamePlay0, GamePlayD, Progress } from "./game-play"
 import { Hex, HSC, IHex } from "./hex";
 import { H, HexDir } from "./hex-intfs";
 import { runEventLoop } from "./event-loop"
@@ -26,16 +26,10 @@ type HexState = [Hex, State]
 class MOVES extends Map<Hex,State>{}
 class PlanMove extends Move {
   state: State
-  override ind(none = ' ') { 
-    let caps = this.captured
-    return super.ind(none, this.state.fj ? (!!caps ? '-' : '!') : undefined )
-  }
 }
 interface GamePlayDH extends GamePlayD {
   history: PlanMove[];
   newMove(hex: Hex, sc: StoneColor, caps: Hex[], gp: GamePlay0): PlanMove
-  sxInfo: SxInfo
-  plys(): number
 }
 /** 
  * After opponent's Move, where should curPlayer play? 
@@ -61,7 +55,7 @@ class State {
   readonly winAry: WINARY
   bestValue: StoneColorRecord<number>; 
   bestHexState: HexState // [bestHex -> bestState -> bestValue]
-  id: number; 
+  readonly id = ++State.sid; 
   turn: number; // turn/protoTurn when this move was analyzed
   moveAry: HexState[]
   _nMove: number
@@ -79,8 +73,8 @@ class State {
   get bv() { return this.bestValue[this.color]}
   get bvs() { return this.bvss(this.bv) }
 
-  ind(none = ' ') { 
-    return this.move.ind(none)
+  ind() { 
+    return this.move.ind
   }
   setBestValue(value: number) {
     if (Number.isNaN(value)) debugger;
@@ -106,8 +100,8 @@ class State {
         this.copyStructs(this)
       }
     } else {
-      // indicates likely isWastedMove:
-      this.fj = (this.move.captured.length == 0 && this.move.hex.isThreat(otherColor(this.color)))
+      // indicates possible isWastedMove:
+      this.fj = move.isFreeJeopardy
       this.v0 = v0 = M.decimalRound(v0, 4)
       this.setBestValue(v0)
       this.id = ++State.sid
@@ -166,14 +160,14 @@ class State {
     let bh = this.bestHexState?.[0]
     let pad = (s: number, n = 3, d = 0) => { return `${s.toFixed(d).padStart(n)}` } // ${s >= 0 ? ' ' : ''}
     return this.moveAry?.map(([h, s]) => [s.move,
-    `${s.move.toString()}${s.ind(s.eval > tn ? '+' : '.')} v0: ${pad(s.v0, 4, 1)},`+
+    `${s.move.toString()}${(s.eval > tn ? '+' : '.')} v0: ${pad(s.v0, 4, 1)},`+
     ` [${pad(s.eval,2)}] ${(h == bh) ? '*' : ' '}bv: ${s.bvs}, id=${pad(s.id)}`,
     [historyString, s.move.board.toString()], s.copyOf()])
   }
   moves0(tn: number) {
     let bh = this.bestHexState?.[0]
     return this.moveAry?.map(([h, s]) => [s.move, s.eval, (h == bh) ? '*' : ' ',
-    s.move.toString(), s.ind(s.eval > tn ? '+' : '.'),
+    s.move.toString(), (s.eval > tn ? '+' : '.'),
     s.v0, s.bvs, s.id,
     s.move.board.toString(), s.bestHexState[1].copyOf()])
   }
@@ -333,7 +327,6 @@ export class SubPlanner implements IPlanner {
         state0 = move1.state.nextState(hex0) // opponent moved to a predicted & eval'd State (with a moveAry!)
         TP.log > -1 && console.log(stime(this, `.makeMove: prevMove = move1.state0:`), state0)
       }
-      if (!this.sxInfo) this.sxInfo = new SxInfo(this.gamePlay)
       let nPlys = TP.maxPlys, breadth = this.maxBreadth
       this.yieldMs = Math.max(TP.yieldMM, Math.max(20, 5 * (nPlys + breadth - 7))) // pWorker -> yieldMM
 
@@ -413,6 +406,7 @@ export class SubPlanner implements IPlanner {
       this.doHistoryMove(main[main.length - ours.length - 1])
     }
     this.moveNumber = ours.length + 1 // iHistory.length + 1
+    if (!this.sxInfo && this.moveNumber > 1) this.sxInfo = new SxInfo(this.gamePlay)
     this.reduceBoards()  // update repCount and delete un-attained Boards
   }
   reduceBoards(prune = true) {
@@ -661,7 +655,7 @@ export class SubPlanner implements IPlanner {
         let b = this.nth, tsec = (now - this.ms00) / 1000
         console.log(stime(this, `.lookaheadInDepth timers:`),
           `b=${b} dtn=${dtn} dmc=${dmc} dmy=${dmy} dbd=${dbd} dsid=${dsid} dms=${dms} sps=${sps} sid=${dsidt.toLocaleString()} tsec=${tsec}`)
-          this.showProgress({b, tsec})
+          this.showProgress({b, tsec: tsec.toFixed(1)})
       }
 
       group && console.groupEnd()
@@ -830,8 +824,7 @@ export class SubPlanner implements IPlanner {
     return moveAry
   }
   /** return true if opponent has move that captures hex */
-  isWastedMove(move1: Move) {
-    let hex = move1.hex, repC = move1.board.repCount
+  isWastedMove(move1: Move, hex = move1.hex, repC = move1.board.repCount, mc = move1.stoneColor ) {
     // move into jeopardy [without capturing] is generally bad: (see if the stone is un-takeable...)
     const evalFun = (move: Move) => {
       let caps = move.captured
@@ -842,6 +835,7 @@ export class SubPlanner implements IPlanner {
       }
     }
     let hexGen = new HexGen(this, evalFun)
+    hexGen.color = otherColor(mc)
     hexGen.alignHex(hex, Number.POSITIVE_INFINITY)
     return hexGen.breakSearch
   }
@@ -940,15 +934,16 @@ export class Planner extends SubPlanner {
     let tsec = (Date.now() - ms0)/1000
     this.logAndGC(`.lookaheadParallel:`, state0, sid0, ms0, nPlys, color)
     console.log(`showProgress: `, { b: 0, tsec: tsec, tn: this.moveNumber })
-    this.showProgress({ b: 0, tsec: tsec, tn: this.moveNumber })
+    this.showProgress({ b: 0, tsec: tsec.toFixed(1), tn: this.moveNumber })
     return state0.bestHexState
   }
 }
 /** used by GamePlay to log GUI moves */
 export class TablePlanner extends SubPlanner {
-  constructor(mh: number, nh: number, index: number, logwriter: ILogWriter) {
-    super(mh, nh, index, logwriter)
+  constructor(gamePlay: GamePlay) {
+    super(gamePlay.hexMap.mh, gamePlay.hexMap.nh, 0, gamePlay.logWriter)
   }
+
   moveHex: Hex
   doMove(hex: IHex, color: StoneColor, iHistory: IMove[]) {
     this.moveHex = Hex.ofMap(hex, this.gamePlay.hexMap)
@@ -969,6 +964,16 @@ export class TablePlanner extends SubPlanner {
 
   override async lookaheadTop(state0: State, color: StoneColor, nPlys?: number, breadth?: number): Promise<HexState> {
     return this.placeHexAndLog(state0, color) // fill hexstatePromise --> ihexPromise.fulfill(ihex)
+  }
+
+  override isWastedMove(move: Move): boolean {
+    if (!move.isFreeJeopardy) return false
+    let hex = Hex.ofMap(move.hex, this.gamePlay.hexMap)
+    let repC = move.board.repCount, mc = move.stoneColor, caps = [] // freeJeopary --> caps.length == 0
+    let move1 = this.placeStone(hex, mc) // placeStone, but not doLocalMove-->evalState()
+    let isWasted = super.isWastedMove(move1, hex, repC, mc)
+    this.unplaceStone(move1)  // TablePlanner.isWastedMove()
+    return isWasted
   }
 }
 
