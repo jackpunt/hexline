@@ -37,24 +37,24 @@ export class Player {
   playerMove(sc: StoneColor, useRobo = this.useRobo, incb = 0) {
     let running = this.plannerRunning
     // feedback for KeyMove:
-    TP.log > -1 && console.log(stime(this, `(${this.colorn}).makeMove(${useRobo}): useRobo=${this.useRobo}, running=${running}`))
+    
+    TP.log > 0 && console.log(stime(this, `(${this.colorn}).playerMove(${useRobo}): useRobo=${this.useRobo}, running=${running}`))
     if (running) return
     if (useRobo || this.useRobo) {
-      // start planner from top of stack:
-      setTimeout(() => this.plannerMove(sc, this.table))
+      // start plannerMove from top of stack:
+      setTimeout(() => this.plannerMove(sc))
     }
     return      // robo or GUI will invoke gamePlay.doPlayerMove(...)
   }
   plannerRunning = false
-  plannerMove(sc: StoneColor, table: Table, incb = 0) {
+  plannerMove(sc: StoneColor, incb = 0) {
     this.planner.roboMove(true)
     this.plannerRunning = true
-    let iHistory = table.gamePlay.iHistory
+    let iHistory = this.table.gamePlay.iHistory
     let ihexPromise = this.planner.makeMove(sc, iHistory, incb)
     ihexPromise.then((ihex: IHex) => {
-      // console.log(stime(this, `.plannerMove.done:`), ihex)
       this.plannerRunning = false
-      table.moveStoneToHex(ihex, sc)
+      this.table.moveStoneToHex(ihex, sc)
     })
   }
 }

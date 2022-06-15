@@ -78,6 +78,16 @@ class HexCont extends Container {
  */
 export class Hex {
   static capColor = H.capColor1 // dynamic set
+  /** return indicated Hex from otherMap */
+  static ofMap(ihex: IHex, otherMap: HexMaps) {
+    try {
+      return (ihex.Aname === S_Skip) ? otherMap.skipHex
+        : (ihex.Aname === S_Resign) ? otherMap.resignHex
+          : otherMap[ihex.row][ihex.col]
+    } catch (err) {
+      console.warn(`ofMap failed:`, err) // eg: otherMap is different (mh,nh)
+    }
+  }
   static aname(row: number, col: number) { 
     return (row >= 0) ? `Hex@[${row},${col}]` : col == -1 ? S_Skip : S_Resign
   }
@@ -98,7 +108,8 @@ export class Hex {
   readonly Aname: string
   /** color of current Stone on this Hex (or undefined) */
   stoneColor: StoneColor = undefined;
-  get iHex(): IHex { return { row: this.row, col: this.col, Aname: this.Aname } }
+  /** reduce to serializable IHex (removes map, inf, links, etc) */
+  get iHex(): IHex { return { Aname: this.Aname, row: this.row, col: this.col } }
   /** [row,col] OR S_Resign OR S_Skip */
   get rcs(): string { return (this.row >= 0) ? `[${this.row},${this.col}]` : this.Aname.substring(4)}
   get rowsp() { return (this.row?.toString() || '-1').padStart(2) }
@@ -224,18 +235,6 @@ export class Hex {
     let dx = tx-hx, dy = ty - hy
     return Math.sqrt(dx*dx + dy*dy)/tw // tw == H.sqrt3
   }
-  /** @return corresonding Hex on other map */
-  ofMap(otherMap: HexMaps): Hex {
-    return Hex.ofMap(this, otherMap)
-  }
-  /** return indicated Hex from otherMap */
-  static ofMap(hex: IHex, otherMap: HexMaps) {
-    return (hex.Aname === S_Skip) ? otherMap.skipHex
-      : (hex.Aname === S_Resign) ? otherMap.resignHex
-        : otherMap[hex.row][hex.col]
-  }
-  /** reduce to serializable IHex (removes map, inf, links, etc) */
-  get toIHex() { return { Aname: this.Aname, row: this.row, col: this.col } }
 
 }
 /** One Hex cell in the game, shown as a polyStar Shape */

@@ -260,6 +260,7 @@ export class SubPlanner implements IPlanner {
   /** play this Stone, Player is stone.color */
   makeMove(color: StoneColor, iHistory: IMove[], incb = 0): Promise<IHex> {
     //this.myWeightVec = this.theWeightVecs[color]
+    if (!color) debugger;
     this.ms0 = this.ms00 = Date.now()
     this.maxBreadth = TP.maxBreadth + incb     // on request: look at more [or fewer] Moves
     this.maxDepth = Number.NEGATIVE_INFINITY
@@ -383,13 +384,17 @@ export class SubPlanner implements IPlanner {
     return move0
   }
   /** 
-   * @param move if supplied delete move.board.id from allBoards
+   * @param move if supplied delete move.board.id from allBoards [obsolete]
    * @param popUndo if true: pop all the current undoRecs; pop back to previous undoRecs
    */
   unplaceStone(move?: Move, popUndo = false) {
     let gamePlay = this.gamePlay          // undoRecs, shiftMove
-    if (popUndo) gamePlay.undoRecs.closeUndo().restoreUndo() // like undoStones(); SHOULD replace captured Stones/Colors
-    else {gamePlay.undoRecs.closeUndo(); gamePlay.undoStones() }
+    let undo = gamePlay.undoRecs.closeUndo()
+    if (popUndo) { 
+      undo.restoreUndo()  // like undoStones(); SHOULD replace captured Stones/Colors
+    } else { 
+      gamePlay.undoStones(false) 
+    }
     gamePlay.shiftMove()
   }
   syncToGame(main: IMove[]) {
@@ -498,7 +503,7 @@ export class SubPlanner implements IPlanner {
     let s0s = pad(s0), s1s = pad(s1), n0s = pad(n0), n1s = pad(n1)
     let text = `${hex}#${tns} ${hexstr}${mc} dms:${dmss} dsid:${dsids} sps:${spsn} n:${nMs} bv:${bvs} n0:${n0s}, n1:${n1s}, s0:${s0s}, s1:${s1s}`
     this.logEvalMove(`.logMove0`, state0, TP.maxPlys, undefined, state1)
-    console.log(stime(this, `.makeMove: ${AT.ansiText(['bold', 'green'], text)}`),
+    TP.log > 0 && console.log(stime(this, `.makeMove: ${AT.ansiText(['bold', 'green'], text)}`),
       { maxD: this.maxDepth, maxP: TP.maxPlys, nPer: TP.nPerDist, maxB: TP.maxBreadth, state: (TP.log > -1) && state1.copyOf() });
     this.logWriter.writeLine(text)
   }
@@ -584,10 +589,11 @@ export class SubPlanner implements IPlanner {
   pauseP = new EzPromise<void>().fulfill()
   pause() { if (this.pauseP.resolved) this.pauseP = new EzPromise() }
   resume() { this.pauseP.fulfill() }
-  async waitPaused() {
+  async waitPaused(ident = '?') {
     if (!this.pauseP.resolved) {
-      console.log(stime(this, `.waitPaused: waiting...`))
+      console.log(stime(this, `.waitPaused: ${this.index} ${TP.colorScheme[stoneColors[this.index]]} ${ident} waiting...`))
       await this.pauseP
+      console.log(stime(this, `.waitPaused: ${this.index} ${TP.colorScheme[stoneColors[this.index]]} ${ident} running!`))
     }
   }
   showProgress(pv: Progress) {
@@ -621,7 +627,7 @@ export class SubPlanner implements IPlanner {
   async lookaheadInDepth(state0: State, stoneColor: StoneColor, nPlys?: number, breadth = TP.maxBreadth, isTop = false): Promise<HexState> {
     if (isTop) this.nth = breadth
     let group = false
-    await this.waitPaused()
+    await this.waitPaused(`before lookaheadInDepth`)
     try {
       TP.log > 0 && (console.groupCollapsed(`${stime(this, `.lookaheadInDepth: `)}${this.logId(state0, nPlys)}`), group = true)
       let sid0 = State.sid, ms0 = Date.now(), brd0 = this.brds // current state id
@@ -653,13 +659,13 @@ export class SubPlanner implements IPlanner {
       }
       if (TP.log > 0 || dmy > -1) {
         let b = this.nth, tsec = (now - this.ms00) / 1000
-        console.log(stime(this, `.lookaheadInDepth timers:`),
+        this.showProgress({b, tsec: tsec.toFixed(1)})
+        TP.log > 1 && console.log(stime(this, `.lookaheadInDepth timers:`),
           `b=${b} dtn=${dtn} dmc=${dmc} dmy=${dmy} dbd=${dbd} dsid=${dsid} dms=${dms} sps=${sps} sid=${dsidt.toLocaleString()} tsec=${tsec}`)
-          this.showProgress({b, tsec: tsec.toFixed(1)})
       }
 
       group && console.groupEnd()
-      await this.waitPaused()
+      await this.waitPaused(`after lookaheadInDepth`)
       return state0.bestHexState
     } catch (err) {
       group && console.groupEnd()
@@ -886,9 +892,12 @@ export class Planner extends SubPlanner {
   setAnnoColor(planProxy: PlannerProxy, annoColor: string) {
     this.setPlannerParam(`.setAnnoColor`, planProxy, ['Worker', 'annoColor', annoColor])
   }
+  /** forward pause() to each SubPlanner */
   override pause() { super.pause(); this.plannerAry.forEach(p => p.pause()) }
+  /** forward resume() to each SubPlanner */
   override resume() { super.resume(); this.plannerAry.forEach(p => p.resume()) }
   override lookaheadTop(state0: State, color: "b" | "w", nPlys?: number, breadth?: number): Promise<HexState> {
+    this.showProgress({ b: breadth, tsec: (0).toFixed(1), tn: -this.moveNumber })
     if (!TP.pPlaner)
       return this.lookaheadInDepth(state0, color, nPlys, breadth, true)
     return this.lookaheadInParallel(state0, color, nPlys, breadth, true)
@@ -901,7 +910,7 @@ export class Planner extends SubPlanner {
   // TODO: get dsid from sub-planners; Why does it play so badly?
   async lookaheadInParallel(state0: State, color: StoneColor, nPlys?: number, breadth?: number, isTop?: boolean) {
     let sid0 = State.sid, ms0 = Date.now()
-    await this.waitPaused()
+    await this.waitPaused(`before lookaheadInParallel`)
     if (this.alreadyEvaluated(state0, nPlys)) {
       console.log(stime(this, `.${AT.ansiText(['red'],'lookaheadInParallel: alreadyEvaluated')}`), state0.copyOf())
     } else {
@@ -933,7 +942,7 @@ export class Planner extends SubPlanner {
     }
     let tsec = (Date.now() - ms0)/1000
     this.logAndGC(`.lookaheadParallel:`, state0, sid0, ms0, nPlys, color)
-    console.log(`showProgress: `, { b: 0, tsec: tsec, tn: this.moveNumber })
+    //console.log(`showProgress: `, { b: 0, tsec: tsec, tn: this.moveNumber })
     this.showProgress({ b: 0, tsec: tsec.toFixed(1), tn: this.moveNumber })
     return state0.bestHexState
   }
@@ -948,7 +957,8 @@ export class TablePlanner extends SubPlanner {
   doMove(hex: IHex, color: StoneColor, iHistory: IMove[]) {
     this.moveHex = Hex.ofMap(hex, this.gamePlay.hexMap)
     return this.makeMove(color, iHistory)
-    // ihexPromise.fulfill(ihex) --> planner.finishMove() --> 
+    // makeMove -> lookaheadTop -> placeHexAndLog -> then(finishMove(hexState))
+    // fillIhex(hex) -> ihexPromise.fulfill(ihex) -> then(table.moveStoneToHex) -> gamePlay.addStoneEvent
   }
   placeHexAndLog(state0: State, color: StoneColor): HexState {
     let hex = this.moveHex
@@ -972,24 +982,9 @@ export class TablePlanner extends SubPlanner {
     let repC = move.board.repCount, mc = move.stoneColor, caps = [] // freeJeopary --> caps.length == 0
     let move1 = this.placeStone(hex, mc) // placeStone, but not doLocalMove-->evalState()
     let isWasted = super.isWastedMove(move1, hex, repC, mc)
-    this.unplaceStone(move1)  // TablePlanner.isWastedMove()
+    this.unplaceStone()                  // TablePlanner.isWastedMove()
     return isWasted
   }
-}
-
-
-class PlannerPool extends Planner{
-  override roboMove(run: boolean): void {
-    throw new Error("Method not implemented.");
-  }
-  override makeMove(stoneColor: "b" | "w", iHistory: IMove[], incb?: number): Promise<IHex> {
-    let movePromise = super.makeMove(stoneColor, iHistory)
-    return movePromise
-  }
-  override terminate(): void {
-    throw new Error("Method not implemented.");
-  }
-  
 }
 
 /** generate interesting Hex targets for next Move. */
@@ -1136,7 +1131,7 @@ class SxInfo {
     let sig = move0.board.signature   //`[${TP.mHexes}x${TP.nHexes}]${move0.board.id}`
     if (this.signature != sig) {
       let metaLine: Hex[] = []
-      let hex0 = move0.hex
+      let hex0 = this.gamePlay.hexMap.district[move0.hex.district][0]
       let hexC = this.gamePlay.hexMap.district[0][0], metaLinks = hex0.metaLinks
       let axisDir = Object.keys(metaLinks).find(dir => { // axis = revDir[this.dir1]
         metaLine.splice(0, metaLine.length, hex0)             // metaLine = [hex0]
@@ -1159,7 +1154,7 @@ class SxInfo {
       this.allMetas = allSXMetas
       this.metaLine = metaLine.map(h => h.Aname)
       this.signature = sig
-      console.log(stime(this, `.setSxInfo: ${AT.ansiText(['green'], sig)}`), { metaLine, allSXMetas })
+      TP.log > 0 && console.log(stime(this, `.setSxInfo: ${AT.ansiText(['green'], sig)}`), { metaLine, allSXMetas })
     }
   }
   ignoreSX(hex: Hex, ctx: { isOffAxis: boolean }) {

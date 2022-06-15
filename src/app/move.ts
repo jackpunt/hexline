@@ -2,7 +2,7 @@ import { Hex, IHex } from "./hex";
 import { otherColor, StoneColor, TP } from "./table-params";
 import { Board, GamePlay0 } from "./game-play";
 
-/** Historical record of each move made. */
+/** Historical record of each move made; sans captured, suicide, board which can be recomputed. */
 export type IMove = { Aname: string, hex: IHex, stoneColor: StoneColor }
 
 export class Move {
@@ -21,7 +21,7 @@ export class Move {
     return this.captured.length == 0 && this.hex.isThreat(otherColor(this.stoneColor))
   }
   /**
-   *
+   * Move.Anmae = hex.toString => `colorScheme[sc]@${hex.rcs}`
    * @param hex
    * @param stoneColor
    * @param captured
@@ -45,7 +45,7 @@ export class Move {
   }
   /** reduce to serializable IMove (removes captured & board) */
   get toIMove(): IMove {
-    return { Aname: this.Aname, stoneColor: this.stoneColor, hex: this.hex.toIHex };
+    return { Aname: this.Aname, stoneColor: this.stoneColor, hex: this.hex.iHex };
   }
   /** override in PlanMove to indicate move.state.fj */
   get ind() { 

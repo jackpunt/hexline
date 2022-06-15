@@ -1,4 +1,4 @@
-import { Stage, EventDispatcher, Container, Shape, Text, DisplayObject, MouseEvent } from "@thegraid/easeljs-module";
+import { Stage, EventDispatcher, Container, Shape, Text, DisplayObject, MouseEvent, Graphics } from "@thegraid/easeljs-module";
 import { F, S, stime, Dragger, DragInfo, KeyBinder, ScaleableContainer, XY, C, WH, AT } from "@thegraid/easeljs-lib"
 import { GamePlay, Progress } from "./game-play";
 import { Player } from "./player"
@@ -8,7 +8,6 @@ import { StatsPanel } from "./stats";
 import { TP, StoneColor, otherColor, stoneColor0, stoneColor1, StoneColorRecord, stoneColorRecord, stoneColorRecordF } from "./table-params";
 import { H, XYWH } from "./hex-intfs";
 import { TablePlanner } from "./planner";
-import { Move } from "./move";
 
 
 /**
@@ -57,6 +56,7 @@ class ProgressMarker extends Container {
   // Container with series of Text arranged vertically.
   // update fills the Text.text with the given values.
   texts: Record<string, Text> = {}
+  ymax = 0
   constructor(p0: Progress, font: string = F.fontSpec(36), color = C.BLACK) {
     super()
     let y = 0, lead = 5
@@ -68,6 +68,7 @@ class ProgressMarker extends Container {
       this.addChild(text)
       y += text.getMeasuredHeight() + lead
     }
+    this.ymax = Math.max(this.ymax, y + lead)
   }
   update(progress: Progress) {
     for (let pk in progress) {
@@ -95,6 +96,7 @@ export class Table extends EventDispatcher  {
   undoText: Text = new Text('', F.fontSpec(30));  // length of undo stack
   redoText: Text = new Text('', F.fontSpec(30));  // length of history stack
   winText: Text = new Text('', F.fontSpec(40), 'green')
+  winBack: Shape = new Shape(new Graphics().f(C.nameToRgbaString("lightgrey", .6)).r(-230, -5, 460, 130))
 
   dragger: Dragger
   progressMarker: StoneColorRecord<ProgressMarker>
@@ -119,10 +121,16 @@ export class Table extends EventDispatcher  {
     undoC.addChild(this.redoShape)
     undoC.addChild(this.undoText); this.undoText.y = -14;
     undoC.addChild(this.redoText); this.redoText.y = -14;
-    undoC.addChild(this.winText);
-    this.bgRect.parent.localToLocal(bgr.w/2, 140, undoC, this.winText) // TODO: align with nextHex(x & y)
+    let bgrpt = this.bgRect.parent.localToLocal(bgr.x, bgr.h, undoC) // TODO: align with nextHex(x & y)
     this.undoText.mouseEnabled = this.redoText.mouseEnabled = false
     this.enableHexInspector(52)
+    undoC.addChild(this.winBack);
+    undoC.addChild(this.winText);
+    let pm0 = this.progressMarker[stoneColor0]
+    let pmy = pm0.ymax + pm0.y // pm0.parent.localToLocal(0, pm0.ymax + pm0.y, undoC)
+    this.winText.y = Math.min(pmy, bgrpt.y - 135) // 135 = winBack.y = winBack.h
+    this.winBack.visible = this.winText.visible = false 
+    this.winBack.x = this.winText.x; this.winBack.y = this.winText.y; 
   }
   enableHexInspector(qY: number) {
     let qShape = new Shape(), toggle = true
@@ -220,7 +228,6 @@ export class Table extends EventDispatcher  {
     this.makeMiniMap(this.scaleCont, -(200+TP.mHexes*TP.hexRad), 600+100*TP.mHexes)
 
     this.on(S.add, this.gamePlay.addStoneEvent, this.gamePlay)[S.Aname] = "addStone"
-    this.on(S.remove, this.gamePlay.removeStoneEvent, this.gamePlay)[S.Aname] = "removeStone"
   }
   startGame() {
     this.gamePlay.setNextPlayer(this.gamePlay.allPlayers[0])   // make a placeable Stone for Player[0]
@@ -240,22 +247,20 @@ export class Table extends EventDispatcher  {
     this.undoText.text = `${this.gamePlay.undoRecs.length}`
     this.redoText.text = `${this.gamePlay.redoMoves.length}`
   }
-  setNextPlayer(log: boolean = true): Player {
+  showNextPlayer(log: boolean = true) {
     let curPlayer = this.gamePlay.curPlayer // after gamePlay.setNextPlayer()
     if (log) this.logCurPlayer(curPlayer)
     this.showRedoUndoCount()
-    this.putButtonOnPlayer(curPlayer);
-    return curPlayer
+    this.showNextStone(curPlayer);
   }
-  putButtonOnPlayer(player: Player) {
-    this.nextHex.clearColor()
-    this.nextHex.setColor(player.color)
+  showNextStone(player: Player) {
+    this.nextHex.clearColor()           // remove prior Stone from the game [thank you for your service]
+    this.nextHex.setColor(player.color) // make a Stone to drag
     let stone = this.nextHex.stone
     stone[S.Aname] = `nextHex:${this.gamePlay.turnNumber}`
     this.dragger.makeDragable(stone, this, this.dragFunc, this.dropFunc)
     this.dragger.clickToDrag(stone)
-    this.hexMap.update()   // after putButtonOnPlayer
-    this.gamePlay.makeMove() // provoke to robo-player: respond with addStoneEvent;
+    this.hexMap.update()   // after showNextStone
   }
 
   hexUnderObj(dragObj: DisplayObject) {
@@ -354,6 +359,9 @@ export class Table extends EventDispatcher  {
     }
   }
 
+  /** when nextHex.stone is dropped
+   * @param stone will be === nextHex.stone
+   */
   dropFunc(stone: Stone = this.nextHex.stone, ctx?: DragInfo) {
     // stone.parent == hexMap.stoneCont; nextHex.stone == stone
     this.dragHex = undefined       // indicate NO DRAG in progress

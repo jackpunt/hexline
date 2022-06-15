@@ -25,14 +25,14 @@ export type ReplyData = {
 }
 /** Local/Direct methods of Planner */
 export interface IPlanner extends IPlannerMethods {
-  waitPaused():Promise<void>
+  waitPaused(ident?: string): Promise<void>
 }
 
 /** Local & Remote methods of Planner */
 interface IPlannerMethods {
   pause(): void
   resume():void
-  /** enable Planner to continue searching */
+  /** enable Planner to continue/stop searching */
   roboMove(run: boolean): void;
   /** provoke Planner to search for next Move */
   makeMove(stoneColor: StoneColor, history: IMove[], incb?: number): Promise<IHex>;
@@ -150,9 +150,9 @@ export class PlannerProxy implements IPlanner, IPlanReply {
   pauseP = new EzPromise<void>().fulfill()
   pause0() { if (this.pauseP.resolved) this.pauseP = new EzPromise() }
   resume0() { this.pauseP.fulfill() }
-  async waitPaused() {
+  async waitPaused(ident?: string) {
     if (!this.pauseP.resolved) {
-      console.log(stime(this, `.waitPaused: waiting...`))
+      console.log(stime(this, `.waitPaused: ${ident} waiting...`))
       await this.pauseP
     }
   }

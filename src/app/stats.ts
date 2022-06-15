@@ -57,14 +57,10 @@ export class GameStats {
     this.setupStatVector()           // use default wVector
   }
 
-  afterSetColor(hex: Hex) {
-    let pstat = this.pStat(hex.stoneColor)
-    pstat.dStones[hex.district]++
-    pstat.dMax = Math.max(...pstat.dStones.slice(1))
-  }
-  beforeClearColor(hex: Hex) {
-    let pstat = this.pStat(hex.stoneColor)
-    pstat.dStones[hex.district]--
+  adjDistrict(hex: Hex, color: StoneColor) {
+    let inc = (hex.stoneColor === color) ? +1 : -1
+    let pstat = this.pStat(color)
+    pstat.dStones[hex.district] += inc
     pstat.dMax = Math.max(...pstat.dStones.slice(1))
   }
 
@@ -208,23 +204,28 @@ export class TableStats extends GameStats {
       let pc = win, pcr = TP.colorScheme[pc], pStats = this.pStat(pc)
       let opc = otherColor(pc), opcr = TP.colorScheme[opc], opStats = this.pStat(opc)
       if (board.resigned) this.showWin(board, pc, `${opcr} RESIGNS`)
-      else if (board.repCount == 3) this.showWin(board, pc, `STALEMATE: ns(${pStats.nStones} -- ${opStats.nStones})`)
+      else if (board.repCount == 3) this.showWin(board, pc, `STALEMATE (${pStats.nStones} -- ${opStats.nStones})`)
       else this.showWin(board, pc, `${opcr} loses`)
     }
     return winAry
   }
-
+  // TODO: align with nextHex(x & y), background
   showWin(board: Board, win: StoneColor, text: string): StoneColor {
     this.table.showRedoUndoCount()
     let lose = otherColor(win), winS = this.score(win), loseS = this.score(lose)
-    let winr = TP.colorScheme[win], msg = `${winr} WINS: ${text} ${winS} -- ${loseS}`
+    let winr = TP.colorScheme[win], msg = `${winr} WINS:\n${text}\n${winS} -- ${loseS}`
     console.log(stime(this, `.showWin:`), msg)
-    this.table.winText.text = msg
+    this.showWinText(msg)
     return win
+  }
+  showWinText(msg?: string) {
+    this.table.winText.text = msg || "COLOR WINS:\nSTALEMATE (10 -- 10)\n0 -- 0"
+    this.table.winText.visible = this.table.winBack.visible = true
+    if (!msg) this.hexMap.update()
   }
   /** show count Stones in each District (on miniMap) */
   showControl(table: Table) {
-    this.table.winText.text = ''
+    this.table.winText.visible = this.table.winBack.visible = false
     let hexMap = table.miniMap; hexMap[S.Aname] = 'miniMap'
     hexMap.forEachHex<Hex2>(hex => {
       hex.clearColor()     // from mimi-map
