@@ -365,6 +365,7 @@ export class GamePlay extends GamePlay0 {
     }, 400)
   }
   makeMoveAgain(arg?: boolean, ev?: any) {
+    if (this.curPlayer.plannerRunning) return
     this.undoMove()
     this.makeMove(true, undefined, 1)
   }

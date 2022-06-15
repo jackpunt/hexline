@@ -37,12 +37,12 @@ export class Player {
   playerMove(sc: StoneColor, useRobo = this.useRobo, incb = 0) {
     let running = this.plannerRunning
     // feedback for KeyMove:
-    
+
     TP.log > 0 && console.log(stime(this, `(${this.colorn}).playerMove(${useRobo}): useRobo=${this.useRobo}, running=${running}`))
     if (running) return
     if (useRobo || this.useRobo) {
       // start plannerMove from top of stack:
-      setTimeout(() => this.plannerMove(sc))
+      setTimeout(() => this.plannerMove(sc, incb))
     }
     return      // robo or GUI will invoke gamePlay.doPlayerMove(...)
   }

@@ -115,15 +115,20 @@ export class GameSetup {
     return [gui, gui2]
   }
   makeParamGUI2(table: Table, parent: Container, x: number, y: number) {
-    let gui = new ParamGUIP(table, { textAlign: 'center' }, this.gamePlay)
-    gui.makeParamSpec("showInf", [true, false]); table.showInf
+    let gui = new ParamGUIP(table, { textAlign: 'center' }, this.gamePlay), infName = "inf:sui"
+    gui.makeParamSpec(infName, ['1:1', '1:0', '0:1', '0:0'], { name: infName })
     gui.makeParamSpec("pWeight", [1, .99, .97, .95, .9], { target: TP }) ; TP.pWeight
     gui.makeParamSpec("pWorker", [true, false], { target: TP }); TP.pWorker
     gui.makeParamSpec("pPlaner", [true, false], { target: TP, name: "parallel" }); TP.pPlaner
     gui.makeParamSpec("pBoards", [true, false], { target: TP }); TP.pBoards
     gui.makeParamSpec("pMoves",  [true, false], { target: TP }); TP.pMoves
     gui.makeParamSpec("pGCM",    [true, false], { target: TP }); TP.pGCM
-
+    gui.spec("inf:sui").onChange = (item: ParamItem) => {
+      let v = item.value as string 
+      table.showInf = v.startsWith('1')
+      table.showSui = v.endsWith('1')
+    }
+    let infSpec = gui.spec(infName); table[infSpec.fieldName] = infSpec.choices[0].text
     parent.addChild(gui)
     gui.x = x; gui.y = y
     gui.makeLines()

@@ -252,6 +252,8 @@ export class Table extends EventDispatcher  {
     if (log) this.logCurPlayer(curPlayer)
     this.showRedoUndoCount()
     this.showNextStone(curPlayer);
+    this.markAllSuicide(curPlayer.color)
+    this.hexMap.update()
   }
   showNextStone(player: Player) {
     this.nextHex.clearColor()           // remove prior Stone from the game [thank you for your service]
@@ -283,20 +285,10 @@ export class Table extends EventDispatcher  {
     this.viewCaptured.forEach(hex => hex.unmarkCapture())
     this.viewCaptured = []
   }
-  dragShift = false // last shift state in dragFunc
-  dragHex: Hex2 = undefined // last hex in dragFunc
-  protoHex: Hex2 = undefined // hex showing protoMove influence & captures
-  isDragging() { return !!this.dragHex }
 
-  stopDragging(target: Hex2 = this.nextHex) {
-    //console.log(stime(this, `.stopDragging: target=`), this.dragger.dragCont.getChildAt(0), {noMove, isDragging: this.isDragging()})
-    if (!this.isDragging()) return
-    target && (this.dropTarget = target)
-    this.dragger.stopDrag()
-  }
   allSuicides: Set<Hex2> = new Set()
-  markAllSuicide(color: StoneColor) {
-    if (!this.showSui) return
+  markAllSuicide(color: StoneColor = this.gamePlay.curPlayer?.color, show = false) {
+    if (!show && (!this.showSui || !color)) return
     this.tablePlanner.syncToGame(this.gamePlay.iHistory)
     let tmap = this.tablePlanner.gamePlay.hexMap
     let capColor = TP.allowSuicide ? H.suiColor1 : H.capColor1
@@ -319,11 +311,27 @@ export class Table extends EventDispatcher  {
     this.allSuicides.forEach(hex => hex.unmarkCapture())
     this.allSuicides.clear()
   }
-  set showInf(val) { this.gamePlay.hexMap.mapCont.infCont.visible = val }
-  get showInf() { return this.gamePlay.hexMap.mapCont.infCont.visible }
-  showSui = true
+  set showInf(val) { (this.hexMap.mapCont.infCont.visible = val) ? this.markAllSuicide() : this.unmarkAllSuicide() }
+  get showInf() { return this.hexMap.mapCont.infCont.visible }
+  _showSui = true
+  get showSui() { return this._showSui }
+  set showSui(val: boolean) { (this._showSui = val) ? this.markAllSuicide() : this.unmarkAllSuicide()}
+
+  dragShift = false // last shift state in dragFunc
+  dragHex: Hex2 = undefined // last hex in dragFunc
+  protoHex: Hex2 = undefined // hex showing protoMove influence & captures
+  isDragging() { return this.dragHex !== undefined }
+
+  stopDragging(target: Hex2 = this.nextHex) {
+    //console.log(stime(this, `.stopDragging: target=`), this.dragger.dragCont.getChildAt(0), {noMove, isDragging: this.isDragging()})
+    if (!this.isDragging()) return
+    if (!this.showSui) this.unmarkAllSuicide()
+    target && (this.dropTarget = target)
+    this.dragger.stopDrag()
+  }
+
   dragFunc(stone: Stone, ctx: DragInfo): void {
-    const hex = this.hexUnderObj(stone)
+    const hex: Hex2 | false = this.hexUnderObj(stone)
     const shiftKey = ctx.event.nativeEvent ? ctx.event.nativeEvent.shiftKey : false
     const color = shiftKey ? otherColor(stone.color) : stone.color
     const nonTarget = (hexn: Hex) => { this.dropTarget = this.nextHex }
@@ -331,12 +339,12 @@ export class Table extends EventDispatcher  {
       this.dragShift = false
       this.dropTarget = this.nextHex
       this.dragHex = this.nextHex   // indicate DRAG in progress
-      this.markAllSuicide(stone.color)
+      this.markAllSuicide(stone.color, true)
       //Hex2.infVis = this.showInf
     }
     if (shiftKey != this.dragShift) {
       stone.paint(shiftKey ? color : undefined) // otherColor or orig color
-      if (shiftKey) { this.unmarkAllSuicide() } else { this.markAllSuicide(color) }
+      if (shiftKey) { this.unmarkAllSuicide() } else { this.markAllSuicide(color, true) }
     }
     if (shiftKey == this.dragShift && hex == this.dragHex) return    // nothing new
     this.dragShift = shiftKey
@@ -365,7 +373,6 @@ export class Table extends EventDispatcher  {
   dropFunc(stone: Stone = this.nextHex.stone, ctx?: DragInfo) {
     // stone.parent == hexMap.stoneCont; nextHex.stone == stone
     this.dragHex = undefined       // indicate NO DRAG in progress
-    this.unmarkAllSuicide()
     Hex2.infVis = true
     if (this.protoHex) { this.gamePlay.undoProtoMove(); this.protoHex = undefined }
     stone.paint()
@@ -381,13 +388,18 @@ export class Table extends EventDispatcher  {
     return this._tablePlanner || 
     (this._tablePlanner = new TablePlanner(this.gamePlay))
   }
-  /** TablePlanner.logMove(); then dispatchEvent() --> gamePlay.doPlayerMove() */
+  /** 
+   * All manual moves feed through this (drop & redo)
+   * TablePlanner.logMove(); then dispatchEvent() --> gamePlay.doPlayerMove() 
+   */
   doTableMove(ihex: IHex, sc = this.gamePlay.curPlayer.color) {
     if (sc != this.gamePlay.curPlayer.color) debugger;
     let iHistory = this.gamePlay.iHistory
     this.tablePlanner.doMove(ihex, sc, iHistory).then(ihex => this.moveStoneToHex(ihex, sc))
   }
+  /** All moves (GUI & player) feed through this: */
   moveStoneToHex(ihex: IHex, sc: StoneColor) {
+    this.unmarkAllSuicide()
     let hex = Hex.ofMap(ihex, this.hexMap)
     this.hexMap.showMark(hex)
     this.dispatchEvent(new HexEvent(S.add, hex, sc))
