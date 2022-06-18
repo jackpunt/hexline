@@ -1,6 +1,7 @@
 import { stime, S } from "@thegraid/common-lib"
 import { GamePlay } from "./game-play"
 import { IHex } from "./hex"
+import { HgClient } from "./HgClient"
 import { IPlanner, newPlanner } from "./plan-proxy"
 import { Table } from "./table"
 import { StoneColor, TP } from "./table-params"
@@ -56,5 +57,13 @@ export class Player {
       this.plannerRunning = false
       this.table.moveStoneToHex(ihex, sc)
     })
+  }
+}
+class RemotePlayer extends Player {
+  hgClient: HgClient
+  override newGame(gamePlay: GamePlay) {
+    this.planner?.terminate()
+    this.hgClient = new HgClient()
+    this.planner = newPlanner(gamePlay.hexMap, this.index, gamePlay.logWriter)
   }
 }

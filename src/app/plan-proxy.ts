@@ -8,7 +8,7 @@ import { ILogWriter } from "./stream-writer";
 import { EzPromise } from "@thegraid/ezpromise" // for FlowControl
 import { Progress } from "./game-play";
 
-export type ParamSet = [string, string, MsgSimple]
+export type ParamSet = [string, string, MsgSimple]   // targetName, fieldName, value
 export type MsgSimple = string | number | boolean
 export type MsgArgs = (MsgSimple | IMove[] | ParamSet) // PlanData['args']
 export type ReplyArgs = (MsgSimple | IHex | Progress) // PlanData['args']
@@ -46,15 +46,15 @@ interface IPlannerMethods {
 export interface IPlanMsg extends IPlannerMethods {
   newPlanner(mh: number, nh: number, index: number): void
   log(...args: MsgArgs[]): void
-  setParam(...args: ParamSet): void
+  setParam(...args: ParamSet): void // mh, nh, and other pXXX params
 }
 /** PlanProxy implements IPlanReply message methods: */
 export type IPlanReply = {
-  newDone(args: MsgArgs[]): void
-  sendMove(ihex: IHex): void
+  newDone(args: MsgArgs[]): void // newPlanner -> ACK (ready)
+  sendMove(ihex: IHex): void     // 
   logFile(file: string, text: string): void
   progress(pv: Progress): void
-  terminateDone(): void
+  terminateDone(): void // terminate this instance (of Planner & Game)
 }
 /** Message Keys; methods of IPlanMsg/IPlanner or IPlanReply */
 export class MK {

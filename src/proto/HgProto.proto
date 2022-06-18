@@ -1,0 +1,34 @@
+syntax="proto3";
+
+
+// makeMove(sc, iHistory), 
+// sendMove(ihex: [r,c,Aname?], sc?); 
+// undoRequest(iHistory) -> Ack/Nak
+// AND! inter-client just send JSON! (as we send to SubPlanner)
+// so: we have a NetPlanner extends Planner, which sends/recvs messsages to the other client
+// string json = 3
+// progress(pHex|pStat): json ?
+// IMsgArgs: number, string, boolean and:
+// IHex { r, c, Aname }
+// IMove[] repeated IMove; IMove: {SC, IHex} -- message IMove { sc,r,c,Aname}
+// ParamSet
+
+enum HgType {
+    none = 0;
+    makeMove = 1;
+    sendMove = 2;
+    progress = 3;
+    setParam = 4;
+}
+
+/** generally ref/player only accepts message from curPlayer */
+message HgMessage {
+    HgType type    = 1;    // indicates which fields are populated: 
+    int32  client  = 2;    // client_id from send-wrapper: wrapper.client_from
+    int32  player  = 3;    // player.index [0..N-1]; may be set on next(ndx); set by ref in join reply [< 0 for Observers]
+    string json    = 4;    // JSON for various 
+    string name    = 6;    // 
+    string inform  = 7;    // 
+
+    int32 clientto= 11;    // used internally by Referee: wrapper.client_id
+  }
