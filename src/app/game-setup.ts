@@ -7,12 +7,17 @@ import { Table } from "./table";
 import { TP } from "./table-params";
 import { Hex2, HexMap } from "./hex";
 import { ParamGUIP } from "./ParamGUIP";
+import { HgClient } from "./HgClient";
+import { CgClient } from "./CgClient";
+import { CgMessage, CgType, CLOSE_CODE, DataBuf } from "@thegraid/wspbclient";
+import { HgMessage, HgType } from "src/proto/HgProto";
 
 /** initialize & reset & startup the application. */
 export class GameSetup {
   static setup: GameSetup
   stage: Stage;
   gamePlay: GamePlay
+  paramGUIs: ParamGUI[]
 
   /** @param canvasId supply undefined for 'headless' Stage */
   constructor(canvasId: string) {
@@ -53,9 +58,10 @@ export class GameSetup {
     table.statsPanel = statsPanel
     let guiy = statsPanel.y + statsPanel.ymax + statsPanel.lead * 2
     console.groupCollapsed('initParamGUI')
-    let [gui, gui2] = this.makeParamGUI(table, table.scaleCont, statsx, guiy) // modify TP.params...
+    this.paramGUIs = this.makeParamGUI(table, table.scaleCont, statsx, guiy) // modify TP.params...
+    let [gui, gui2] = this.paramGUIs
+    table.miniMap.mapCont.y = Math.max(gui.ymax, gui2.ymax) + gui.y + table.miniMap.wh.height / 2
     console.groupEnd()
-    table.miniMap.mapCont.y = Math.max(gui.ymax, gui2.ymax)+gui.y + table.miniMap.wh.height/2
     table.startGame()
     return gamePlay
   }
@@ -111,8 +117,9 @@ export class GameSetup {
     gui.makeLines()
     gui.stage.update()
     restart = true // *after* makeLines has stablilized selectValue
-    const gui2 = this.makeParamGUI2(table, parent, x - 250, y)
-    return [gui, gui2]
+    const gui2 = this.makeParamGUI2(table, parent, x - 280, y)
+    const gui3 = this.makeNetworkGUI(table, parent, x, y + gui.ymax + 40 )
+    return [gui, gui2, gui3]
   }
   makeParamGUI2(table: Table, parent: Container, x: number, y: number) {
     let gui = new ParamGUIP(table, { textAlign: 'center' }, this.gamePlay), infName = "inf:sui"
@@ -134,5 +141,104 @@ export class GameSetup {
     gui.makeLines()
     gui.stage.update()
     return gui
+  }
+  defStyle = { rootColor: "rgba(160,160,160,.5)", arrowColor: "grey" }
+  makeNetworkGUI (table: Table, parent: Container, x: number, y: number) {
+    let gui = new ParamGUI(TP, this.defStyle)
+    gui.makeParamSpec("Network", [" ", "yes", "no", "yes+", "ref"], { fontColor: "red" })
+    gui.makeParamSpec("PlayerId", [" ", 0, 1, 2, 3], { fontColor: "blue" })
+
+    gui.spec("Network").onChange = (item: ParamItem) => {
+      if (item.value == "yes") this.network.call(this, false)  // provoked by nkey; HgClient
+      if (item.value == "ref") this.network.call(this, true)   // provoked by rkey; CmReferee
+      if (item.value == "no") this.closeNetwork.call(this)     // provoked by ckey
+     }
+     parent.addChild(gui)
+     gui.makeLines()
+     gui.x = x; gui.y = y
+     parent.stage.update()
+    return gui
+  }
+  network(ref: boolean) {
+    let nameByClientId = ["Referee", "Alice", "Bob", "Charlie", "Doris"];
+    let paramGUI = this.paramGUIs[2]
+    // invoked after [a] referee has joined the game
+    let join_game_as_player = (ack: CgMessage, hgClient: HgClient) => {
+      let client_id = hgClient.client_id // 0 or 1
+      let name = nameByClientId[client_id]
+      console.log(stime(this, ".network join_game_as_player: start"), { name, client_id, ack })
+      // send join_game request to Referee {client_id: 0}; handle the subsequent join message
+      let ackp = hgClient.sendAndReceive(() => hgClient.send_join(name),
+        // predicate: indicating join by player/name 
+        (msg) => (msg && msg.type == HgType.join && msg.name == name))
+        ackp.then(
+          // like a 'once' Listener; in addition to cmClient.eval_join:
+          (msg: HgMessage) => {
+            let player_id = msg.player // use player_id assigned by referee
+            console.log(stime(this, ".network join_game_as_player: joined"), { name, player_id, msg })
+            if (player_id >= 0) {
+              let player = this.gamePlay.allPlayers[player_id]
+              paramGUI.selectValue("PlayerId", player_id) // dubious... may need > 1 of these [multi-choice]
+              player.hgClient = hgClient
+              hgClient.player = player                // indicate isNetworked(player); cmClient.localPlayer += player
+              this.gamePlay.setNextPlayer(player)  // ndx & putButtonOnPlayer
+            }
+          }, (reason) => {
+            console.log(stime(this, `.join_game_as_player: join failed:`), reason)
+          })
+    }
+    // onOpen: attach player to this.table & GUI [also for standalone Referee]
+    let cgOpen = (hgClient: HgClient) => {
+      paramGUI.selectValue("Network", ref ? "ref" : "yes+")
+      //hgClient.attachToGUI(this.table)
+      hgClient.onclose = (ev: CloseEvent) => {
+        paramGUI.selectValue("Network", "no")
+        paramGUI.selectValue("PlayerId", " ")
+      }
+    }
+    let initPlyrClient = (url: string, onOpen: (hgClient: HgClient) => void) => {
+      // connectStack; then onOpen(hgClient); maybeMakeRef; join_game
+      new HgClient(url, (hgClient) => {
+        onOpen(hgClient)
+        hgClient.wsbase.log = false
+        hgClient.cgBase.log = true
+        hgClient.cgBase.send_join(TP.networkGroup).then((ack: CgMessage) => {
+          console.log(stime(this, `.network CgJoin(${TP.networkGroup}) ack:`), 
+            { success: ack.success, client_id: ack.client_id, hgCid: hgClient.client_id, hgClient, ack })
+          if (!ack.success) return        // did not join Client-Group!
+          //hgClient.client_id = ack.client_id
+          if (ack.client_id === 0) return // asked for Referee connection and got it!
+          // joined group as player; try make a Referee, then join_game as player
+          if (ack.cause === "auto-approve") {
+            this.makeRefJoinGroup(url).then(ack => join_game_as_player(ack, hgClient))
+          } else {
+            join_game_as_player(ack, hgClient)
+          }
+        })
+      })
+    }
+    let initRefClient = (url: string, onOpen: (hgClient: HgClient) => void) => {
+      // connectStack; then onOpen(refClient); [implicit join game]
+      // cgBase.send_join(TP.networkGroup, 0, "referee")
+          }
+    let url = TP.networkUrl
+    // client for GUI connection to CmServer:
+    ;(ref ? initRefClient : initPlyrClient)(url, cgOpen)
+  }
+  closeNetwork() {
+    let closeMe = (hgClient: HgClient) => { 
+      hgClient.closeStream(CLOSE_CODE.NormalCLosure, "GUI -> no")
+    }
+    this.gamePlay.forEachPlayer(p => p.isNetworked(closeMe, true))
+  }
+
+  async makeRefJoinGroup(url: string) {
+    // stay with auto-ref for now.
+    // onOpen = (hgr) => { hgr.wsbase.log = false; ... }
+    // ref = new HgReferee()
+    // make a new GameSetup, ref.joinGroup(url, onOpen, onJoin)
+    let ack = new CgMessage({type: CgType.ack, success: true, cause: "not makeing ref"})
+    console.log(stime(this, `.makeRefJoinGroup: return ack=`), ack)
+    return ack
   }
 }

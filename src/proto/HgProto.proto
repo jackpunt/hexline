@@ -15,10 +15,19 @@ syntax="proto3";
 
 enum HgType {
     none = 0;
-    makeMove = 1;
-    sendMove = 2;
-    progress = 3;
-    setParam = 4;
+    makeMove = 1;  // tell client it's their turn to make a Move; use json
+    sendMove = 2;  // send(Hex, Color, iHistory); use json
+    progress = 3;  // update display to confirm player is thinking; use json
+    setParam = 4;  // sync up table params; use json {targetName, fieldName, value} as tuple [string, string, MsgSimple]
+    undo = 7;      // player clicks UNDO button (or does move(iHistory obviate this?))
+    join = 8;      // send_join(to:ref, name="plyrName"); ref will reply_join(player: index=player_id) OR reply_join(player: undef, inform: 'name_in_use')
+    chat = 9;      // group or DM to a player; inter-player chat, log/status from ref.
+}
+// on Join: show who all is in the Group [subset of HgMessage!]
+message Rost {
+    int32 client = 2;     // client_id
+    int32 player = 3;     // player_id
+    string name = 4;      // player name
 }
 
 /** generally ref/player only accepts message from curPlayer */
@@ -26,9 +35,9 @@ message HgMessage {
     HgType type    = 1;    // indicates which fields are populated: 
     int32  client  = 2;    // client_id from send-wrapper: wrapper.client_from
     int32  player  = 3;    // player.index [0..N-1]; may be set on next(ndx); set by ref in join reply [< 0 for Observers]
-    string json    = 4;    // JSON for various 
-    string name    = 6;    // 
+    string name    = 4;    // playerName for join; roster[client_id] -> [player,client,name]
+    string json    = 5;    // JSON for various 
     string inform  = 7;    // 
-
+    repeated Rost roster = 10;
     int32 clientto= 11;    // used internally by Referee: wrapper.client_id
   }

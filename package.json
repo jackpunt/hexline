@@ -2,7 +2,7 @@
   "name": "hexline",
   "version": "0.0.0",
   "scripts": {
-    "make-proto": "npm run protots; npm run patch-proto; tsc -p src/proto",
+    "make-proto": "npm run protots; npm run patch-proto;",
     "make-patch": "cp src/proto/HgProto.ts src/proto/HgProto-patched.ts; npm run protots; (cd src/proto; diff -c HgProto.ts HgProto-patched.ts > HgProto.patch); npm run patch-proto",
     "patch-proto": "patch src/proto/HgProto.ts < src/proto/HgProto.patch",
     "protots": "protoc -I src/proto --ts_out=src/proto src/proto/*.proto",
@@ -28,7 +28,7 @@
     "@thegraid/easeljs-lib": "^1.1.3",
     "@thegraid/easeljs-module": "^1.1.4",
     "@thegraid/ezpromise": "^1.0.10",
-    "@thegraid/wspbclient": "^1.4.6",
+    "@thegraid/wspbclient": "^1.4.7-d",
     "@types/wicg-file-system-access": "^2020.9.5",
     "moment": "^2.29.1",
     "rxjs": "~7.5.0",

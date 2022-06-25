@@ -20,7 +20,7 @@ export class GamePlay0 {
     this.gStats = new GameStats(this.hexMap) // AFTER allPlayers are defined so can set pStats
   }
 
-  readonly hexMap: HexMaps = new HexMap()
+  readonly hexMap: HexMap = new HexMap()
   readonly history: Move[] = []          // sequence of Move that bring board to its state
   readonly redoMoves: IMove[] = []
   readonly allBoards = new BoardRegister()
@@ -231,7 +231,7 @@ export class GamePlay0 {
 
 /** GamePlayD is compatible 'copy' with original, but does not share components */
 export class GamePlayD extends GamePlay0 {
-  override hexMap: HexMaps;
+  //override hexMap: HexMaps = new HexMap();
   constructor(mh: number, nh: number) {
     super()
     this.hexMap[S.Aname] = `GamePlayD#${this.id}`
@@ -258,7 +258,7 @@ class ProgressLogWriter extends LogWriter {
 export class GamePlay extends GamePlay0 {
   readonly logWriter: ProgressLogWriter
   readonly table: Table
-  override readonly gStats: TableStats
+  declare readonly gStats: TableStats // https://github.com/TypeStrong/typedoc/issues/1597
   constructor(table: Table) {
     super()            // hexMap, history, gStats...
     let time = stime('').substring(6,15), size=`${TP.mHexes}x${TP.nHexes}`

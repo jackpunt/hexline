@@ -8,6 +8,10 @@ export function otherColor(color: StoneColor): StoneColor { return color === sto
 export type StoneColorRecord<T> = Record<StoneColor, T>
 export function stoneColorRecord<T>(b: T = undefined, w: T = undefined): StoneColorRecord<T> { return { 'b': b, 'w': w } };
 export function stoneColorRecordF<T>(f: (sc: StoneColor) => T) { return stoneColorRecord(f(stoneColor0), f(stoneColor1)) }
+
+export function buildURL(scheme = 'wss', host = TP.ghost, domain = TP.gdomain, port = TP.gport, path = ''): string {
+  return `${scheme}://${host}.${domain}:${port}${path}`
+}
 export class TP {
   static allowSuicide = true;
   static yield = true
@@ -62,6 +66,9 @@ export class TP {
 
   static bgColor: string = 'wheat'// C.BROWN
   static borderColor: string = 'peru'//TP.bgColor; //'burlywood'
-  static networkUrl: string = "wss://game7.thegraid.com:8444";  // URL to cgserver (wspbserver)
+  static ghost: string = 'game7'   // game-setup.network()
+  static gdomain: string = 'thegraid.com'
+  static gport: number = 8447
+  static networkUrl = buildURL();  // URL to cgserver (wspbserver)
   static networkGroup: string = "hexline:game1";
 }

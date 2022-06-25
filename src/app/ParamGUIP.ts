@@ -2,7 +2,7 @@ import { className, DropdownStyle, ParamGUI, ParamItem, stime } from "@thegraid/
 import { GamePlay } from "./game-play"
 import { PlannerProxy } from "./plan-proxy"
 
-/** ParamGUI that updates PlannerProxy -> PlanWorker */
+/** ParamGUI that sends value changes via PlannerProxy -> PlanWorker */
 export class ParamGUIP extends ParamGUI {
   constructor(target: object, style?: DropdownStyle, public gamePlay?: GamePlay) {
     super(target, style)

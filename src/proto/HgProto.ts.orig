@@ -122,7 +122,7 @@ export class Rost extends pb_1.Message {
     serializeBinary(): Uint8Array {
         return this.serialize();
     }
-    static override deserializeBinary(bytes: Uint8Array): Rost {
+    static deserializeBinary(bytes: Uint8Array): Rost {
         return Rost.deserialize(bytes);
     }
 }
@@ -349,7 +349,7 @@ export class HgMessage extends pb_1.Message {
     serializeBinary(): Uint8Array {
         return this.serialize();
     }
-    static override deserializeBinary(bytes: Uint8Array): HgMessage {
+    static deserializeBinary(bytes: Uint8Array): HgMessage {
         return HgMessage.deserialize(bytes);
     }
 }
