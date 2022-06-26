@@ -197,7 +197,7 @@ export class TableStats extends GameStats {
     const [win] = winAry
     if (!!this.table) {
       !!board && this.showBoardRep(board.repCount)
-      this.table.statsPanel.update()
+      this.table.statsPanel?.update()
       this.showControl(this.table)
     }
     if (win !== undefined) {
@@ -227,7 +227,7 @@ export class TableStats extends GameStats {
   showControl(table: Table) {
     this.table.winText.visible = this.table.winBack.visible = false
     let hexMap = table.miniMap; hexMap[S.Aname] = 'miniMap'
-    hexMap.forEachHex<Hex2>(hex => {
+    hexMap?.forEachHex<Hex2>(hex => {
       hex.clearColor()     // from mimi-map
       let ic = this.inControl[hex.district]
       if (ic !== undefined) {

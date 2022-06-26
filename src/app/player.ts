@@ -28,7 +28,6 @@ export class Player {
     this.planner = undefined
   }
   static remotePlayer = 1 // temporary, bringup-debug
-  hgClient: HgClient
   newGame(gamePlay: GamePlay, url = TP.networkUrl) {
     this.planner?.terminate()
     // this.hgClient = (this.index == Player.remotePlayer) ? new HgClient(url, (hgClient) => {
@@ -63,42 +62,11 @@ export class Player {
       this.table.moveStoneToHex(ihex, sc)
     })
   }
-  /**
-   * execute code when network is being used:
-   * 
-   * isReferee can return false or true, so application can proceed as networked or standalone.
-   * 
-   * if notCurPlayer === undefined do NOTHING; if === true, use isCurPlayer
-   * 
-   * If isReferee === undefined, treat same as notCurPlayer, return true.
-   * 
-   * @param isCurPlayer invoked if hgClient is running curPlayer
-   * @param notCurPlayer invoked if hgClient is NOT running curPlayer [true: use isCurPlayer()]
-   * @param isReferee invoked if hgClient is running as Referee (false | return false: isNetworked->false)
-   * @returns false if Table is running StandAlone (or referee...)
-   */
-  isNetworked(isCurPlayer?: (hgClient?: HgClient) => void,
-    notCurPlayer?: true | ((hgClient?: HgClient) => void), 
-    isReferee?: false | ((refClient?: HgClient) => boolean)): boolean {
-    if (!this.hgClient.isOpen) return false    // running in standalone browser mode
-    // if isReferee is not supplied: use otherPlayer(); but return true
-    let otherPlayer = (notCurPlayer === true) ? isCurPlayer : notCurPlayer // can be undefined
-    let asReferee = (isReferee !== undefined) ? isReferee
-      : (otherPlayer !== undefined) ? (hgc: HgClient) => { otherPlayer(hgc); return true } : true
-    if (this.hgClient.client_id === 0) {
-      return typeof asReferee === 'function' ? asReferee(this.hgClient) : asReferee // hgClient is running as Referee
-    } else if (this == this.table.gamePlay.curPlayer) {
-      !!isCurPlayer && isCurPlayer(this.hgClient) // hgClient is running the curPlayer
-    } else {
-      !!otherPlayer && otherPlayer(this.hgClient) // hgClient is not running curPlayer
-    }
-    return true   // isNetworked: has an Open HgClient
-  }
 }
 class RemotePlayer extends Player {
   override newGame(gamePlay: GamePlay) {
     this.planner?.terminate()
-    this.hgClient = (this.index == RemotePlayer.remotePlayer) ? new HgClient() : undefined
+    //this.hgClient = (this.index == RemotePlayer.remotePlayer) ? new HgClient() : undefined
     this.planner = newPlanner(gamePlay.hexMap, this.index, gamePlay.logWriter)
   }
 }

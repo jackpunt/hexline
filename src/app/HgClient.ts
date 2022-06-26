@@ -1,6 +1,6 @@
 import { CgBase, pbMessage, WebSocketBase } from '@thegraid/wspbclient';
 import { HgMessage, HgType } from 'src/proto/HgProto';
-import { addEnumTypeString, CgClient } from './CgClient';
+import { addEnumTypeString, CgClient, CgReferee } from './CgClient';
 import { Player } from './player';
 
 
@@ -17,9 +17,19 @@ declare module '../proto/HgProto' {
 addEnumTypeString(HgMessage, HgType, 'msgType') // define msgType = get HgType(this.type)
 
 export class HgClient extends CgClient<HgMessage> {
-  constructor(url?: string, onOpen?: (hgClient: HgClient)=>void) {
+  constructor(url?: string, onOpen?: (hgClient: HgClient) => void) {
     super(HgMessage, CgBase, WebSocketBase)
     if (url !== undefined) this.connectStack(CgBase, WebSocketBase, url, onOpen)
   }
   player: Player
+}
+
+/** HgReferee is CgReferee witn HgClient Mixin (or vice versa...) */
+export class HgReferee extends CgReferee<HgMessage> {
+  get stage() { return {}} // a stage with no canvas, so stime.anno will show " R" for all log(this)
+  constructor(url?: string, onOpen?: (hgReferee: HgReferee) => void) {
+    super(HgMessage, CgBase, WebSocketBase)
+    if (url !== undefined) this.connectStack(CgBase, WebSocketBase, url, onOpen)
+  }
+  player: Player = undefined
 }
