@@ -7,10 +7,7 @@ import { Table } from "./table";
 import { TP } from "./table-params";
 import { Hex2, HexMap } from "./hex";
 import { ParamGUIP } from "./ParamGUIP";
-import { HgClient, HgReferee } from "./HgClient";
-import { CgClient, CgReferee } from "./CgClient";
-import { CgMessage, CgType, CLOSE_CODE, DataBuf } from "@thegraid/wspbclient";
-import { HgMessage, HgType } from "src/proto/HgProto";
+import { CLOSE_CODE } from "@thegraid/wspbclient";
 
 /** show " R" for " N" */
 stime.anno = (obj: string | { constructor: { name: string; }; }) => {
@@ -29,11 +26,17 @@ export class GameSetup {
   constructor(canvasId: string) {
     stime.fmt = "MM-DD kk:mm:ss.SSS"
     this.stage = makeStage(canvasId, false)
+    if (!this.stage.canvas) {
+      this.stage.enableMouseOver(0)
+      this.stage.enableDOMEvents(false)
+      this.stage.tickEnabled = this.stage.tickChildren = false
+    }
     GameSetup.setup = this
   }
   /** C-s ==> kill game, start a new one, possibly with new (mh,nh) */
   restart(mh = TP.mHexes, nh= TP.nHexes) {
-    this.gamePlay.logWriter.closeFile()
+    this.gamePlay.hgClient?.closeStream(CLOSE_CODE.NormalCLosure, 'restart')
+    this.gamePlay.logWriter?.closeFile()
     this.gamePlay.forEachPlayer(p => p.endGame())
     let deContainer = (cont: Container) => {
       cont.children.forEach(dObj => {
@@ -47,7 +50,7 @@ export class GameSetup {
     return this.startup()
   }
   /**
-   * 
+   * Make new Table/layout & gamePlay/hexMap & Players. 
    * @param gs generally *this* GameSetup
    * @param ext Extensions from URL
    */
@@ -156,9 +159,9 @@ export class GameSetup {
     gui.makeParamSpec("PlayerId", [" ", 0, 1, 2, 3], { fontColor: "blue" })
 
     gui.spec("Network").onChange = (item: ParamItem) => {
-      if (item.value == "yes") this.network.call(this, false)  // provoked by nkey; HgClient
-      if (item.value == "ref") this.network.call(this, true)   // provoked by rkey; CmReferee
-      if (item.value == "no") this.closeNetwork.call(this)     // provoked by ckey
+      if (item.value == "yes") this.gamePlay.network.call(this.gamePlay, false, gui)  // provoked by nkey; HgClient
+      if (item.value == "ref") this.gamePlay.network.call(this.gamePlay, true, gui)   // provoked by rkey; CmReferee
+      if (item.value == "no") this.gamePlay.closeNetwork.call(this.gamePlay)     // provoked by ckey
      }
      parent.addChild(gui)
      gui.makeLines()
@@ -166,130 +169,5 @@ export class GameSetup {
      parent.stage.update()
     return gui
   }
-  hgClient: HgClient
-  network(ref: boolean) {
-    let nameByClientId = ["Referee", "Alice", "Bob", "Charlie", "Doris"];
-    let paramGUI = this.paramGUIs[2]
-    let group = TP.networkGroup, url = TP.networkUrl
-    // invoked after [a] referee has joined the game
-    let join_game_as_player = (ack: CgMessage, hgClient: HgClient) => {
-      let client_id = hgClient.client_id // 0 or 1
-      let name = nameByClientId[client_id]
-      console.log(stime(this, ".network join_game_as_player: start"), { name, client_id, ack })
-      // send join_game request to Referee {client_id: 0}; handle the subsequent join message
-      let join_ackp = hgClient.sendAndReceive(() => hgClient.send_join(name),
-        // predicate: indicating join by player/name 
-        (msg) => (msg && msg.type == HgType.join && msg.name == name))
-      join_ackp.then(
-        // like a 'once' Listener; in addition to cmClient.eval_join:
-        (msg: HgMessage) => {
-          let player_id = msg.player // use player_id assigned by referee
-          console.log(stime(this, ".network join_game_as_player: joined"), { name, player_id, msg })
-          if (player_id >= 0) {
-            let player = this.gamePlay.allPlayers[player_id]
-            paramGUI.selectValue("PlayerId", player_id) // dubious... may need > 1 of these [multi-choice]
-            hgClient.player = player                // indicate isNetworked(player); cmClient.localPlayer += player
-            this.gamePlay.setNextPlayer(player)  // ndx & putButtonOnPlayer
-          }
-        }, (reason) => {
-          console.warn(stime(this, `.join_game_as_player: join failed:`), reason)
-        })
-    }
-    // onOpen: attach player to this.table & GUI [also for standalone Referee]
-    let cgOpen = (hgClient: HgClient) => {
-      paramGUI.selectValue("Network", ref ? "ref" : "yes+")
-      //hgClient.attachToGUI(this.table)
-      hgClient.onclose = (ev: CloseEvent) => {
-        paramGUI.selectValue("Network", " ")
-        paramGUI.selectValue("PlayerId", " ")
-      }
-    }
-    let initPlyrClient = (url: string, onOpen: (hgClient: HgClient) => void) => {
-      // connectStack; then onOpen(hgClient); maybeMakeRef; join_game
-      new HgClient(url, (hgClient) => {
-        onOpen(hgClient)
-        hgClient.wsbase.log = false
-        hgClient.cgBase.log = false
-        hgClient.log = false
-        hgClient.cgBase.send_join(group).then((ack: CgMessage) => {
-          console.log(stime(this, `.network CgJoin(${group}) ack:`), 
-            { success: ack.success, client_id: ack.client_id, hgCid: hgClient.client_id, hgClient, ack })
-          if (!ack.success) return        // did not join Client-Group!
-          if (ack.client_id === 0) return // asked for Referee connection and got it!
-          // joined ClientGroup with cgBase.client_id; try make a Referee, then join_game as player
-          if (ack.cause === "auto-approve") {
-            this.makeRefJoinGroup(url, group, ack => join_game_as_player(ack, hgClient))
-          } else {
-            join_game_as_player(ack, hgClient)
-          }
-        })
-      })
-    }
-    let initRefClient = (url: string, onOpen: (hgClient: HgClient) => void) => {
-      new HgReferee(undefined, (refClient => {
-        refClient.wsbase.log = false
-        refClient.cgBase.log = false
-        refClient.log = false
-      })).joinGroup(url, group, onOpen) // explicit refClient
-    }
-    // client for GUI connection to CmServer:
-    (ref ? initRefClient : initPlyrClient)(url, cgOpen)
-  }
-  closeNetwork() {
-    let closeMe = (hgClient: HgClient) => { 
-      hgClient.closeStream(CLOSE_CODE.NormalCLosure, "GUI -> no")
-    }
-    this.isNetworked(closeMe, true)
-  }
-  /**
-   * execute code when network is being used:
-   * 
-   * isReferee can return false or true, so application can proceed as networked or standalone.
-   * 
-   * if notCurPlayer === undefined do NOTHING; if === true, use isCurPlayer
-   * 
-   * If isReferee === undefined, treat same as notCurPlayer, return true.
-   * 
-   * @param isCurPlayer invoked if hgClient is running curPlayer
-   * @param notCurPlayer invoked if hgClient is NOT running curPlayer [true: use isCurPlayer()]
-   * @param isReferee invoked if hgClient is running as Referee (false | return false: isNetworked->false)
-   * @returns false if Table is running StandAlone (or referee...)
-   */
-  isNetworked(isCurPlayer?: (hgClient?: HgClient) => void,
-    notCurPlayer?: true | ((hgClient?: HgClient) => void), 
-    isReferee?: false | ((refClient?: HgClient) => boolean)): boolean {
-    if (!this.hgClient.isOpen) return false    // running in standalone browser mode
-    // if isReferee is not supplied: use otherPlayer(); but return true
-    let otherPlayer = (notCurPlayer === true) ? isCurPlayer : notCurPlayer // can be undefined
-    let asReferee = (isReferee !== undefined) ? isReferee
-      : (otherPlayer !== undefined) ? (hgc: HgClient) => { otherPlayer(hgc); return true } : true
-    if (this.hgClient.client_id === 0) {
-      return typeof asReferee === 'function' ? asReferee(this.hgClient) : asReferee // hgClient is running as Referee
-    } else if (this.hgClient.player == this.gamePlay.curPlayer) {
-      !!isCurPlayer && isCurPlayer(this.hgClient) // hgClient is running the curPlayer
-    } else {
-      !!otherPlayer && otherPlayer(this.hgClient) // hgClient is not running curPlayer
-    }
-    return true   // isNetworked: has an Open HgClient
-  }
-  
-  /** 
-   * setup game and table for headless CmReferee in a Player's browser. 
-   * @param onJoin inform caller that CmReferee is ready.
-   * @returns the CmReferee (like a constructor...)
-   */
-  makeRefJoinGroup(url: string, group: string, onJoin: (ack: CgMessage) => void): CgReferee<HgMessage> {
-    let refgs = new GameSetup(null) // with no Canvas
-    refgs.stage.enableMouseOver(0)
-    refgs.stage.enableDOMEvents(false)
-    refgs.stage.tickEnabled = refgs.stage.tickChildren = false
-    refgs.startup(this)           // get all the Cards/Decks from this.table [no ParamGUI]
-    let ref = refgs.hgClient = new HgReferee(undefined) // No URL, no connectStack()
-    let onOpen = (hgReferee: HgReferee) => {
-      hgReferee.wsbase.log = false
-      hgReferee.cgBase.log = false
-      console.log(stime(hgReferee, `.onOpen: now join_game_as_player(0)`))
-    }
-    return ref.joinGroup(url, group, onOpen, onJoin);
-  }
+
 }
