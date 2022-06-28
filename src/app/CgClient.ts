@@ -1,6 +1,8 @@
 import { WebSocketBase, pbMessage, CgMessage, AckPromise, CgBase, CgMessageOpts, CgType, stime, BaseDriver, DataBuf, EzPromise } from "@thegraid/wspbclient";
 import { Rost } from "src/proto/HgProto";
 
+type Constructor<T = {}> = new (...args: any[]) => T;
+
 /** extract strings from un-deserialized InnerMessage: 
  * 
  * or: use upstream.deserialize()!
@@ -18,9 +20,10 @@ export enum GgType {
   chat = 9
 }
 /** Generic Game message: join (client_id, player, name, roster), next, undo, chat(inform)... */
-interface GgMessage extends pbMessage { 
+export interface GgMessage extends pbMessage { 
   type: GgType | any; // any compatible enum...
-  client: number; 
+  client_from: number;// pseudo field set by wsmesssage: wrapper.client_from
+  client: number;     // ref sets { client, player, name }
   player: number; 
   name: string;
   clientto: number;
@@ -55,9 +58,16 @@ export class CgClient<InnerMessage extends GgMessage> extends BaseDriver<GgMessa
   cgBase: CgBase<InnerMessage>; // === this.dnstream
   declare deserialize: (buf: DataBuf<InnerMessage>) => InnerMessage
   omc: new (opts: any) => InnerMessage
+
+  maxPlayers: number = 4;
+  player_id: number;
+  player_name: string
+  readonly refid = 239  // 'ef'
+  get isPlayer() { return this.player_id < this.maxPlayers}
+
   /**
    * Create a web socket stack
-   * @param OmC InnerMessage class/constructor(opts); With: OmC.deserialize(DataBuf) -> InnerMessage
+   * @param ImC InnerMessage class/constructor(opts); With: ImC.deserialize(DataBuf) -> InnerMessage
    * @param CgB CgBase constructor
    * @param WSB WebSocketBase constructor
    * @param url web socket URL
@@ -65,17 +75,17 @@ export class CgClient<InnerMessage extends GgMessage> extends BaseDriver<GgMessa
    */
   constructor(
     //OmD: (buf: DataBuf<InnerMessage>) => InnerMessage,
-    OmC: new (opts: any) => InnerMessage,
+    ImC: new (opts: any) => InnerMessage,
     CgB: new () => CgBase<InnerMessage> = CgBase,
     WSB: new () => WebSocketBase<pbMessage, CgMessage> = WebSocketBase,
     url?: string,
     onOpen?: (cgClient: CgClient<InnerMessage>) => void) {
     super()
     //if (!Object.hasOwn(OmC.prototype, 'msgType'))
-    if (!OmC.prototype.hasOwnProperty('msgType')) 
-      addEnumTypeString(OmC) // Failsafe: msg.msgType => enum{none = 0}(msg.type)
-    this.omc = OmC
-    let deserial = OmC['deserialize'] as ((buf: DataBuf<InnerMessage>) => InnerMessage)
+    if (!ImC.prototype.hasOwnProperty('msgType')) 
+      addEnumTypeString(ImC) // Failsafe: msg.msgType => enum{none = 0}(msg.type)
+    this.omc = ImC
+    let deserial = ImC['deserialize'] as ((buf: DataBuf<InnerMessage>) => InnerMessage)
     let deserial0 = (buf: DataBuf<CgMessage>) => {
       try {
         //console.log(stime(this, `.deserialize buf =`), buf)
@@ -226,7 +236,7 @@ export class CgClient<InnerMessage extends GgMessage> extends BaseDriver<GgMessa
     this.log && console.log(stime(this, `.wsmessage: data = `), { data })
     this.dispatchMessageEvent(data)     // inform listeners
     let message = this.deserialize(data)
-    message.client = wrapper.client_from // message is from: client_from
+    message.client_from = wrapper.client_from // message is from: client_from
     message.clientto = wrapper.client_id // capture the client_to field
     this.log && console.log(stime(this, ".wsmessage:"), message.msgType, message)
     this.parseEval(message, wrapper)
@@ -258,14 +268,19 @@ export class CgClient<InnerMessage extends GgMessage> extends BaseDriver<GgMessa
     this.sendCgAck("chat")
   }
 
-  /** all the known players (& observers: player<0) cm-ref controls. */
+  /** all the known players (& observers: !realPlayer(player)) cm-ref controls. */
   roster: Array<rost> = []
   updateRoster(roster: Rost[]) {
-    this.roster = roster.map(rost => { return {player: rost.player, client: rost.client, name: rost.name}})
+    // convert pb 'Rost' into js 'rost'
+    this.roster = roster.map(rost => { let { player, client, name } = rost; return { player, client, name }})
   }
-  /** update roster */
+  /** CgClient: when [this or other] client joins Game: update roster */
   eval_join(message: GgMessage) {
     this.log && console.log(stime(this, ".eval_join:"), message)
+    if (this.client_id === message.client) {
+      this.player_id = message.player
+      this.player_name = message.name
+    }
     this.updateRoster(message.roster)
     this.log && console.log(stime(this, ".eval_join: roster"), this.roster)
     this.sendCgAck("join")
@@ -289,99 +304,103 @@ class RefCgBase<InnerMessage extends pbMessage> extends CgBase<InnerMessage> {
   /** when Client leaves Group, notify Referee. */
   override eval_leave(message: CgMessage) {
     this.log && console.log(stime(this, ".eval_leave"), message)
-    if (this.upstream instanceof CgReferee) { // should be true... who else is using RefCgBase??
-      this.upstream.eval_leave(message)
+    if (this.upstream instanceof CgRefMixin) { // should be true... who else is using RefCgBase??
+      (this.upstream as CgBase<InnerMessage>).eval_leave(message)
     }
     super.eval_leave(message)
   }
 }
 
-export class CgReferee<InnerMessage extends GgMessage> extends CgClient<InnerMessage> {
-  /** specialized CgDriver for Referee. */
-  constructor(OmC: new () => InnerMessage, CgB = RefCgBase, WSB = WebSocketBase, url?: string, onOpen?: (cgReferee: CgReferee<InnerMessage>) => void) {
-    super(OmC) // CmReferee()
-    if (url !== undefined) this.connectStack(CgB, WSB, url, onOpen)
-  }
-  /**
-   * Connect CmReferee to given URL.
-   * @param onOpen inform caller that CG connection Stack is open
-   * @param onJoin inform caller that CmReferee has joined CG
-   * @returns the CmReferee (like the constructor...)
-   */
-  joinGroup(url: string, group: string, onOpen: (cmClient: CgClient<InnerMessage>) => void, onJoin?: (ack: CgMessage) => void): this {
-    // Stack: CmClient=this=CmReferee; CgClient=CgRefClient; WebSocketBase -> url
-    this.connectStack(RefCgBase, WebSocketBase, url, (refClient: CgReferee<InnerMessage>) => {
-      onOpen(refClient)
-      refClient.cgBase.send_join(group, 0, "referee").then((ack: CgMessage) => {
-        this.log && console.log(stime(this, `.joinGroup: ack =`), ack)
-        this.roster.push({ client: ack.client_id, player: -1, name: "referee" })
-        onJoin && onJoin(ack)
+// GgClient is 'HgClient' or 'CmClient'; so HgRef = new Referee(HgClient)
+export function CgRefMixin<InnerMessage extends GgMessage, TBase extends Constructor<CgClient<InnerMessage>> >(Base: TBase) {
+  return class RefereeBase extends Base {
+    get stage() { return {}} // a stage with no canvas, so stime.anno will show " R" for all log(this)
+    constructor(...args: any[]) { super(undefined) }
+    /**
+     * Connect CmReferee to given URL.
+     * @param onOpen inform caller that CG connection Stack is open
+     * @param onJoin inform caller that CmReferee has joined CG
+     * @returns the CmReferee (like the constructor...)
+     */
+    joinGroup(url: string, group: string, onOpen: (cmClient: CgClient<InnerMessage>) => void, onJoin?: (ack: CgMessage) => void): this {
+      // Stack: CmClient=this=CmReferee; CgClient=CgRefClient; WebSocketBase -> url
+      this.connectStack(RefCgBase, WebSocketBase, url, (refClient: CgClient<InnerMessage>) => {
+        onOpen(refClient)
+        refClient.cgBase.send_join(group, 0, "referee").then((ack: CgMessage) => {
+          this.log && console.log(stime(this, `.joinGroup: ack =`), ack)
+          this.roster.push({ client: ack.client_id, player: this.refid, name: "referee" })
+          onJoin && onJoin(ack)
+        })
       })
-    })
-    return this
-  }
-
-  /** special invocation from CgRefBase: somebody wants to leave the Group
-   * so we first 'leave' them from the Game.
-   */
-  eval_leave(msg: CgMessage) {
-    let { client_id, cause, group } = msg
-    let rindex = this.roster.findIndex(pr => pr.client === client_id)
-    let pr: rost = this.roster[rindex]
-    // remove from roster, so they can join again! [or maybe just nullify rost.name?]
-    if (rindex !== -1) this.roster.splice(rindex, 1)
-    this.log && console.log(stime(this, ".eval_leave: roster"), this.roster.concat())
-    this.sendCgAck("leave")
-    // QQQQ: should we tell the other players? send_join(roster)
-    this.send_roster(pr)  // noting that 'pr' will not appear in roster...
-  }
-
-  /** message is request to join GAME */
-  override eval_join(message: InnerMessage) {
-    let client = message.client // wrapper.client_from
-    let name = message.name
-    this.log && console.log(stime(this, ".eval_join"), name, message, this.roster)
-    if (message.clientto !== 0) {
-      this.sendCgNak("send join to ref only", { client_id: client });
-      return;
-    }
-    if (this.roster.find(pr => (pr.name === message.name))) {
-      this.sendCgNak("name in use: " + message.name, { client_id: client })
-      return
-    }
-    let next_pid = () => [ 0, 1, 2, 3 ].find(pid => !this.roster.find(pr => pr.player === pid))
-    let player = next_pid()
-
-    if (player === undefined) {
-      this.sendCgNak("game full", {client_id: client}) // try join as observer
-      return
+      return this
     }
 
-    // add client/player/name to roster:
-    let pr = { client: client, player: player, name: name };
-    this.roster.push(pr)
-    this.log && console.log(stime(this, ".eval_join: roster"), this.roster)
+    /** special invocation from CgRefBase: somebody wants to leave the Group
+     * so we first 'leave' them from the Game.
+     */
+    eval_leave(msg: CgMessage) {
+      let { client_id, cause, group } = msg
+      let rindex = this.roster.findIndex(pr => pr.client === client_id)
+      let pr: rost = this.roster[rindex]
+      // remove from roster, so they can join again! [or maybe just nullify rost.name?]
+      if (rindex >= 0) this.roster.splice(rindex, 1)
+      this.log && console.log(stime(this, ".eval_leave: roster"), this.roster.concat())
+      this.sendCgAck("leave")
+      // QQQQ: should we tell the other players? send_join(roster)
+      this.send_roster(pr)  // noting that 'pr' will not appear in roster...
+    }
 
-    // send_join(player, roster) to Group, so everyone knows all the players.
-    this.sendCgAck("joined", {client_id: client}) // ... not an ACK to tell server to sendToOthers...
-    this.log && console.log(stime(this, ".eval_join: assign player"), pr)
-    this.send_roster(pr)
-  }
+    /** CgReferee: message is request to join GAME, assign Player_ID */
+    override eval_join(message: InnerMessage) {
+      let client = message.client_from // wrapper.client_from
+      let name = message.name, pr: rost
+      this.log && console.log(stime(this, ".eval_join"), name, message, this.roster)
+      if (message.clientto !== 0) {
+        this.sendCgNak("send join to ref only", { client_id: client });
+        return;
+      }
+      if (pr = this.roster.find(pr => (pr.name === message.name))) {
+        this.sendCgNak(`name in use: ${message.name}: ${pr.player}`, { client_id: client })
+        return
+      }
+      let player = (() => {
+        for (let pid = 0; pid < this.maxPlayers; pid++) {
+          if (!this.roster.find(pr => pr.player === pid)) return pid
+        }
+        // TODO: allow non-player observers
+        return undefined
+      })()
 
-  /** send the curent roster
-   * @pr ignored?
-   */
-  send_roster(pr: rost) {
-    let {name, client, player} = pr
-    let active = this.roster.filter(pr => pr.client != undefined)
-    let roster = active.map(pr => new Rost(pr))
-    this.send_join(name, {client, player, roster}) // fromReferee to Group.
-  }
-  /** send join with roster to everyone. */
-  override send_join(name: string, opts: GgMessageOpts = {}): AckPromise {
-    let message = this.make_join(name, opts)
-    this.log && console.log(stime(this, ".send_join"), message)
-    return this.send_message(message, { nocc: true }) // from Referee
-  }
+      if (player === undefined) {
+        this.sendCgNak("game full", { client_id: client }) // maybe try join as observer
+        return
+      }
 
+      // add client/player/name to roster:
+      pr = { client, player, name };
+      this.roster.push(pr)
+      this.log && console.log(stime(this, ".eval_join: roster"), this.roster)
+
+      // send_join(player, roster) to Group, so everyone knows all the players.
+      this.sendCgAck("joined", { client_id: client }) // ... not an ACK to tell server to sendToOthers...
+      this.log && console.log(stime(this, ".eval_join: assign player"), pr)
+      this.send_roster(pr)
+    }
+
+    /** send the curent roster
+     * @pr {name, client, player} of the requester/joiner; 
+     */
+    send_roster(pr: rost) {
+      let { name, client, player } = pr
+      let active = this.roster.filter(pr => pr.client != undefined)
+      let roster = active.map(pr => new Rost(pr))
+      this.send_join(name, { client, player, roster }) // fromReferee to Group.
+    }
+    /** send join with roster to everyone. */
+    override send_join(name: string, opts: GgMessageOpts = {}): AckPromise {
+      let message = this.make_join(name, opts)
+      this.log && console.log(stime(this, ".send_join"), message)
+      return this.send_message(message, { nocc: true }) // from Referee
+    }
+  }
 }

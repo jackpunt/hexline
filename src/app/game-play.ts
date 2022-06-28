@@ -11,8 +11,8 @@ import { GameSetup } from "./game-setup";
 import { IMove, Move } from "./move";
 import { LogReader, LogWriter } from "./stream-writer";
 import { Planner } from "./planner";
-import { HgClient, HgReferee } from "./HgClient";
-import { CgClient, CgReferee } from "./CgClient";
+import { HgClient, HgReferee, newHgReferee,  } from "./HgClient";
+import { CgClient,  } from "./CgClient";
 import { CgMessage, CgType, CLOSE_CODE, DataBuf } from "@thegraid/wspbclient";
 import { HgMessage, HgType } from "src/proto/HgProto";
 export class GamePlay0 {
@@ -340,22 +340,22 @@ export class GamePlay extends GamePlay0 {
    */
   network(ref: boolean, paramGUI: ParamGUI) {
     let nameByClientId = ["Referee", "Alice", "Bob", "Charlie", "Doris"];
-    let group = TP.networkGroup, url = TP.networkUrl, gamePlay = this
+    let group = TP.networkGroup, url = TP.networkUrl
     // invoked after [a] referee has joined the game
     let join_game_as_player = (ack: CgMessage, hgClient: HgClient) => {
-      let client_id = hgClient.client_id // 0 or 1
+      let client_id = hgClient.client_id // 0 = ref; 1, 2, ... for other player/observers
       let name = nameByClientId[client_id]
       console.log(stime(this, ".network join_game_as_player: start"), { name, client_id, ack })
       // send join_game request to Referee {client_id: 0}; handle the subsequent join message
-      let join_ackp = hgClient.sendAndReceive(() => hgClient.send_join(name),
+      let hgJoinP = hgClient.sendAndReceive(() => hgClient.send_join(name),
         // predicate: indicating join by player/name 
         (msg) => (msg && msg.type == HgType.join && msg.name == name))
-      join_ackp.then(
-        // like a 'once' Listener; in addition to cmClient.eval_join:
-        (msg: HgMessage) => {
-          let player_id = msg.player // use player_id assigned by referee
+      hgJoinP.then(
+        // like a 'once' Listener; in addition to CgClient.eval_join:
+        (msg) => {
+          let player_id = msg.player // use player_id assigned by referee [== hgClient.player_id]
           console.log(stime(this, ".network join_game_as_player: joined"), { name, player_id, msg })
-          if (player_id >= 0) {
+          if (hgClient.isPlayer) {
             let player = this.allPlayers[player_id]
             paramGUI.selectValue("PlayerId", player_id) // dubious... may need > 1 of these [multi-choice]
             hgClient.player = player                // indicate isNetworked(player); cmClient.localPlayer += player
@@ -396,7 +396,7 @@ export class GamePlay extends GamePlay0 {
       })
     }
     let initRefClient = (url: string, onOpen: (hgClient: HgClient) => void) => {
-      this.hgClient = new HgReferee(undefined, (refClient => {
+      this.hgClient = newHgReferee(undefined, ((refClient: HgReferee) => {
         refClient.wsbase.log = false
         refClient.cgBase.log = false
         refClient.log = false
@@ -448,10 +448,10 @@ export class GamePlay extends GamePlay0 {
    * @param onJoin inform caller that CmReferee is ready.
    * @returns the CmReferee (like a constructor...)
    */
-  makeRefJoinGroup(url: string, group: string, onJoin: (ack: CgMessage) => void): CgReferee<HgMessage> {
+  makeRefJoinGroup(url: string, group: string, onJoin: (ack: CgMessage) => void): HgReferee {
     let refgs = new GameSetup(null) // refgs.table has no Canvas
     refgs.startup(refgs)            // get all the Cards/Decks from this.table [no ParamGUI]
-    let ref = refgs.gamePlay.hgClient = new HgReferee(undefined) // No URL, no connectStack()
+    let ref = refgs.gamePlay.hgClient = newHgReferee(undefined) // No URL, no connectStack()
     let onOpen = (hgReferee: HgReferee) => {
       hgReferee.wsbase.log = false
       hgReferee.cgBase.log = false
