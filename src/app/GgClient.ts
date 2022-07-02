@@ -14,10 +14,10 @@ function stringData(data: DataBuf<any>) {
 }
 export enum GgType {
   none = 0,
-  next = 6,
-  undo = 7,
-  join = 8,
-  chat = 9
+  next = 6, // next player turn
+  undo = 7, // request to undo
+  join = 8, // join Game (as player, observer, or referee(client_id=0xEF))
+  chat = 9, // some info text...
 }
 /** Generic Game message: join (client_id, player, name, roster), next, undo, chat(inform)... */
 export interface GgMessage extends pbMessage { 
@@ -47,13 +47,14 @@ export type rost = {name: string, client: number, player: number}
 type GGMK = Exclude<keyof GgMessage, Partial<keyof pbMessage> | "serialize">
 export type GgMessageOpts = Partial<Pick<GgMessage, GGMK>>
 
-// try make a Generic CgClient that wraps a CgBase for a given GgMessage/pbMessage type.
+// try make a Generic GgClient that wraps a CgBase for a given GgMessage/pbMessage type.
 // InnerMessage is like: HgMessage or CmMessage: share basic messages:
 // CgProto Ack/Nak, send_send, send_join(group); onmessage -> parseEval
 // InnerMessage: send_join(name, opts), eval_join(Rost), send_message->send_send, undo?, chat?, param?
 // inject a deserializer!
-// OH! we extend CgDriver with the application-specific proto driver/client, using these methods to talk to CgBase
-export class CgClient<InnerMessage extends GgMessage> extends BaseDriver<GgMessage, never> {
+// We extend BaseDriver with the GenericGame proto driver/client, using these methods to talk to CgBase
+/** Driver that speaks Generic Game proto above CgClient: players join, take turns, undo... */
+export class GgClient<InnerMessage extends GgMessage> extends BaseDriver<GgMessage, never> {
   wsbase: WebSocketBase<pbMessage, pbMessage>;
   cgBase: CgBase<InnerMessage>; // === this.dnstream
   declare deserialize: (buf: DataBuf<InnerMessage>) => InnerMessage
@@ -79,7 +80,7 @@ export class CgClient<InnerMessage extends GgMessage> extends BaseDriver<GgMessa
     CgB: new () => CgBase<InnerMessage> = CgBase,
     WSB: new () => WebSocketBase<pbMessage, CgMessage> = WebSocketBase,
     url?: string,
-    onOpen?: (cgClient: CgClient<InnerMessage>) => void) {
+    onOpen?: (cgClient: GgClient<InnerMessage>) => void) {
     super()
     //if (!Object.hasOwn(OmC.prototype, 'msgType'))
     if (!ImC.prototype.hasOwnProperty('msgType')) 
@@ -169,9 +170,9 @@ export class CgClient<InnerMessage extends GgMessage> extends BaseDriver<GgMessa
     CgB: new () => CgBase<InnerMessage>,
     WSB: new () => WebSocketBase<pbMessage, CgMessage>,
     url: string,
-    onOpen?: (omDriver: CgClient<InnerMessage>) => void): this 
+    onOpen?: (omDriver: GgClient<InnerMessage>) => void): this 
   {
-    let omDriver: CgClient<InnerMessage> = this
+    let omDriver: GgClient<InnerMessage> = this
     let cgBase = new CgB()
     let wsb: WebSocketBase<pbMessage, CgMessage> = new WSB()
     omDriver.cgBase = cgBase
@@ -301,19 +302,21 @@ export class CgClient<InnerMessage extends GgMessage> extends BaseDriver<GgMessa
 }
 
 
-class RefCgBase<InnerMessage extends pbMessage> extends CgBase<InnerMessage> {
+class RefGgBase<InnerMessage extends pbMessage> extends CgBase<InnerMessage> {
   /** when Client leaves Group, notify Referee. */
   override eval_leave(message: CgMessage) {
     this.log && console.log(stime(this, ".eval_leave"), message)
-    if (className(this.upstream) == 'RefereeBase') { // should be true... who else is using RefCgBase??
+    if (className(this.upstream) == 'RefereeBase') { // should be true... who else is using RefGgBase??
+      // Hijack eval_leave() to deliver message.client_id
       (this.upstream as CgBase<InnerMessage>).eval_leave(message)
+      // could this be done with dnstream.addEventListener(...) ?
     }
     super.eval_leave(message)
   }
 }
 
 // GgClient is 'HgClient' or 'CmClient'; so HgRef = new Referee(HgClient)
-export function CgRefMixin<InnerMessage extends GgMessage, TBase extends Constructor<CgClient<InnerMessage>> >(Base: TBase) {
+export function GgRefMixin<InnerMessage extends GgMessage, TBase extends Constructor<GgClient<InnerMessage>>>(Base: TBase) {
   return class RefereeBase extends Base {
     get stage() { return {}} // a stage with no canvas, so stime.anno will show " R" for all log(this)
     isRefereeBase = true
@@ -327,9 +330,9 @@ export function CgRefMixin<InnerMessage extends GgMessage, TBase extends Constru
      * @param onJoin inform caller that GgReferee has joined CG
      * @returns the GgReferee (like the constructor...)
      */
-    joinGroup(url: string, group: string, onOpen: (ggClient: CgClient<InnerMessage>) => void, onJoin?: (ack: CgMessage) => void): this {
-      // Stack: GgClient=this=GgReferee; CgClient=CgRefClient; WebSocketBase -> url
-      this.connectStack(RefCgBase, WebSocketBase, url, (refClient: CgClient<InnerMessage>) => {
+    joinGroup(url: string, group: string, onOpen: (ggClient: GgClient<InnerMessage>) => void, onJoin?: (ack: CgMessage) => void): this {
+      // Stack: GgClient=this=GgReferee; CgClient=RefGgBase; WebSocketBase -> url
+      this.connectStack(RefGgBase, WebSocketBase, url, (refClient: GgClient<InnerMessage>) => {
         onOpen(refClient)
         refClient.cgBase.send_join(group, 0, "referee").then((ack: CgMessage) => {
           this.log && console.log(stime(this, `.joinGroup: ack =`), ack)
@@ -339,14 +342,10 @@ export function CgRefMixin<InnerMessage extends GgMessage, TBase extends Constru
       })
       let dnstream = (this.dnstream as CgBase<GgMessage>) // a [Ref]CgBase
       console.log(stime(this, `.joinGroup: dnstream =`), dnstream)
-      // dnstream.eval_leave = (message: CgMessage) => {     // inject/overwrite/advise the eval_leave method:
-      //   this.eval_leave(message)
-      //   dnstream.eval_leave(message)
-      // }
       return this
     }
 
-    /** special invocation from CgRefBase: somebody wants to leave the Group
+    /** special invocation from GgRefBase: somebody wants to leave the Group
      * so we first 'leave' them from the Game.
      */
     eval_leave(msg: CgMessage) {

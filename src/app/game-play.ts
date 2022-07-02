@@ -12,7 +12,7 @@ import { IMove, Move } from "./move";
 import { LogReader, LogWriter } from "./stream-writer";
 import { Planner } from "./planner";
 import { HgClient, HgReferee, newHgReferee,  } from "./HgClient";
-import { CgClient,  } from "./CgClient";
+import { GgClient,  } from "./GgClient";
 import { CgMessage, CgType, CLOSE_CODE, DataBuf } from "@thegraid/wspbclient";
 import { HgMessage, HgType } from "src/proto/HgProto";
 export class GamePlay0 {

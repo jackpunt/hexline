@@ -1,6 +1,6 @@
 import { CgBase, WebSocketBase } from "@thegraid/wspbclient";
 import { HgMessage } from "src/proto/HgProto";
-import { CgClient, GgMessage } from "./CgClient";
+import { GgClient, GgMessage } from "./GgClient";
 
 // Needed for all mixins
 type Constructor<T = {}> = new (...args: any[]) => T;
@@ -36,12 +36,12 @@ function Activatable<TBase extends Constructor<CgClient0<GgMessage>>>(Base: TBas
   };
 }
 
-function CgRefMixin<InnerMessage extends GgMessage, TBase extends Constructor<CgClient<GgMessage>> >(Base: TBase) {
+function CgRefMixin<InnerMessage extends GgMessage, TBase extends Constructor<GgClient<GgMessage>> >(Base: TBase) {
   return class RefereeBase extends Base {
     message: InnerMessage;
   }
 }
-function Ref<TBase extends Constructor<CgClient<GgMessage>>>(Base: TBase) {
+function Ref<TBase extends Constructor<GgClient<GgMessage>>>(Base: TBase) {
   return class RefBase extends Base {
     
   }
@@ -66,12 +66,12 @@ class CgClient0<GgMessage> {
   name = '';
   size = 23;
 }
-class HgClient2 extends CgClient<HgMessage> {
+class HgClient2 extends GgClient<HgMessage> {
   constructor(...args: any[]) { super(HgMessage, CgBase, WebSocketBase) }
   player: number
 }
 
-const RefClient = CgRefMixin(CgClient)
+const RefClient = CgRefMixin(GgClient)
 let refc = new RefClient(undefined)
 
 const RefHgClient = CgRefMixin(HgClient2)

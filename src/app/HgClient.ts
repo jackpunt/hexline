@@ -1,6 +1,6 @@
 import { CgBase, pbMessage, WebSocketBase } from '@thegraid/wspbclient';
 import { HgMessage, HgType } from 'src/proto/HgProto';
-import { addEnumTypeString, CgClient, CgRefMixin, GgMessage } from './CgClient';
+import { addEnumTypeString, GgClient, GgRefMixin, GgMessage } from './GgClient';
 import { Player } from './player';
 
 
@@ -16,7 +16,7 @@ declare module '../proto/HgProto' {
   }
 }
 addEnumTypeString(HgMessage, HgType, 'msgType') // define msgType = get HgType(this.type)
-export class HgClient extends CgClient<HgMessage> {
+export class HgClient extends GgClient<HgMessage> {
   static maxPlayers = 2
   constructor(url?: string, onOpen?: (hgClient: HgClient) => void) {
     super(HgMessage, CgBase, WebSocketBase)
@@ -26,7 +26,7 @@ export class HgClient extends CgClient<HgMessage> {
   player: Player
 }
 
-export const HgRefMixin = CgRefMixin<HgMessage, typeof HgClient>(HgClient)
+export const HgRefMixin = GgRefMixin<HgMessage, typeof HgClient>(HgClient)
 export function newHgReferee(url?: string, onOpen?: (hgReferee: HgClient) => void) {
   return new HgRefMixin(url, onOpen)
 }
