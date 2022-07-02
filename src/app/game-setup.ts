@@ -35,7 +35,7 @@ export class GameSetup {
   }
   /** C-s ==> kill game, start a new one, possibly with new (mh,nh) */
   restart(mh = TP.mHexes, nh= TP.nHexes) {
-    this.gamePlay.hgClient?.closeStream(CLOSE_CODE.NormalCLosure, 'restart')
+    this.gamePlay.hgClient?.closeStream(CLOSE_CODE.NormalClosure, 'restart')
     this.gamePlay.logWriter?.closeFile()
     this.gamePlay.forEachPlayer(p => p.endGame())
     let deContainer = (cont: Container) => {
@@ -155,7 +155,7 @@ export class GameSetup {
   defStyle = { rootColor: "rgba(160,160,160,.5)", arrowColor: "grey" }
   makeNetworkGUI (table: Table, parent: Container, x: number, y: number) {
     let gui = new ParamGUI(TP, this.defStyle)
-    gui.makeParamSpec("Network", [" ", "yes", "no", "yes+", "ref"], { fontColor: "red" })
+    gui.makeParamSpec("Network", [" ", "yes", "no", "cnx", "ref"], { fontColor: "red" })
     gui.makeParamSpec("PlayerId", [" ", 0, 1, 2, 3], { fontColor: "blue" })
 
     gui.spec("Network").onChange = (item: ParamItem) => {

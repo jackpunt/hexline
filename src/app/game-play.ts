@@ -358,7 +358,7 @@ export class GamePlay extends GamePlay0 {
           if (hgClient.isPlayer) {
             let player = this.allPlayers[player_id]
             paramGUI.selectValue("PlayerId", player_id) // dubious... may need > 1 of these [multi-choice]
-            hgClient.player = player                // indicate isNetworked(player); cmClient.localPlayer += player
+            hgClient.player = player                // indicate isNetworked(player); ggClient.localPlayer += player
             this.setNextPlayer(player)  // ndx & putButtonOnPlayer
           }
         }, (reason) => {
@@ -367,20 +367,20 @@ export class GamePlay extends GamePlay0 {
     }
     // onOpen: attach player to this.table & GUI [also for standalone Referee]
     let cgOpen = (hgClient: HgClient) => {
-      paramGUI.selectValue("Network", ref ? "ref" : "yes+")
+      paramGUI.selectValue("Network", ref ? "ref" : "cnx")
       //hgClient.attachToGUI(this.table)
-      hgClient.onclose = (ev: CloseEvent) => {
+      hgClient.addEventListener('close', (ev: CloseEvent) => {
         paramGUI.selectValue("Network", " ")
         paramGUI.selectValue("PlayerId", " ")
-      }
+      })
     }
     let initPlyrClient = (url: string, onOpen: (hgClient: HgClient) => void) => {
       // connectStack; then onOpen(hgClient); maybeMakeRef; join_game
       this.hgClient = new HgClient(url, (hgClient) => {
         onOpen(hgClient)
-        hgClient.wsbase.log = false
-        hgClient.cgBase.log = false
-        hgClient.log = false
+        hgClient.wsbase.log = 0
+        hgClient.cgBase.log = 0
+        hgClient.log = 0
         hgClient.cgBase.send_join(group).then((ack: CgMessage) => {
           console.log(stime(this, `.network CgJoin(${group}) ack:`), 
             { success: ack.success, client_id: ack.client_id, hgCid: hgClient.client_id, hgClient, ack })
@@ -397,17 +397,17 @@ export class GamePlay extends GamePlay0 {
     }
     let initRefClient = (url: string, onOpen: (hgClient: HgClient) => void) => {
       this.hgClient = newHgReferee(undefined, ((refClient: HgReferee) => {
-        refClient.wsbase.log = false
-        refClient.cgBase.log = false
-        refClient.log = false
+        refClient.wsbase.log = 0
+        refClient.cgBase.log = 0
+        refClient.log = 1
       })).joinGroup(url, group, onOpen) // explicit refClient
     }
-    // client for GUI connection to CmServer:
+    // client for GUI connection to GgServer:
     (ref ? initRefClient : initPlyrClient).call(this, url, cgOpen)
   }
   closeNetwork() {
     let closeMe = (hgClient: HgClient) => { 
-      hgClient.closeStream(CLOSE_CODE.NormalCLosure, "GUI -> no")
+      hgClient.closeStream(CLOSE_CODE.NormalClosure, "GUI -> no")
     }
     this.isNetworked(closeMe, true)
   }
@@ -444,17 +444,17 @@ export class GamePlay extends GamePlay0 {
   }
   
   /** 
-   * setup game and table for headless CmReferee in a Player's browser. 
-   * @param onJoin inform caller that CmReferee is ready.
-   * @returns the CmReferee (like a constructor...)
+   * setup game and table for headless GgReferee in a Player's browser. 
+   * @param onJoin inform caller that GgReferee is ready.
+   * @returns the GgReferee (like a constructor...)
    */
   makeRefJoinGroup(url: string, group: string, onJoin: (ack: CgMessage) => void): HgReferee {
     let refgs = new GameSetup(null) // refgs.table has no Canvas
     refgs.startup(refgs)            // get all the Cards/Decks from this.table [no ParamGUI]
     let ref = refgs.gamePlay.hgClient = newHgReferee(undefined) // No URL, no connectStack()
     let onOpen = (hgReferee: HgReferee) => {
-      hgReferee.wsbase.log = false
-      hgReferee.cgBase.log = false
+      hgReferee.wsbase.log = 0
+      hgReferee.cgBase.log = 0
       console.log(stime(hgReferee, `.onOpen: now join_game_as_player(0)`))
     }
     return ref.joinGroup(url, group, onOpen, onJoin);
