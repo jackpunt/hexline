@@ -1,6 +1,6 @@
 {
   "name": "hexline",
-  "version": "0.0.19-c",
+  "version": "0.0.21",
   "scripts": {
     "make-proto": "npm run protots; npm run patch-proto;",
     "make-patch": "cp src/proto/HgProto.ts src/proto/HgProto-patched.ts; npm run protots; (cd src/proto; diff -c HgProto.ts HgProto-patched.ts > HgProto.patch); npm run patch-proto",
