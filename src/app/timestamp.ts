@@ -39,6 +39,9 @@ function Activatable<TBase extends Constructor<CgClient0<GgMessage>>>(Base: TBas
 function CgRefMixin<InnerMessage extends GgMessage, TBase extends Constructor<GgClient<GgMessage>> >(Base: TBase) {
   return class RefereeBase extends Base {
     message: InnerMessage;
+    joinGroup(): typeof this {
+      return this
+    }
   }
 }
 function Ref<TBase extends Constructor<GgClient<GgMessage>>>(Base: TBase) {
