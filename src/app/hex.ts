@@ -1,9 +1,9 @@
+import { C, F, RC, S } from "@thegraid/easeljs-lib";
 import { Container, DisplayObject, Graphics, Shape, Text } from "@thegraid/easeljs-module";
-import { C, F, RC, S, stime } from "@thegraid/easeljs-lib";
-import { HexAxis, HexDir, H, InfDir, EwDir, NsDir } from "./hex-intfs";
-import { Stone } from "./table";
-import { otherColor, StoneColor, stoneColor0, stoneColor1, StoneColorRecord, stoneColorRecord, stoneColorRecordF, stoneColors, TP } from "./table-params";
 import { GamePlay0 } from "./game-play";
+import { EwDir, H, HexAxis, HexDir, InfDir, NsDir } from "./hex-intfs";
+import { Stone } from "./table";
+import { otherColor, StoneColor, stoneColor0, StoneColorRecord, stoneColorRecord, stoneColorRecordF, stoneColors, TP } from "./table-params";
 
 export const S_Resign = 'Hex@Resign'
 export const S_Skip = 'Hex@skip '

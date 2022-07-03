@@ -1,15 +1,15 @@
-import { M, stime, AT, json } from "@thegraid/common-lib";
-import { Move, IMove } from "./move";
-import { GamePlay, GamePlay0, GamePlayD, Progress } from "./game-play"
+import { AT, json, M, stime } from "@thegraid/common-lib";
+import { EzPromise } from "@thegraid/ezpromise";
+import { runEventLoop } from "./event-loop";
+import { GamePlay, GamePlay0, GamePlayD, Progress } from "./game-play";
 import { Hex, HSC, IHex } from "./hex";
 import { H, HexDir } from "./hex-intfs";
-import { runEventLoop } from "./event-loop"
+import { IMove, Move } from "./move";
 import { IPlanner, MK, ParamSet, PlannerProxy } from "./plan-proxy";
-import { WINARY } from "./stats";
-import { otherColor, StoneColor, stoneColor0, stoneColor1, StoneColorRecord, stoneColorRecord, stoneColors, TP } from "./table-params";
-import { ILogWriter } from "./stream-writer";
-import { EzPromise } from "@thegraid/ezpromise";
 import { PlanWorker } from "./plan.worker";
+import { WINARY } from "./stats";
+import { ILogWriter } from "./stream-writer";
+import { otherColor, StoneColor, stoneColor0, stoneColor1, StoneColorRecord, stoneColorRecord, stoneColors, TP } from "./table-params";
 
 /** selected Planner State properties */
 type pStat = { bv0: number, eval: number, dsid: number}

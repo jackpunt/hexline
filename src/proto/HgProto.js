@@ -39,11 +39,11 @@ var Rost = /** @class */ (function (_super) {
         var _this = _super.call(this) || this;
         pb_1.Message.initialize(_this, Array.isArray(data) ? data : [], 0, -1, [], []);
         if (!Array.isArray(data) && typeof data == "object") {
-            if ("player" in data && data.player != undefined) {
-                _this.player = data.player;
-            }
             if ("client" in data && data.client != undefined) {
                 _this.client = data.client;
+            }
+            if ("player" in data && data.player != undefined) {
+                _this.player = data.player;
             }
             if ("name" in data && data.name != undefined) {
                 _this.name = data.name;
@@ -51,7 +51,7 @@ var Rost = /** @class */ (function (_super) {
         }
         return _this;
     }
-    Object.defineProperty(Rost.prototype, "player", {
+    Object.defineProperty(Rost.prototype, "client", {
         get: function () {
             return pb_1.Message.getField(this, 2);
         },
@@ -61,7 +61,7 @@ var Rost = /** @class */ (function (_super) {
         enumerable: false,
         configurable: true
     });
-    Object.defineProperty(Rost.prototype, "client", {
+    Object.defineProperty(Rost.prototype, "player", {
         get: function () {
             return pb_1.Message.getField(this, 3);
         },
@@ -83,11 +83,11 @@ var Rost = /** @class */ (function (_super) {
     });
     Rost.fromObject = function (data) {
         var message = new Rost({});
-        if (data.player != null) {
-            message.player = data.player;
-        }
         if (data.client != null) {
             message.client = data.client;
+        }
+        if (data.player != null) {
+            message.player = data.player;
         }
         if (data.name != null) {
             message.name = data.name;
@@ -96,11 +96,11 @@ var Rost = /** @class */ (function (_super) {
     };
     Rost.prototype.toObject = function () {
         var data = {};
-        if (this.player != null) {
-            data.player = this.player;
-        }
         if (this.client != null) {
             data.client = this.client;
+        }
+        if (this.player != null) {
+            data.player = this.player;
         }
         if (this.name != null) {
             data.name = this.name;
@@ -109,10 +109,10 @@ var Rost = /** @class */ (function (_super) {
     };
     Rost.prototype.serialize = function (w) {
         var writer = w || new pb_1.BinaryWriter();
-        if (this.player !== undefined)
-            writer.writeInt32(2, this.player);
         if (this.client !== undefined)
-            writer.writeInt32(3, this.client);
+            writer.writeInt32(2, this.client);
+        if (this.player !== undefined)
+            writer.writeInt32(3, this.player);
         if (typeof this.name === "string" && this.name.length)
             writer.writeString(4, this.name);
         if (!w)
@@ -125,10 +125,10 @@ var Rost = /** @class */ (function (_super) {
                 break;
             switch (reader.getFieldNumber()) {
                 case 2:
-                    message.player = reader.readInt32();
+                    message.client = reader.readInt32();
                     break;
                 case 3:
-                    message.client = reader.readInt32();
+                    message.player = reader.readInt32();
                     break;
                 case 4:
                     message.name = reader.readString();
@@ -174,8 +174,8 @@ var HgMessage = /** @class */ (function (_super) {
             if ("roster" in data && data.roster != undefined) {
                 _this.roster = data.roster;
             }
-            if ("clientto" in data && data.clientto != undefined) {
-                _this.clientto = data.clientto;
+            if ("client_to" in data && data.client_to != undefined) {
+                _this.client_to = data.client_to;
             }
         }
         return _this;
@@ -250,7 +250,7 @@ var HgMessage = /** @class */ (function (_super) {
         enumerable: false,
         configurable: true
     });
-    Object.defineProperty(HgMessage.prototype, "clientto", {
+    Object.defineProperty(HgMessage.prototype, "client_to", {
         get: function () {
             return pb_1.Message.getField(this, 11);
         },
@@ -283,8 +283,8 @@ var HgMessage = /** @class */ (function (_super) {
         if (data.roster != null) {
             message.roster = data.roster.map(function (item) { return Rost.fromObject(item); });
         }
-        if (data.clientto != null) {
-            message.clientto = data.clientto;
+        if (data.client_to != null) {
+            message.client_to = data.client_to;
         }
         return message;
     };
@@ -311,8 +311,8 @@ var HgMessage = /** @class */ (function (_super) {
         if (this.roster != null) {
             data.roster = this.roster.map(function (item) { return item.toObject(); });
         }
-        if (this.clientto != null) {
-            data.clientto = this.clientto;
+        if (this.client_to != null) {
+            data.client_to = this.client_to;
         }
         return data;
     };
@@ -332,8 +332,8 @@ var HgMessage = /** @class */ (function (_super) {
             writer.writeString(7, this.inform);
         if (this.roster !== undefined)
             writer.writeRepeatedMessage(10, this.roster, function (item) { return item.serialize(writer); });
-        if (this.clientto !== undefined)
-            writer.writeInt32(11, this.clientto);
+        if (this.client_to !== undefined)
+            writer.writeInt32(11, this.client_to);
         if (!w)
             return writer.getResultBuffer();
     };
@@ -365,7 +365,7 @@ var HgMessage = /** @class */ (function (_super) {
                     reader.readMessage(message.roster, function () { return pb_1.Message.addToRepeatedWrapperField(message, 10, Rost.deserialize(reader), Rost); });
                     break;
                 case 11:
-                    message.clientto = reader.readInt32();
+                    message.client_to = reader.readInt32();
                     break;
                 default: reader.skipField();
             }

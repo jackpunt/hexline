@@ -1,19 +1,19 @@
-import { H } from "./hex-intfs";
-import { AT, json } from "@thegraid/common-lib"
-import { Hex, Hex2, HexMap, S_Resign, HSC, IHex } from "./hex";
-import { HexEvent } from "./hex-event";
-import { S, stime, Undo, KeyBinder, ParamGUI } from "@thegraid/easeljs-lib";
-import { GameStats, TableStats, WINARY } from "./stats";
-import { Table } from "./table";
-import { otherColor, StoneColor, stoneColors, TP} from "./table-params"
-import { Player } from "./player";
+import { AT, json } from "@thegraid/common-lib";
+import { KeyBinder, ParamGUI, S, stime, Undo } from "@thegraid/easeljs-lib";
+import { CgMessage, CLOSE_CODE } from "@thegraid/wspbclient";
+import { HgType } from "src/proto/HgProto";
 import { GameSetup } from "./game-setup";
+import { Hex, Hex2, HexMap, HSC, IHex, S_Resign } from "./hex";
+import { HexEvent } from "./hex-event";
+import { H } from "./hex-intfs";
+import { HgClient, HgReferee, newHgReferee } from "./HgClient";
 import { IMove, Move } from "./move";
-import { LogReader, LogWriter } from "./stream-writer";
 import { Planner } from "./planner";
-import { HgClient, HgReferee, newHgReferee,  } from "./HgClient";
-import { CgMessage, CgType, CLOSE_CODE, DataBuf } from "@thegraid/wspbclient";
-import { HgMessage, HgType } from "src/proto/HgProto";
+import { Player } from "./player";
+import { GameStats, TableStats, WINARY } from "./stats";
+import { LogReader, LogWriter } from "./stream-writer";
+import { Table } from "./table";
+import { otherColor, StoneColor, stoneColors, TP } from "./table-params";
 export class GamePlay0 {
   static gpid = 0
   readonly id = GamePlay0.gpid++

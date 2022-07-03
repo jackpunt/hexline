@@ -1,7 +1,7 @@
 import { S, stime } from '@thegraid/common-lib';
 import { IMove } from './move';
-import { IPlanMsg, MsgArgs, PlanData, MK, ReplyData, ReplyKey, ParamSet, ReplyArgs } from './plan-proxy';
-import { SubPlanner } from './planner'
+import { IPlanMsg, MK, MsgArgs, ParamSet, PlanData, ReplyArgs, ReplyData, ReplyKey } from './plan-proxy';
+import { SubPlanner } from './planner';
 import { ILogWriter } from './stream-writer';
 import { StoneColor, stoneColors, TP } from './table-params';
 // importScripts ('MyWorker.js')

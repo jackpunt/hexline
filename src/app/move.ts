@@ -1,6 +1,6 @@
+import { Board, GamePlay0 } from "./game-play";
 import { Hex, IHex } from "./hex";
 import { otherColor, StoneColor, TP } from "./table-params";
-import { Board, GamePlay0 } from "./game-play";
 
 /** Historical record of each move made; sans captured, suicide, board which can be recomputed. */
 export type IMove = { Aname: string, hex: IHex, stoneColor: StoneColor }

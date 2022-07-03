@@ -1,11 +1,11 @@
-import { stime, AT, json } from "@thegraid/common-lib";
+import { AT, json, stime } from "@thegraid/common-lib";
 import { HexMaps, IHex } from "./hex";
 import { IMove } from "./move";
 import { Planner } from "./planner";
-import { StoneColor, stoneColors, TP } from "./table-params";
 import { ILogWriter } from "./stream-writer";
+import { StoneColor, stoneColors, TP } from "./table-params";
 
-import { EzPromise } from "@thegraid/ezpromise" // for FlowControl
+import { EzPromise } from "@thegraid/ezpromise"; // for FlowControl
 import { Progress } from "./game-play";
 
 export type ParamSet = [string, string, MsgSimple]   // targetName, fieldName, value
