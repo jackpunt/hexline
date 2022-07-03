@@ -1,6 +1,6 @@
 import { CgBase, WebSocketBase } from "@thegraid/wspbclient";
 import { HgMessage } from "src/proto/HgProto";
-import { GgClient, GgMessage } from "./GgClient";
+import { GgClient, GgMessage } from "@thegraid/wspbclient";
 
 // Needed for all mixins
 type Constructor<T = {}> = new (...args: any[]) => T;

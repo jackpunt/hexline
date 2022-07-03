@@ -16,34 +16,34 @@ export enum HgType {
 }
 export class Rost extends pb_1.Message {
     constructor(data?: any[] | {
-        player?: number;
         client?: number;
+        player?: number;
         name?: string;
     }) {
         super();
         pb_1.Message.initialize(this, Array.isArray(data) ? data : [], 0, -1, [], []);
         if (!Array.isArray(data) && typeof data == "object") {
-            if ("player" in data && data.player != undefined) {
-                this.player = data.player;
-            }
             if ("client" in data && data.client != undefined) {
                 this.client = data.client;
+            }
+            if ("player" in data && data.player != undefined) {
+                this.player = data.player;
             }
             if ("name" in data && data.name != undefined) {
                 this.name = data.name;
             }
         }
     }
-    get player() {
+    get client() {
         return pb_1.Message.getField(this, 2) as number;
     }
-    set player(value: number) {
+    set client(value: number) {
         pb_1.Message.setField(this, 2, value);
     }
-    get client() {
+    get player() {
         return pb_1.Message.getField(this, 3) as number;
     }
-    set client(value: number) {
+    set player(value: number) {
         pb_1.Message.setField(this, 3, value);
     }
     get name() {
@@ -53,16 +53,16 @@ export class Rost extends pb_1.Message {
         pb_1.Message.setField(this, 4, value);
     }
     static fromObject(data: {
-        player?: number;
         client?: number;
+        player?: number;
         name?: string;
     }) {
         const message = new Rost({});
-        if (data.player != null) {
-            message.player = data.player;
-        }
         if (data.client != null) {
             message.client = data.client;
+        }
+        if (data.player != null) {
+            message.player = data.player;
         }
         if (data.name != null) {
             message.name = data.name;
@@ -71,15 +71,15 @@ export class Rost extends pb_1.Message {
     }
     toObject() {
         const data: {
-            player?: number;
             client?: number;
+            player?: number;
             name?: string;
         } = {};
-        if (this.player != null) {
-            data.player = this.player;
-        }
         if (this.client != null) {
             data.client = this.client;
+        }
+        if (this.player != null) {
+            data.player = this.player;
         }
         if (this.name != null) {
             data.name = this.name;
@@ -90,10 +90,10 @@ export class Rost extends pb_1.Message {
     serialize(w: pb_1.BinaryWriter): void;
     serialize(w?: pb_1.BinaryWriter): Uint8Array | void {
         const writer = w || new pb_1.BinaryWriter();
-        if (this.player !== undefined)
-            writer.writeInt32(2, this.player);
         if (this.client !== undefined)
-            writer.writeInt32(3, this.client);
+            writer.writeInt32(2, this.client);
+        if (this.player !== undefined)
+            writer.writeInt32(3, this.player);
         if (typeof this.name === "string" && this.name.length)
             writer.writeString(4, this.name);
         if (!w)
@@ -106,10 +106,10 @@ export class Rost extends pb_1.Message {
                 break;
             switch (reader.getFieldNumber()) {
                 case 2:
-                    message.player = reader.readInt32();
+                    message.client = reader.readInt32();
                     break;
                 case 3:
-                    message.client = reader.readInt32();
+                    message.player = reader.readInt32();
                     break;
                 case 4:
                     message.name = reader.readString();
@@ -135,7 +135,7 @@ export class HgMessage extends pb_1.Message {
         json?: string;
         inform?: string;
         roster?: Rost[];
-        clientto?: number;
+        client_to?: number;
     }) {
         super();
         pb_1.Message.initialize(this, Array.isArray(data) ? data : [], 0, -1, [10], []);
@@ -161,8 +161,8 @@ export class HgMessage extends pb_1.Message {
             if ("roster" in data && data.roster != undefined) {
                 this.roster = data.roster;
             }
-            if ("clientto" in data && data.clientto != undefined) {
-                this.clientto = data.clientto;
+            if ("client_to" in data && data.client_to != undefined) {
+                this.client_to = data.client_to;
             }
         }
     }
@@ -208,10 +208,10 @@ export class HgMessage extends pb_1.Message {
     set roster(value: Rost[]) {
         pb_1.Message.setRepeatedWrapperField(this, 10, value);
     }
-    get clientto() {
+    get client_to() {
         return pb_1.Message.getField(this, 11) as number;
     }
-    set clientto(value: number) {
+    set client_to(value: number) {
         pb_1.Message.setField(this, 11, value);
     }
     static fromObject(data: {
@@ -222,7 +222,7 @@ export class HgMessage extends pb_1.Message {
         json?: string;
         inform?: string;
         roster?: ReturnType<typeof Rost.prototype.toObject>[];
-        clientto?: number;
+        client_to?: number;
     }) {
         const message = new HgMessage({});
         if (data.type != null) {
@@ -246,8 +246,8 @@ export class HgMessage extends pb_1.Message {
         if (data.roster != null) {
             message.roster = data.roster.map(item => Rost.fromObject(item));
         }
-        if (data.clientto != null) {
-            message.clientto = data.clientto;
+        if (data.client_to != null) {
+            message.client_to = data.client_to;
         }
         return message;
     }
@@ -260,7 +260,7 @@ export class HgMessage extends pb_1.Message {
             json?: string;
             inform?: string;
             roster?: ReturnType<typeof Rost.prototype.toObject>[];
-            clientto?: number;
+            client_to?: number;
         } = {};
         if (this.type != null) {
             data.type = this.type;
@@ -283,8 +283,8 @@ export class HgMessage extends pb_1.Message {
         if (this.roster != null) {
             data.roster = this.roster.map((item: Rost) => item.toObject());
         }
-        if (this.clientto != null) {
-            data.clientto = this.clientto;
+        if (this.client_to != null) {
+            data.client_to = this.client_to;
         }
         return data;
     }
@@ -306,8 +306,8 @@ export class HgMessage extends pb_1.Message {
             writer.writeString(7, this.inform);
         if (this.roster !== undefined)
             writer.writeRepeatedMessage(10, this.roster, (item: Rost) => item.serialize(writer));
-        if (this.clientto !== undefined)
-            writer.writeInt32(11, this.clientto);
+        if (this.client_to !== undefined)
+            writer.writeInt32(11, this.client_to);
         if (!w)
             return writer.getResultBuffer();
     }
@@ -339,7 +339,7 @@ export class HgMessage extends pb_1.Message {
                     reader.readMessage(message.roster, () => pb_1.Message.addToRepeatedWrapperField(message, 10, Rost.deserialize(reader), Rost));
                     break;
                 case 11:
-                    message.clientto = reader.readInt32();
+                    message.client_to = reader.readInt32();
                     break;
                 default: reader.skipField();
             }

@@ -12,7 +12,6 @@ import { IMove, Move } from "./move";
 import { LogReader, LogWriter } from "./stream-writer";
 import { Planner } from "./planner";
 import { HgClient, HgReferee, newHgReferee,  } from "./HgClient";
-import { GgClient,  } from "./GgClient";
 import { CgMessage, CgType, CLOSE_CODE, DataBuf } from "@thegraid/wspbclient";
 import { HgMessage, HgType } from "src/proto/HgProto";
 export class GamePlay0 {
@@ -353,7 +352,7 @@ export class GamePlay extends GamePlay0 {
       hgJoinP.then(
         // like a 'once' Listener; in addition to CgClient.eval_join:
         (msg) => {
-          let player_id = msg.player // use player_id assigned by referee [== hgClient.player_id]
+          let player_id = hgClient.player_id = msg.player // set player_id as assigned by referee
           console.log(stime(this, ".network join_game_as_player: joined"), { name, player_id, msg })
           if (hgClient.isPlayer) {
             let player = this.allPlayers[player_id]

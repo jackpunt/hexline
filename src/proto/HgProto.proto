@@ -39,5 +39,5 @@ message HgMessage {
     string json    = 5;    // JSON for various 
     string inform  = 7;    // 
     repeated Rost roster = 10;
-    int32 clientto= 11;    // used internally by Referee: wrapper.client_id
+    int32 client_to= 11;   // used internally by Referee: wrapper.client_id
   }

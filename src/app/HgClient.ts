@@ -1,6 +1,5 @@
-import { CgBase, pbMessage, WebSocketBase } from '@thegraid/wspbclient';
+import { addEnumTypeString, CgBase, GgClient, GgRefMixin, pbMessage, WebSocketBase } from '@thegraid/wspbclient';
 import { HgMessage, HgType } from 'src/proto/HgProto';
-import { addEnumTypeString, GgClient, GgRefMixin, GgMessage } from './GgClient';
 import { Player } from './player';
 
 
@@ -10,20 +9,19 @@ export type HgMessageOpts = Partial<Pick<HgMessage, HGMK>>
 
 declare module '../proto/HgProto' {
   interface HgMessage {
-    /** HgMessage.type as string (for logging) */
     msgType: string
-    client_from: number
+    client_from: number // GgReferee expects GgMessage to have a slot for client_from
   }
 }
+/** HgMessage.msgType -> HgType[msg.type]: string (for logging) */
 addEnumTypeString(HgMessage, HgType, 'msgType') // define msgType = get HgType(this.type)
 export class HgClient extends GgClient<HgMessage> {
-  static maxPlayers = 2
+  static maxPlayers = 2      // settable...
+  override maxPlayers: number = HgClient.maxPlayers       // determines hgClient.isPlayer
   constructor(url?: string, onOpen?: (hgClient: HgClient) => void) {
-    super(HgMessage, CgBase, WebSocketBase)
-    this.maxPlayers = HgClient.maxPlayers
-    if (url !== undefined) this.connectStack(CgBase, WebSocketBase, url, onOpen)
+    super(HgMessage, CgBase, WebSocketBase, url, onOpen)
   }
-  player: Player
+  player: Player // could also move 'player' slot to GamePlay [which also holds hgClient]
 }
 
 export const HgRefMixin = GgRefMixin<HgMessage, typeof HgClient>(HgClient)
