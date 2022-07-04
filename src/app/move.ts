@@ -44,9 +44,8 @@ export class Move {
     return `${this.stoneColor}${this.hex.rcs}`; // sc[r,c]
   }
   /** reduce to serializable IMove (removes captured & board) */
-  get toIMove(): IMove {
-    return { Aname: this.Aname, stoneColor: this.stoneColor, hex: this.hex.iHex };
-  }
+  get toIMove(): IMove { return this.hex.iMove(this.stoneColor) }
+  
   /** override in PlanMove to indicate move.state.fj */
   get ind() { 
     let caps = this.captured, cp = caps.length > 0, atk = this.hex.isThreat(otherColor(this.stoneColor))

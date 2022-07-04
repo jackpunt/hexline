@@ -29,7 +29,7 @@ export class HgClient extends GgClient<HgMessage> {
     super(HgMessage, CgBase, WebSocketBase, url, onOpen)
   }
   player: Player // could also move 'player' slot to GamePlay [which also holds hgClient]
-  gamePlay: GamePlay0
+  gamePlay: GamePlay
 
   override parseEval(message: HgMessage) {
     let type = message.type
@@ -53,9 +53,10 @@ export class HgClient extends GgClient<HgMessage> {
   /** indicates curPlayer has sent their next Move */
   eval_sendMove(message: HgMessage) {
     let map = this.gamePlay.hexMap
-    let { sc, iHistory } = JSON.parse(message.json), move = iHistory[0], hex = Hex.ofMap(move.hex, map)
+    let { sc, iHistory } = JSON.parse(message.json)
+    let move = iHistory[0], hex = Hex.ofMap(move.hex, map)
     let hev = new HexEvent(S.add, hex, sc)
-    this.player.table.gamePlay.localMoveEvent(hev)
+    this.gamePlay.localMoveEvent(hev)
   }
   eval_progress(message: HgMessage) {
   }
@@ -63,7 +64,8 @@ export class HgClient extends GgClient<HgMessage> {
     let { targetName, fieldName, value } = JSON.parse(message.json)
     if (HgClient.paramNames.includes(fieldName) && targetName == 'TP') {
       let line: ParamLine
-      let gui = GameSetup.setup.paramGUIs.find(gui => (line = gui.findLine(fieldName)))
+      let setup = this.player?.table.gamePlay.gameSetup
+      let gui = setup?.paramGUIs.find(gui => (line = gui.findLine(fieldName)))
       if (gui) {
         gui.selectValue(fieldName, value, line)
       }

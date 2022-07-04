@@ -52,7 +52,7 @@ export class StageComponent implements OnInit {
     const urlParams = new URLSearchParams(window.location.search);
     let extstr = urlParams.get('ext')
     let ext = !!extstr ? extstr.split(',') : []
-    new GameSetup(this.mapCanvasId).startup(undefined, ext) // load images; new GameSetup
+    new GameSetup(this.mapCanvasId, ext) // load images; new GamePlay
   }
   static enableOpenFilePicker(method: 'showOpenFilePicker' | 'showSaveFilePicker' | 'showDirectoryPicker',
   options: OpenFilePickerOptions & { multiple?: false; } & SaveFilePickerOptions & DirectoryPickerOptions, 

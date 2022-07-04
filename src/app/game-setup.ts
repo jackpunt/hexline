@@ -17,13 +17,12 @@ stime.anno = (obj: string | { constructor: { name: string; }; }) => {
 
 /** initialize & reset & startup the application. */
 export class GameSetup {
-  static setup: GameSetup
   stage: Stage;
   gamePlay: GamePlay
   paramGUIs: ParamGUI[]
 
   /** @param canvasId supply undefined for 'headless' Stage */
-  constructor(canvasId: string) {
+  constructor(canvasId: string, ext?: string[]) {
     stime.fmt = "MM-DD kk:mm:ss.SSS"
     this.stage = makeStage(canvasId, false)
     if (!this.stage.canvas) {
@@ -31,7 +30,7 @@ export class GameSetup {
       this.stage.enableDOMEvents(false)
       this.stage.tickEnabled = this.stage.tickChildren = false
     }
-    GameSetup.setup = this
+    this.startup(ext)
   }
   /** C-s ==> kill game, start a new one, possibly with new (mh,nh) */
   restart(mh = TP.mHexes, nh= TP.nHexes) {
@@ -54,9 +53,9 @@ export class GameSetup {
    * @param gs generally *this* GameSetup
    * @param ext Extensions from URL
    */
-  startup(gs: GameSetup = this, ext: string[] = []) {
+  startup(ext: string[] = []) {
     let table = new Table(this.stage) // EventDispatcher, ScaleCont, GUI-Player
-    let gamePlay = new GamePlay(table) // hexMap, players, gStats, mouse/keyboard->GamePlay
+    let gamePlay = new GamePlay(table, this) // hexMap, players, gStats, mouse/keyboard->GamePlay
     this.gamePlay = gamePlay
     gamePlay.hexMap[S.Aname] = `mainMap`
     let statsx = -300, statsy = 30
@@ -155,12 +154,12 @@ export class GameSetup {
   defStyle = { rootColor: "rgba(160,160,160,.5)", arrowColor: "grey" }
   makeNetworkGUI (table: Table, parent: Container, x: number, y: number) {
     let gui = new ParamGUI(TP, this.defStyle)
-    gui.makeParamSpec("Network", [" ", "yes", "no", "cnx", "ref"], { fontColor: "red" })
-    gui.makeParamSpec("PlayerId", [" ", 0, 1, 2, 3], { fontColor: "blue" })
+    gui.makeParamSpec("Network", [" ", "yes", "no", "ref", "cnx"], { fontColor: "red" })
+    gui.makeParamSpec("PlayerId", [" ", 0, 1, 2, 3, "ref"], { fontColor: "blue" })
 
     gui.spec("Network").onChange = (item: ParamItem) => {
       if (item.value == "yes") this.gamePlay.network.call(this.gamePlay, false, gui)  // provoked by nkey; HgClient
-      if (item.value == "ref") this.gamePlay.network.call(this.gamePlay, true, gui)   // provoked by rkey; CmReferee
+      if (item.value == "ref") this.gamePlay.network.call(this.gamePlay, true, gui)   // provoked by rkey; HgReferee
       if (item.value == "no") this.gamePlay.closeNetwork.call(this.gamePlay)     // provoked by ckey
      }
      parent.addChild(gui)

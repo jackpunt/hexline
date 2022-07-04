@@ -2,6 +2,7 @@ import { C, F, RC, S } from "@thegraid/easeljs-lib";
 import { Container, DisplayObject, Graphics, Shape, Text } from "@thegraid/easeljs-module";
 import { GamePlay0 } from "./game-play";
 import { EwDir, H, HexAxis, HexDir, InfDir, NsDir } from "./hex-intfs";
+import { IMove } from "./move";
 import { Stone } from "./table";
 import { otherColor, StoneColor, stoneColor0, StoneColorRecord, stoneColorRecord, stoneColorRecordF, stoneColors, TP } from "./table-params";
 
@@ -110,6 +111,7 @@ export class Hex {
   stoneColor: StoneColor = undefined;
   /** reduce to serializable IHex (removes map, inf, links, etc) */
   get iHex(): IHex { return { Aname: this.Aname, row: this.row, col: this.col } }
+  iMove(sc = this.stoneColor): IMove { return { hex: this.iHex, stoneColor: sc, Aname: this.toString(sc) }}
   /** [row,col] OR S_Resign OR S_Skip */
   get rcs(): string { return (this.row >= 0) ? `[${this.row},${this.col}]` : this.Aname.substring(4)}
   get rowsp() { return (this.row?.toString() || '-1').padStart(2) }

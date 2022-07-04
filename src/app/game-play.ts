@@ -14,6 +14,8 @@ import { GameStats, TableStats, WINARY } from "./stats";
 import { LogReader, LogWriter } from "./stream-writer";
 import { Table } from "./table";
 import { otherColor, StoneColor, stoneColors, TP } from "./table-params";
+
+/** Implement game, enforce the rules, manage GameStats & hexMap; no GUI/Table required. */
 export class GamePlay0 {
   static gpid = 0
   readonly id = GamePlay0.gpid++
@@ -277,12 +279,12 @@ class ProgressLogWriter extends LogWriter {
   }
 }
 
-/** implement the game logic */
+/** GamePlay with Table & GUI (KeyBinder, ParamGUI & Dragger) */
 export class GamePlay extends GamePlay0 {
   readonly logWriter: ProgressLogWriter
   readonly table: Table
   declare readonly gStats: TableStats // https://github.com/TypeStrong/typedoc/issues/1597
-  constructor(table: Table) {
+  constructor(table: Table, public gameSetup: GameSetup) {
     super()            // hexMap, history, gStats...
     let time = stime('').substring(6,15), size=`${TP.mHexes}x${TP.nHexes}`
     let line = {time: stime.fs(), mh: TP.mHexes, nh: TP.nHexes, maxBreadth: TP.maxBreadth, 
@@ -322,7 +324,7 @@ export class GamePlay extends GamePlay0 {
     KeyBinder.keyBinder.setKey('S', { thisArg: this, func: this.skipMove })
     KeyBinder.keyBinder.setKey('M-K', { thisArg: this, func: this.resignMove })// S-M-k
     KeyBinder.keyBinder.setKey('Escape', {thisArg: table, func: table.stopDragging}) // Escape
-    KeyBinder.keyBinder.setKey('C-s', { thisArg: GameSetup.setup, func: () => {GameSetup.setup.restart()} })// C-s START
+    KeyBinder.keyBinder.setKey('C-s', { thisArg: this.gameSetup, func: () => { this.gameSetup.restart() } })// C-s START
     KeyBinder.keyBinder.setKey('C-c', { thisArg: this, func: this.stopPlayer })// C-c Stop Planner
     KeyBinder.keyBinder.setKey('m', { thisArg: this, func: this.makeMove, argVal: true })
     KeyBinder.keyBinder.setKey('M', { thisArg: this, func: this.makeMoveAgain, argVal: true })
@@ -376,11 +378,11 @@ export class GamePlay extends GamePlay0 {
         (msg) => {
           let player_id = hgClient.player_id = msg.player // set player_id as assigned by referee
           console.log(stime(this, ".network join_game_as_player: joined"), { name, player_id, msg })
+          hgClient.gamePlay = this    // so non-Player (ref/observer) can access a hexMap
           if (hgClient.isPlayer) {
             let player = this.allPlayers[player_id]
             paramGUI.selectValue("PlayerId", player_id) // hgClient has 1 ea of: { Table, GamePlay, Player }
             hgClient.player = player    // indicate isNetworked(player); ggClient.localPlayer += player
-            hgClient.gamePlay = this    // so non-Player (ref/observer) can access a hexMap
             this.setNextPlayer(player)  // ndx & putButtonOnPlayer
           }
         }, (reason) => {
@@ -388,21 +390,20 @@ export class GamePlay extends GamePlay0 {
         })
     }
     // onOpen: attach player to this.table & GUI [also for standalone Referee]
-    let cgOpen = (hgClient: HgClient) => {
+    let cgOpen = (hgClient: HgClient, lld2 = 0, lld1 = 0, lld0 = 0) => {
+      hgClient.log = lld2
+      hgClient.cgBase.log = lld1
+      hgClient.wsbase.log = lld0
       paramGUI.selectValue("Network", ref ? "ref" : "cnx")
-      //hgClient.attachToGUI(this.table)
       hgClient.addEventListener('close', (ev: CloseEvent) => {
         paramGUI.selectValue("Network", " ")
         paramGUI.selectValue("PlayerId", " ")
       })
     }
-    let initPlyrClient = (url: string, onOpen: (hgClient: HgClient) => void) => {
+    let initPlyrClient = () => {
       // connectStack; then onOpen(hgClient); maybeMakeRef; join_game
       this.hgClient = new HgClient(url, (hgClient) => {
-        onOpen(hgClient)
-        hgClient.wsbase.log = 0
-        hgClient.cgBase.log = 0
-        hgClient.log = 0
+        cgOpen(hgClient)
         hgClient.cgBase.send_join(group).then((ack: CgMessage) => {
           console.log(stime(this, `.network CgJoin(${group}) ack:`), 
             { success: ack.success, client_id: ack.client_id, hgCid: hgClient.client_id, hgClient, ack })
@@ -417,15 +418,17 @@ export class GamePlay extends GamePlay0 {
         })
       })
     }
-    let initRefClient = (url: string, onOpen: (hgClient: HgClient) => void) => {
-      this.hgClient = new HgReferee(undefined, ((refClient: HgReferee) => {
-        refClient.wsbase.log = 0
-        refClient.cgBase.log = 0
-        refClient.log = 1
-      })).joinGroup(url, group, onOpen) // explicit refClient
+    // explicit refClient
+    let initRefClient = () => {
+      let hgRef = this.hgClient = new HgReferee(undefined, () => { })
+      hgRef.joinGroup(url, group, (ggRef) => {
+        cgOpen(hgRef, 1)
+        paramGUI.selectValue("PlayerId", "ref")
+        hgRef.gamePlay = this
+      })
     }
     // client for GUI connection to GgServer:
-    (ref ? initRefClient : initPlyrClient).call(this, url, cgOpen)
+    ref ? initRefClient() : initPlyrClient()
   }
   closeNetwork() {
     let closeMe = (hgClient: HgClient) => { 
@@ -472,7 +475,6 @@ export class GamePlay extends GamePlay0 {
    */
   makeRefJoinGroup(url: string, group: string, onJoin: (ack: CgMessage) => void): HgReferee {
     let refgs = new GameSetup(null) // refgs.table has no Canvas
-    refgs.startup(refgs)            // get all the Cards/Decks from this.table [no ParamGUI]
     let ref = refgs.gamePlay.hgClient = new HgReferee(undefined) // No URL, no connectStack()
     let onOpen = (hgReferee: HgReferee) => {
       hgReferee.wsbase.log = 0
@@ -662,7 +664,8 @@ export class GamePlay extends GamePlay0 {
   playerMoveEvent(hev: HexEvent): void {
     let hgClient = this.hgClient
     let moveToGrp = () => {
-      let sc = hev.stoneColor, iHistory = this.iHistory
+      let sc = hev.stoneColor, imove: IMove = hev.hex.iMove(sc)
+      let iHistory = this.iHistory.concat(imove)
       let msg = new HgMessage({ type: HgType.sendMove, json: JSON.stringify({sc, iHistory}) })
       let opts = this.useReferee ? { client_id: 0, nocc: true } : { nocc: false}
       return hgClient.send_message(msg, opts) // CgServer will send it back to all of us
@@ -704,7 +707,7 @@ export class GamePlay extends GamePlay0 {
     TP.maxPlys = maxPlys
     TP.nPerDist = nPerDist
     TP.pBoards = pBoards
-    let gamePlay = GameSetup.setup.restart(mh, nh)  // NEW GamePlay: new LogWriter()
+    let gamePlay = this.gameSetup.restart(mh, nh)  // NEW GamePlay: new LogWriter()
     gamePlay.setRedoMovesFromLog(lineAry)
     //gamePlay.runGameFromLog(redoAry, 0, delay)
   }
