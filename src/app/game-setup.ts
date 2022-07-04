@@ -103,7 +103,7 @@ export class GameSetup {
     const gui = new ParamGUIP(TP, { textAlign: 'right'}, this.gamePlay)
     const schemeAry = TP.schemeNames.map(n => { return { text: n, value: TP[n] } })
     let nHex = (mh: number, nh: number) => { restart && this.restart.call(this, mh, nh) }
-    gui.makeParamSpec("log", [-1, 0, 1, 2], { style: { textAlign: 'right' }, target: TP }); TP.log
+    gui.makeParamSpec("log", [-1, 0, 1, 2], { style: { textAlign: 'right' } }); TP.log
     gui.makeParamSpec("mHexes", [2, 3, 4, 5, 6, 7, 8, 9, 10]) // TODO: limit nHexes for mH > 4
     gui.makeParamSpec("nHexes", [1, 2, 3, 4, 5, 6])
     gui.makeParamSpec("maxPlys", [1, 2, 3, 4, 5, 6, 7, 8]); TP.maxPlys
@@ -132,15 +132,15 @@ export class GameSetup {
     return [gui, gui2, gui3]
   }
   makeParamGUI2(table: Table, parent: Container, x: number, y: number) {
-    let gui = new ParamGUIP(table, { textAlign: 'center' }, this.gamePlay), infName = "inf:sui"
-    gui.makeParamSpec(infName, ['1:1', '1:0', '0:1', '0:0'], { name: infName })
-    gui.makeParamSpec("pWeight", [1, .99, .97, .95, .9], { target: TP }) ; TP.pWeight
-    gui.makeParamSpec("pWorker", [true, false], { target: TP }); TP.pWorker
-    gui.makeParamSpec("pPlaner", [true, false], { target: TP, name: "parallel" }); TP.pPlaner
-    gui.makeParamSpec("pBoards", [true, false], { target: TP }); TP.pBoards
-    gui.makeParamSpec("pMoves",  [true, false], { target: TP }); TP.pMoves
-    gui.makeParamSpec("pGCM",    [true, false], { target: TP }); TP.pGCM
-    gui.spec("inf:sui").onChange = (item: ParamItem) => {
+    let gui = new ParamGUIP(TP, { textAlign: 'center' }, this.gamePlay), infName = "inf:sui"
+    gui.makeParamSpec(infName, ['1:1', '1:0', '0:1', '0:0'], { name: infName, target: table })
+    gui.makeParamSpec("pWeight", [1, .99, .97, .95, .9]) ; TP.pWeight
+    gui.makeParamSpec("pWorker", [true, false]); TP.pWorker
+    gui.makeParamSpec("pPlaner", [true, false], { name: "parallel" }); TP.pPlaner
+    gui.makeParamSpec("pBoards", [true, false]); TP.pBoards
+    gui.makeParamSpec("pMoves",  [true, false]); TP.pMoves
+    gui.makeParamSpec("pGCM",    [true, false]); TP.pGCM
+    gui.spec(infName).onChange = (item: ParamItem) => {
       let v = item.value as string 
       table.showInf = v.startsWith('1')
       table.showSui = v.endsWith('1')

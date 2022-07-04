@@ -1,12 +1,12 @@
 import { AT, json } from "@thegraid/common-lib";
 import { KeyBinder, ParamGUI, S, stime, Undo } from "@thegraid/easeljs-lib";
 import { CgMessage, CLOSE_CODE } from "@thegraid/wspbclient";
-import { HgType } from "src/proto/HgProto";
+import { HgMessage, HgType } from "src/proto/HgProto";
 import { GameSetup } from "./game-setup";
 import { Hex, Hex2, HexMap, HSC, IHex, S_Resign } from "./hex";
 import { HexEvent } from "./hex-event";
 import { H } from "./hex-intfs";
-import { HgClient, HgReferee, newHgReferee } from "./HgClient";
+import { HgClient, HgReferee } from "./HgClient";
 import { IMove, Move } from "./move";
 import { Planner } from "./planner";
 import { Player } from "./player";
@@ -117,7 +117,28 @@ export class GamePlay0 {
       console.log(stime(this, `.readdStone: hex occupied: ${hex.stoneColor}, trying to [re-]addStone: ${stoneColor}`))
     this.addStone(hex, stoneColor) // ASSERT: produces no captures [Move(hex) did caps in prior turn]
   }
+  /** 
+   * undoStones(false); shiftMove()
+   */
+  unplaceStone() {
+    this.undoStones(false) 
+    this.shiftMove()
+  }
 
+  /** magically reset game to the given history[] */
+  syncHistory(newh: IMove[]) {
+    let ourh = this.history
+    this.undoRecs.closeUndo(); // pro-forma
+    // our extra moves cannot be useful [there has been some Undo on the mainGame]
+    while (ourh.length > newh.length) this.unplaceStone()
+    let m = 0    // number of Moves to retain on ours.history:
+    for (; newh.length-m-1 >= 0 && ourh.length-m-1 >= 0; m++) {
+      if (newh[newh.length-m-1].Aname != ourh[ourh.length-m-1].Aname) break // skip oldest moves common to both
+    }
+    while (ourh.length > m) this.unplaceStone() // undo our moves that are different
+    // apply otherPlayer and/or manual Moves; appy mainGame Moves in proper order:
+    return ourh
+  }
 
   /** remove captured Stones, from placing Stone on Hex */
   doPlayerMove(hex: Hex, stoneColor: StoneColor): StoneColor {
@@ -333,6 +354,7 @@ export class GamePlay extends GamePlay0 {
     this.allPlayers.forEach((p, index, players) => f(p, index, players));
   }
 
+  useReferee = false
   hgClient: HgClient
   /**
    * connect to CgServer(HgProto) for a network game.
@@ -356,8 +378,9 @@ export class GamePlay extends GamePlay0 {
           console.log(stime(this, ".network join_game_as_player: joined"), { name, player_id, msg })
           if (hgClient.isPlayer) {
             let player = this.allPlayers[player_id]
-            paramGUI.selectValue("PlayerId", player_id) // dubious... may need > 1 of these [multi-choice]
-            hgClient.player = player                // indicate isNetworked(player); ggClient.localPlayer += player
+            paramGUI.selectValue("PlayerId", player_id) // hgClient has 1 ea of: { Table, GamePlay, Player }
+            hgClient.player = player    // indicate isNetworked(player); ggClient.localPlayer += player
+            hgClient.gamePlay = this    // so non-Player (ref/observer) can access a hexMap
             this.setNextPlayer(player)  // ndx & putButtonOnPlayer
           }
         }, (reason) => {
@@ -395,7 +418,7 @@ export class GamePlay extends GamePlay0 {
       })
     }
     let initRefClient = (url: string, onOpen: (hgClient: HgClient) => void) => {
-      this.hgClient = newHgReferee(undefined, ((refClient: HgReferee) => {
+      this.hgClient = new HgReferee(undefined, ((refClient: HgReferee) => {
         refClient.wsbase.log = 0
         refClient.cgBase.log = 0
         refClient.log = 1
@@ -433,7 +456,7 @@ export class GamePlay extends GamePlay0 {
     let asReferee = (isReferee !== undefined) ? isReferee
       : (otherPlayer !== undefined) ? (hgc: HgClient) => { otherPlayer(hgc); return true } : true
     if (this.hgClient.client_id === 0) {
-      return typeof asReferee === 'function' ? asReferee(this.hgClient) : asReferee // hgClient is running as Referee
+      return (typeof asReferee === 'function') ? asReferee(this.hgClient) : asReferee // hgClient is running as Referee
     } else if (this.hgClient.player == this.curPlayer) {
       !!isCurPlayer && isCurPlayer(this.hgClient) // hgClient is running the curPlayer
     } else {
@@ -450,7 +473,7 @@ export class GamePlay extends GamePlay0 {
   makeRefJoinGroup(url: string, group: string, onJoin: (ack: CgMessage) => void): HgReferee {
     let refgs = new GameSetup(null) // refgs.table has no Canvas
     refgs.startup(refgs)            // get all the Cards/Decks from this.table [no ParamGUI]
-    let ref = refgs.gamePlay.hgClient = newHgReferee(undefined) // No URL, no connectStack()
+    let ref = refgs.gamePlay.hgClient = new HgReferee(undefined) // No URL, no connectStack()
     let onOpen = (hgReferee: HgReferee) => {
       hgReferee.wsbase.log = 0
       hgReferee.cgBase.log = 0
@@ -494,6 +517,7 @@ export class GamePlay extends GamePlay0 {
       this.table.hexMap.update()
     }, 400)
   }
+  /** undo and makeMove(incb=1) */
   makeMoveAgain(arg?: boolean, ev?: any) {
     if (this.curPlayer.plannerRunning) return
     this.undoMove()
@@ -554,11 +578,12 @@ export class GamePlay extends GamePlay0 {
     this.showRedoMark()
     this.hexMap.update()
   }
+  /** doTableMove(redoMoves[0]) */
   redoMove() {
     this.table.stopDragging() // drop on nextHex (no Move)
     let move = this.redoMoves[0]// addStoneEvent will .shift() it off
     if (!move) return
-    this.table.doTableMove({row: move.hex.row, col: move.hex.col, Aname: move.hex.Aname}, move.stoneColor)
+    this.table.doTableMove(move.hex, move.stoneColor)
     this.showRedoMark()
     this.hexMap.update()
   }
@@ -586,11 +611,11 @@ export class GamePlay extends GamePlay0 {
 
   skipMove() {
     this.table.stopDragging() // drop on nextHex (no Move)
-    this.addStoneEvent(new HexEvent(S.add, this.hexMap.skipHex, this.table.nextHex.stoneColor)) // dummy move for history & redos
+    this.playerMoveEvent(new HexEvent(S.add, this.hexMap.skipHex, this.table.nextHex.stoneColor)) // dummy move for history & redos
   }
   resignMove() {
     this.table.stopDragging() // drop on nextHex (no Move)
-    this.addStoneEvent(new HexEvent(S.add, this.hexMap.resignHex, this.table.nextHex.stoneColor)) // move Stone to table.resignHex
+    this.playerMoveEvent(new HexEvent(S.add, this.hexMap.resignHex, this.table.nextHex.stoneColor)) // move Stone to table.resignHex
   }
 
   /** unmarkCapture (& capMarks if Hex2), reset current capture to history[0] */
@@ -626,11 +651,42 @@ export class GamePlay extends GamePlay0 {
   }
 
   /** dropFunc indicating new Move attempt */
-  addStoneEvent(hev: HexEvent): void {
+  localMoveEvent(hev: HexEvent): void {
     let redo = this.redoMoves.shift()   // pop one Move, maybe pop them all:
     if (!!redo && redo.hex !== hev.hex) this.redoMoves.splice(0, this.redoMoves.length)
     this.doPlayerMove(hev.hex, hev.stoneColor)
     this.setNextPlayer()
+  }
+
+  /** local Player has moved, maybe send to network... then, localMoveEvent() */
+  playerMoveEvent(hev: HexEvent): void {
+    let hgClient = this.hgClient
+    let moveToGrp = () => {
+      let sc = hev.stoneColor, iHistory = this.iHistory
+      let msg = new HgMessage({ type: HgType.sendMove, json: JSON.stringify({sc, iHistory}) })
+      let opts = this.useReferee ? { client_id: 0, nocc: true } : { nocc: false}
+      return hgClient.send_message(msg, opts) // CgServer will send it back to all of us
+    }
+    let sendMove = (hgClient: HgClient) => {
+      if (this.useReferee) {
+        let pred = (msg: HgMessage) => (msg && msg.type == HgType.sendMove && msg.client_from == hgClient.client_id)
+        let moveMsg = (msg: HgMessage) => { return JSON.parse(msg.json) }
+        hgClient.sendAndReceive(moveToGrp, pred).then((msg) => this.remoteMoveEvent(moveMsg(msg)))
+      } else {
+        let rejectedMove = (rej: any) => {console.warn(stime(this, `.playerMoveEvent: rej Move`), rej)}
+        moveToGrp().then((ack) => this.localMoveEvent(hev), rejectedMove)
+      }
+    }
+    let notCurPlayer = () => { console.warn(stime(this, `.playerMoveEvent: not curPlayer`)) }
+    if (!this.isNetworked(sendMove, notCurPlayer, false)) {
+      this.localMoveEvent(hev)
+    }
+  }
+
+  remoteMoveEvent(moveMsg: {sc: StoneColor, iHistory: IMove[]}): void {
+    let { sc, iHistory } = moveMsg, move = iHistory[0], hex = Hex.ofMap(move.hex, this.hexMap)
+    this.syncHistory(iHistory)
+    this.localMoveEvent(new HexEvent(S.add, hex, sc))
   }
 
   readerBreak = false

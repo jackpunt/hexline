@@ -227,7 +227,7 @@ export class Table extends EventDispatcher  {
 
     this.makeMiniMap(this.scaleCont, -(200+TP.mHexes*TP.hexRad), 600+100*TP.mHexes)
 
-    this.on(S.add, this.gamePlay.addStoneEvent, this.gamePlay)[S.Aname] = "addStone"
+    this.on(S.add, this.gamePlay.playerMoveEvent, this.gamePlay)[S.Aname] = "playerMoveEvent"
   }
   startGame() {
     this.gamePlay.setNextPlayer(this.gamePlay.allPlayers[0])   // make a placeable Stone for Player[0]
@@ -402,7 +402,7 @@ export class Table extends EventDispatcher  {
     this.unmarkAllSuicide()
     let hex = Hex.ofMap(ihex, this.hexMap)
     this.hexMap.showMark(hex)
-    this.dispatchEvent(new HexEvent(S.add, hex, sc))
+    this.dispatchEvent(new HexEvent(S.add, hex, sc)) // -> GamePlay.playerMoveEvent(hex, sc)
   }
  
   /** default scaling-up value */

@@ -33,6 +33,7 @@ interface GamePlayDH extends GamePlayD {
   history: PlanMove[];
   newMove(hex: Hex, sc: StoneColor, caps: Hex[], gp: GamePlay0): PlanMove
 }
+
 /** 
  * After opponent's Move, where should curPlayer play? 
  * There are many available MOVES (we consider the top-ranked)
@@ -90,7 +91,7 @@ class State {
    * @param v0 value to stoneColor0 [lh == 0]
    * @param winAry gStats; for winAny = gameOver(...winAry) // winAry[0] == this.board
    */
-  constructor(public move: PlanMove, public color: StoneColor, v0: number, winAry: WINARY, public move1: PlanMove, copyof?: State) {
+  constructor(public readonly move: PlanMove, public readonly color: StoneColor, v0: number, winAry: WINARY, public move1: PlanMove, copyof?: State) {
     if (copyof) {
       for (let [key, val] of Object.entries(copyof)) this[key] = val
       this['copyof'] = copyof // same as this.move.state: the orig mutating State
@@ -98,7 +99,7 @@ class State {
         // when move is supplied, restore it. Also: inner fields are shared with 'copyof'
         this.move = move  // suitable when state is retrieved from boardState
       } else {
-        // a copyOf() non-mutation clone: make copies of inner Array/tuple/Record:
+        // a copyOf() non-mutating clone: make copies of inner Array/tuple/Record:
         this.copyStructs(this)
       }
     } else {
@@ -110,6 +111,7 @@ class State {
       this.winAry = winAry
     }
   }
+  /** copy some structs, so they are stable/snapshot in log */
   copyStructs(otherState: State) {
     // ASSERT: winAry is invariant, contents will not change
     this.moveAry = otherState.moveAry?.concat()
@@ -117,16 +119,14 @@ class State {
     otherState.bestHexState && this.setBestHexState(otherState.bestHexState, 1)
   }
   /** cloning constructor: a non-mutating copy of this State; suitable for console.log 
-   * this.move could still mutate, as does this.move.state
+   * 
+   * Internals of this.move could still mutate, as does this.move.state
    */
   copyOf(): State {
+    // Note: move=undefined -> use this.move and copyStructs()
     return new State(undefined, this.color, this.v0, this.winAry, this.move1, this)
   }
-  upState(move: PlanMove, color: StoneColor, value: number) {
-    this.move = move
-    this.color = color
-    this.setBestValue(value)
-  }
+
   sortMoves(sc: StoneColor = otherColor(this.color)) {
     this.moveAry.sort(([ha, sa], [hb, sb]) => sb.bestValue[sc] - sa.bestValue[sc]) // descending
   }
@@ -184,21 +184,9 @@ class State {
   }
 }
 
-/** TODO: get es2015 Iterable of Map.entries work... */
-function entriesArray(k: MOVES) {
-  let rv: HexState[] = []
-  for (let m of k) { rv.push(m) }
-  return rv
-}
-
 /**
  * Planner: eval-node: makeState, find children, for [each] child: eval-node
  */
-
-// remove Move from State; state.color should suffice (whose turn is it?)
-// presumably can check history[0] to find "the move that got us here"
-// but this way when a State is achieved by different means, we can use it.
-// Note... board identity requires that [caps] are also the same; but not last-move
 export class SubPlanner implements IPlanner {
   roboRun = true  // set to FALSE to break the search.
   /** enable Planner to continue searching */
@@ -345,7 +333,7 @@ export class SubPlanner implements IPlanner {
     this.showProgress({b: 0, tsec: 0, tn: 1})
     return mhex
   }
-  /** do move from main.history: translate hex */
+  /** do move from main.history: re-build State Tree */
   doHistoryMove(moveg: IMove) {
     let move1 = this.gamePlay.history[0]
     let hex0 = Hex.ofMap(moveg.hex, this.gamePlay.hexMap)
@@ -386,10 +374,11 @@ export class SubPlanner implements IPlanner {
     return move0
   }
   /** 
-   * @param move if supplied delete move.board.id from allBoards [obsolete]
+   * closeUndo(); undoStones(false) OR restoreUndo()
    * @param popUndo if true: pop all the current undoRecs; pop back to previous undoRecs
    */
-  unplaceStone(move?: Move, popUndo = false) {
+  unplaceStone(popUndo = false) {
+    //this.gamePlay.unplaceStone(popUndo)
     let gamePlay = this.gamePlay          // undoRecs, shiftMove
     let undo = gamePlay.undoRecs.closeUndo()
     if (popUndo) { 
@@ -399,16 +388,24 @@ export class SubPlanner implements IPlanner {
     }
     gamePlay.shiftMove()
   }
+  // syncHistory(main: IMove[]) {
+  //   let ours = this.gamePlay.history
+  //   // our extra moves cannot be useful [there has been some Undo on the mainGame]
+  //   while (ours.length > main.length) this.unplaceStone()
+  //   let m = 0    // number of Moves to retain on ours.history:
+  //   for (; main.length-m-1 >= 0 && ours.length-m-1 >= 0; m++) {
+  //     if (main[main.length-m-1].Aname != ours[ours.length-m-1].Aname) break // skip oldest moves common to both
+  //   }
+  //   while (ours.length > m) this.gamePlay.unplaceStone() // undo our moves that are different
+  //   // apply otherPlayer and/or manual Moves; appy mainGame Moves in proper order:
+  //   while (main.length > ours.length) {
+  //     this.doHistoryMove(main[main.length - ours.length - 1])
+  //   }
+  //   this.moveNumber = ours.length + 1 // iHistory.length + 1
+  //   if (!this.sxInfo && this.moveNumber > 1) this.sxInfo = new SxInfo(this.gamePlay)
+  // }
   syncToGame(main: IMove[]) {
-    let ours = this.gamePlay.history
-    // our extra moves cannot be useful [there has been some Undo on the mainGame]
-    while (ours.length > main.length) this.unplaceStone(ours[0])
-    let m = 0    // number of Moves to retain on ours.history:
-    for (; main.length-m-1 >= 0 && ours.length-m-1 >= 0; m++) {
-      if (main[main.length-m-1].Aname != ours[ours.length-m-1].Aname) break // skip oldest moves common to both
-    }
-    while (ours.length > m) this.unplaceStone(ours[0]) // undo our moves that are different
-    // apply otherPlayer and/or manual Moves; appy mainGame Moves in proper order:
+    let ours = this.gamePlay.syncHistory(main)
     while (main.length > ours.length) {
       this.doHistoryMove(main[main.length - ours.length - 1])
     }
@@ -699,7 +696,7 @@ export class SubPlanner implements IPlanner {
       let bestHexState = await this.lookaheadInDepth(state1, otherColor(sc), nPlys)
       this.logEvalMove(`.evalMoveInDepth`, state1, nPlys, win, bestHexState[1])
     }
-    this.unplaceStone(move, true)
+    this.unplaceStone(true)
     return [hex, state1]
   }
 
@@ -756,7 +753,7 @@ export class SubPlanner implements IPlanner {
       let bestHexState = this.lookaheadShallow(state1, otherColor(sc), nPlys)
       this.logEvalMove(`.evalMoveShallow`, state1, nPlys, win, bestHexState[1])
     }
-    this.unplaceStone(move, true)
+    this.unplaceStone(true)
     return [hex, state1]
   }
 
@@ -961,7 +958,7 @@ export class Planner extends SubPlanner {
     return state0.bestHexState
   }
 }
-/** used by GamePlay to log GUI moves */
+/** used by GamePlay to log GUI moves: { doLocalMove(); unplaceStone; logMove0 } */
 export class TablePlanner extends SubPlanner {
   constructor(gamePlay: GamePlay) {
     super(gamePlay.hexMap.mh, gamePlay.hexMap.nh, 0, gamePlay.logWriter)
@@ -970,10 +967,11 @@ export class TablePlanner extends SubPlanner {
   moveHex: Hex
   doMove(hex: IHex, color: StoneColor, iHistory: IMove[]) {
     this.moveHex = Hex.ofMap(hex, this.gamePlay.hexMap)
-    return this.makeMove(color, iHistory)
+    return this.makeMove(color, iHistory) // with Promise.fulfill(hex)
     // makeMove -> lookaheadTop -> placeHexAndLog -> then(finishMove(hexState))
     // fillIhex(hex) -> ihexPromise.fulfill(ihex) -> then(table.moveStoneToHex) -> gamePlay.addStoneEvent
   }
+  /** Whether firstMove or lookaheadTop -> do the given Move via doLocalMove(hex, color) */
   placeHexAndLog(state0: State, color: StoneColor): HexState {
     let hex = this.moveHex
     let [move, state1] = this.doLocalMove(hex, color) // attempt & evaluate the given hex
