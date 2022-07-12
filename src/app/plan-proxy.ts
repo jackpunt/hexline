@@ -1,12 +1,11 @@
 import { AT, json, stime } from "@thegraid/common-lib";
-import { HexMaps, IHex } from "./hex";
+import { EzPromise } from "@thegraid/ezpromise"; // for FlowControl
+import { Progress } from "./game-play";
+import { HexMap, IHex } from "./hex";
 import { IMove } from "./move";
 import { Planner } from "./planner";
 import { ILogWriter } from "./stream-writer";
 import { StoneColor, stoneColors, TP } from "./table-params";
-
-import { EzPromise } from "@thegraid/ezpromise"; // for FlowControl
-import { Progress } from "./game-play";
 
 export type ParamSet = [string, string, MsgSimple]   // targetName, fieldName, value
 export type MsgSimple = string | number | boolean
@@ -81,7 +80,7 @@ export class MK {
  * @param index player.index [0 -> 'b', 1 -> 'w']
  * @returns Planner or PlannerProxy 
  */
-export function newPlanner(hexMap: HexMaps, index: number, logWriter: ILogWriter): IPlanner {
+export function newPlanner(hexMap: HexMap, index: number, logWriter: ILogWriter): IPlanner {
   let planner = TP.pWorker
     ? new PlannerProxy(hexMap.mh, hexMap.nh, index, logWriter)    // -> Remote Planner [no Parallel]
     : new Planner(hexMap.mh, hexMap.nh, index, logWriter) // -> Local ParallelPlanner *or* Planner
@@ -195,7 +194,7 @@ export class PlannerProxy implements IPlanner, IPlanReply {
   newDone(args: MsgArgs[]) { }
   // reply to makeMove
   sendMove(ihex: IHex) {
-      this.ll0 && console.log(stime(this, `.${MK.sendMove}:`), ihex)
+    this.ll0 && console.log(stime(this, `.${MK.sendMove}:`), ihex)
     this.movePromise.fulfill(ihex)
   }
   /** writeLine from Worker */
@@ -218,91 +217,5 @@ export class PlannerProxy implements IPlanner, IPlanReply {
     let data = {verb, args}
     this.ll0 && console.log(stime(this, `(${this.colorn}#${this.id})${ident} Post:`), {verb: data.verb}, data.args)
     this.worker.postMessage(data)
-  }
-}
-
-//// We think we need to manage the messages round-trip; so we don't overdrive the client.
-//// currently: only happens for newPlanner->initiate; because plannerMove has plannerRunning = true
-//// CityMap contributes sendAndRecv() which it uses to handle similar init/join situation.
-/* 
-cmClient.sendAndReceive(() => cmClient.send_join(name), (msg) => {
-        return msg.type == CmType.join && msg.name == name
-      }).then(replyMsg => {...})
-*/
-
-//// wspbclient.CgBase has the code for queueing promiseOfAck
-//// message.expectsAck && !this.ack_resolved
-
-declare type DataBuf<T> = Uint8Array;
-class CgMessage {
-  success: boolean
-  cause: string
-  cgType: string
-  expectsAck(): boolean { return true}
-}
-class CmMessage  { 
-  static deserialize(ev: DataBuf<CmMessage>) {
-    return new CmMessage()
-  }
-}
-export declare class AckPromise extends EzPromise<CgMessage> {
-  message: CgMessage;
-  constructor(message: CgMessage, def?: (fil: (value: CgMessage | PromiseLike<CgMessage>) => void, rej: (reason?: any) => void) => void);
-}
-type EventSource = {
-  removeEventListener(type: string, callback: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void
-  addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void
-}
-class FlowControl {
-  eventSource: EventSource
-  // this may be tricky... need to block non-ack from any client with outstanding ack
-  // (send them an immediate nak) in CgServerDriver
-  /** 
-   * Promise for last outbound message that expects an Ack.
-   * private, but .resolved and .message are accessible:  
-   */
-   private promise_of_ack: AckPromise = new AckPromise(new CgMessage()).fulfill(null);
-   get ack_promise(): AckPromise { return this.promise_of_ack } // read-only for debugging CgServerDriver
-   /** true if last outbound request has been Ack'd */
-   get ack_resolved(): boolean { return this.promise_of_ack.resolved }
-   get ack_message(): CgMessage { return this.promise_of_ack.message }
-   get ack_message_type(): string { return this.promise_of_ack.message.cgType }
-  sendToSocket(message: CgMessage, ackPromise: AckPromise = new AckPromise(message)): AckPromise {
-    if ((message.expectsAck() && !this.ack_resolved)) {
-      // queue this message for sending when current message is ack'd:
-      //this.log && console.log(stime(this, `.sendToSocket[${this.client_id}] defer=`), { msgStr: this.innerMessageString(message), resolved: this.ack_resolved })
-      this.ack_promise.then((ack) => {
-        //this.log && console.log(stime(this, `.sendToSocket[${this.client_id}] refer=`), { msgStr: this.innerMessageString(ack) })
-        this.sendToSocket(message, ackPromise) //.then((ack) => ackPromise.fulfill(ack))
-      })
-      return ackPromise  // with message un-sent
-    }
-    return undefined
-  }
-  /** 
-   * Send CmMessage, get Ack, then wait for a CmMessage that matches predicate.
-   * @return promise to be fulfill'd by first message matching predicate.
-   * @param sendMessage function [thunk] to send a message and return an AckPromise
-   * @param pred a predicate to recognise the CmMessage response (and fullfil promise)
-   */
-   sendAndReceive(sendMessage: () => AckPromise, pred: (msg: CmMessage) => boolean = (msg: CmMessage): boolean => true): EzPromise<CmMessage> {
-    let listenForCmReply =  (ev: MessageEvent<DataBuf<CmMessage>>) => {
-      let cmm = CmMessage.deserialize(ev.data)
-      if (pred(cmm)) {
-        console.log(stime(this, ".listenForCmReply: fulfill="), cmm)
-        this.eventSource.removeEventListener('message', listenForCmReply)
-        cmPromise.fulfill(cmm)
-      }
-    }
-    let cmPromise = new EzPromise<CmMessage>()
-    this.eventSource.addEventListener('message', listenForCmReply)
-    let ackPromise = sendMessage()
-    ackPromise.then((ack) => {
-      if (!ack.success) { 
-        this.eventSource.removeEventListener('message', listenForCmReply)
-        cmPromise.reject(ack.cause) 
-      }
-    })
-    return cmPromise
   }
 }

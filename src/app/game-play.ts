@@ -1,7 +1,7 @@
 import { AT, json } from "@thegraid/common-lib";
 import { KeyBinder, ParamGUI, S, stime, Undo } from "@thegraid/easeljs-lib";
-import { CgMessage, CLOSE_CODE } from "@thegraid/wspbclient";
-import { HgMessage, HgType } from "src/proto/HgProto";
+import { CgMessage, CLOSE_CODE, GgClient } from "@thegraid/wspbclient";
+import { HgMessage, HgType } from "./HgMessage";
 import { GameSetup } from "./game-setup";
 import { Hex, Hex2, HexMap, HSC, IHex, S_Resign } from "./hex";
 import { HexEvent } from "./hex-event";
@@ -30,6 +30,9 @@ export class GamePlay0 {
   readonly allBoards = new BoardRegister()
   readonly gStats: GameStats       // 'readonly' (set once by clone constructor)
   get iHistory() { return this.history.map(move => move.toIMove) }
+
+  turnNumber: number = 0    // = history.lenth + 1 [by this.setNextPlayer] 
+  curPlayerNdx: number = 0
   
   newMoveFunc: (hex: Hex, sc: StoneColor, caps: Hex[], gp: GamePlay0) => Move 
   newMove(hex: Hex, sc: StoneColor, caps: Hex[], gp: GamePlay0) {
@@ -254,7 +257,7 @@ export class GamePlay0 {
   }
 }
 
-/** GamePlayD is compatible 'copy' with original, but does not share components */
+/** GamePlayD has compatible hexMap(mh, nh) but does not share components */
 export class GamePlayD extends GamePlay0 {
   //override hexMap: HexMaps = new HexMap();
   constructor(mh: number, nh: number) {
@@ -291,13 +294,14 @@ export class GamePlay extends GamePlay0 {
       maxPlys: TP.maxPlys, nPerDist: TP.nPerDist, pBoards: TP.pBoards, pMoves: TP.pMoves, pWeight: TP.pWeight}
     let line0 = json(line, false)
     let logFile = `log${size}_${time}`
-    console.log(stime(this, `.startup: -------------- New Game: ${line0} --------------`))
+    console.log(stime(this, `.constructor: -------------- ${line0} --------------`))
     this.logWriter = new ProgressLogWriter(logFile)
     this.logWriter.writeLine(line0)
     this.logWriter.onProgress = (progress) =>{ 
       this.table.progressMarker[this.curPlayer.color].update(progress)
     }
-    this.allPlayers = stoneColors.map((color, ndx) => new Player(ndx, color, table))
+    // Create and Inject all the Players:
+    stoneColors.forEach((color, ndx) => this.allPlayers[ndx] = new Player(ndx, color, table))
     // setTable(table)
     this.table = table
     this.gStats = new TableStats(this, table) // reset gStats AFTER allPlayers are defined so can set pStats
@@ -337,14 +341,16 @@ export class GamePlay extends GamePlay0 {
     KeyBinder.keyBinder.setKey('M-l', { thisArg: this.logWriter, func: () => { this.logWriter.closeFile() } }) // void vs Promise<void>
     KeyBinder.keyBinder.setKey('C-l', { thisArg: this, func: () => { this.readGameFile() } }) // void vs Promise<void>
     KeyBinder.keyBinder.setKey('w', { thisArg: this, func: () => { this.gStats.showWinText() } })
+
+    KeyBinder.keyBinder.setKey('M-r', { thisArg: this, func: () => { this.gameSetup.netState = "ref" } })
+    KeyBinder.keyBinder.setKey('M-c', { thisArg: this, func: () => { this.gameSetup.netState = "yes" } })
+    KeyBinder.keyBinder.setKey('M-d', { thisArg: this, func: () => { this.gameSetup.netState = "no" } })
     table.undoShape.on(S.click, () => this.undoMove(), this)
     table.redoShape.on(S.click, () => this.redoMove(), this)
     table.skipShape.on(S.click, () => this.skipMove(), this)
   }
 
-  turnNumber: number = 0    // = history.lenth + 1 [by this.setNextPlayer] 
-
-  readonly allPlayers: Player[];
+  readonly allPlayers: Player[] = [];
   curPlayer: Player;
   getPlayer(color: StoneColor): Player {
     return this.allPlayers.find(p => p.color == color)
@@ -372,7 +378,7 @@ export class GamePlay extends GamePlay0 {
       // send join_game request to Referee {client_id: 0}; handle the subsequent join message
       let hgJoinP = hgClient.sendAndReceive(() => hgClient.send_join(name),
         // predicate: indicating join by player/name 
-        (msg) => (msg && msg.type == HgType.join && msg.name == name))
+        (msg) => (msg && msg.type == HgType.hg_join && msg.name == name))
       hgJoinP.then(
         // like a 'once' Listener; in addition to CgClient.eval_join:
         (msg) => {
@@ -380,10 +386,10 @@ export class GamePlay extends GamePlay0 {
           console.log(stime(this, ".network join_game_as_player: joined"), { name, player_id, msg })
           hgClient.gamePlay = this    // so non-Player (ref/observer) can access a hexMap
           if (hgClient.isPlayer) {
-            let player = this.allPlayers[player_id]
+            let player = this.allPlayers[player_id], player0 = this.allPlayers[0]
             paramGUI.selectValue("PlayerId", player_id) // hgClient has 1 ea of: { Table, GamePlay, Player }
             hgClient.player = player    // indicate isNetworked(player); ggClient.localPlayer += player
-            this.setNextPlayer(player)  // ndx & putButtonOnPlayer
+            //this.table.startGame()    // ndx & putButtonOnPlayer [can we re-join a game in progress?]
           }
         }, (reason) => {
           console.warn(stime(this, `.join_game_as_player: join failed:`), reason)
@@ -392,19 +398,24 @@ export class GamePlay extends GamePlay0 {
     // onOpen: attach player to this.table & GUI [also for standalone Referee]
     let cgOpen = (hgClient: HgClient, lld2 = 0, lld1 = 0, lld0 = 0) => {
       hgClient.log = lld2
-      hgClient.cgBase.log = lld1
+      hgClient.cgbase.log = lld1
       hgClient.wsbase.log = lld0
-      paramGUI.selectValue("Network", ref ? "ref" : "cnx")
+      this.gameSetup.netState = (ref ? "ref" : "cnx")
       hgClient.addEventListener('close', (ev: CloseEvent) => {
-        paramGUI.selectValue("Network", " ")
-        paramGUI.selectValue("PlayerId", " ")
+        console.log(stime(this, `.cgOpen: hgClient closed`), hgClient)
+        if (hgClient == this.gameSetup.gamePlay?.hgClient) {
+          this.gameSetup.netState = " "
+          this.gameSetup.playerId = " "
+        } else {
+          console.log(stime(this, `.cgOpen: old hgClient closed`), hgClient)
+        }
       })
     }
     let initPlyrClient = () => {
       // connectStack; then onOpen(hgClient); maybeMakeRef; join_game
       this.hgClient = new HgClient(url, (hgClient) => {
-        cgOpen(hgClient)
-        hgClient.cgBase.send_join(group).then((ack: CgMessage) => {
+        cgOpen(hgClient, 1)
+        hgClient.cgbase.send_join(group).then((ack: CgMessage) => {
           console.log(stime(this, `.network CgJoin(${group}) ack:`), 
             { success: ack.success, client_id: ack.client_id, hgCid: hgClient.client_id, hgClient, ack })
           if (!ack.success) return        // did not join Client-Group!
@@ -420,19 +431,21 @@ export class GamePlay extends GamePlay0 {
     }
     // explicit refClient
     let initRefClient = () => {
-      let hgRef = this.hgClient = new HgReferee(undefined, () => { })
+      let hgRef = this.hgClient = new HgReferee() // do not connect, do not open
       hgRef.joinGroup(url, group, (ggRef) => {
-        cgOpen(hgRef, 1)
-        paramGUI.selectValue("PlayerId", "ref")
+        cgOpen(hgRef, 1, 1, 1)
+        this.gameSetup.playerId = "ref"
         hgRef.gamePlay = this
       })
     }
     // client for GUI connection to GgServer:
     ref ? initRefClient() : initPlyrClient()
   }
-  closeNetwork() {
+  closeNetwork(reason = 'GUI -> no') {
     let closeMe = (hgClient: HgClient) => { 
-      hgClient.closeStream(CLOSE_CODE.NormalClosure, "GUI -> no")
+      // let CgServerDriver do this; anyway: we're not waiting for the Ack/Nak
+      // hgClient.cgBase.send_leave(TP.networkGroup, hgClient.client_id, reason)
+      hgClient.closeStream(CLOSE_CODE.NormalClosure, reason)
     }
     this.isNetworked(closeMe, true)
   }
@@ -453,14 +466,14 @@ export class GamePlay extends GamePlay0 {
   isNetworked(isCurPlayer?: (hgClient?: HgClient) => void,
     notCurPlayer?: true | ((hgClient?: HgClient) => void), 
     isReferee?: false | ((refClient?: HgClient) => boolean)): boolean {
-    if (!this.hgClient?.isOpen) return false    // running in standalone browser mode
+    if (!this.hgClient?.wsOpen) return false    // running in standalone browser mode
     // if isReferee is not supplied: use otherPlayer(); but return true
     let otherPlayer = (notCurPlayer === true) ? isCurPlayer : notCurPlayer // can be undefined
     let asReferee = (isReferee !== undefined) ? isReferee
       : (otherPlayer !== undefined) ? (hgc: HgClient) => { otherPlayer(hgc); return true } : true
     if (this.hgClient.client_id === 0) {
       return (typeof asReferee === 'function') ? asReferee(this.hgClient) : asReferee // hgClient is running as Referee
-    } else if (this.hgClient.player == this.curPlayer) {
+    } else if (this.hgClient.player_id == this.curPlayerNdx) {
       !!isCurPlayer && isCurPlayer(this.hgClient) // hgClient is running the curPlayer
     } else {
       !!otherPlayer && otherPlayer(this.hgClient) // hgClient is not running curPlayer
@@ -475,12 +488,12 @@ export class GamePlay extends GamePlay0 {
    */
   makeRefJoinGroup(url: string, group: string, onJoin: (ack: CgMessage) => void): HgReferee {
     let refgs = new GameSetup(null) // refgs.table has no Canvas
-    let ref = refgs.gamePlay.hgClient = new HgReferee(undefined) // No URL, no connectStack()
-    let onOpen = (hgReferee: HgReferee) => {
+    let onOpen = (hgReferee: GgClient<HgMessage>) => {
       hgReferee.wsbase.log = 0
-      hgReferee.cgBase.log = 0
+      hgReferee.cgbase.log = 0
       console.log(stime(hgReferee, `.onOpen: now join_game_as_player(0)`))
     }
+    let ref = refgs.gamePlay.hgClient = new HgReferee() // No URL, CgBase2
     return ref.joinGroup(url, group, onOpen, onJoin);
   }
 
@@ -537,6 +550,7 @@ export class GamePlay extends GamePlay0 {
     let sc = this.table.nextHex.stone?.color
     if (!sc) debugger;
     let player = (this.turnNumber > 1) ? this.curPlayer : this.otherPlayer(this.curPlayer)
+    //let player = this.curPlayer
     if (this.runRedo) {
       this.waitPaused(player, `.makeMove(runRedo)`).then(() => setTimeout(() => this.redoMove(), 10))
       return
@@ -641,14 +655,18 @@ export class GamePlay extends GamePlay0 {
     }
     return win
   }
-  setNextPlayer0(plyr = this.otherPlayer()): Player {
+  // TODO: use setNextPlayerNdx() and include in GamePlay0 ?
+  setNextPlayer0(plyr: Player): Player {
     this.turnNumber = this.history.length + 1
-    return this.curPlayer = plyr
-  }
-  setNextPlayer(plyr = this.otherPlayer()) {
+    this.curPlayerNdx = plyr.index
     this.curPlayer = plyr
-    this.turnNumber = this.history.length + 1
+    return plyr
+  }
+  setNextPlayer(plyr = (this.turnNumber == 1) ? this.curPlayer : this.otherPlayer()) {
+    //if (this.turnNumber == 1 && plyr.index == 1) this.curPlayer = this.allPlayers[1]
+    this.setNextPlayer0(plyr)
     this.table.showNextPlayer() // get to nextPlayer, waitPaused when Player tries to make a move.?
+    if (this.turnNumber == 1) this.curPlayer = this.allPlayers[1]
     this.makeMove()
   }
 
@@ -658,6 +676,13 @@ export class GamePlay extends GamePlay0 {
     if (!!redo && redo.hex !== hev.hex) this.redoMoves.splice(0, this.redoMoves.length)
     this.doPlayerMove(hev.hex, hev.stoneColor)
     this.setNextPlayer()
+    let msg: HgMessage;
+    if (this.isNetworked((hgc) => {
+      msg = new HgMessage({ type: HgType.hg_next }) // TODO: move back inside isCurPlayer()
+      hgc.send_message(msg, { client_id: undefined, nocc: true }) // no referee, no echo
+    }, undefined, undefined)) {
+      console.log(stime(this, `.localMoveEvent: send_message(next)`), msg)
+    }
   }
 
   /** local Player has moved, maybe send to network... then, localMoveEvent() */
@@ -666,13 +691,13 @@ export class GamePlay extends GamePlay0 {
     let moveToGrp = () => {
       let sc = hev.stoneColor, imove: IMove = hev.hex.iMove(sc)
       let iHistory = this.iHistory.concat(imove)
-      let msg = new HgMessage({ type: HgType.sendMove, json: JSON.stringify({sc, iHistory}) })
+      let msg = new HgMessage({ type: HgType.hg_sendMove, json: JSON.stringify({sc, iHistory}) })
       let opts = this.useReferee ? { client_id: 0, nocc: true } : { nocc: false}
       return hgClient.send_message(msg, opts) // CgServer will send it back to all of us
     }
     let sendMove = (hgClient: HgClient) => {
       if (this.useReferee) {
-        let pred = (msg: HgMessage) => (msg && msg.type == HgType.sendMove && msg.client_from == hgClient.client_id)
+        let pred = (msg: HgMessage) => (msg && msg.type == HgType.hg_sendMove && msg.client_from == hgClient.client_id)
         let moveMsg = (msg: HgMessage) => { return JSON.parse(msg.json) }
         hgClient.sendAndReceive(moveToGrp, pred).then((msg) => this.remoteMoveEvent(moveMsg(msg)))
       } else {
@@ -680,7 +705,9 @@ export class GamePlay extends GamePlay0 {
         moveToGrp().then((ack) => this.localMoveEvent(hev), rejectedMove)
       }
     }
-    let notCurPlayer = () => { console.warn(stime(this, `.playerMoveEvent: not curPlayer`)) }
+    let notCurPlayer = () => { 
+      console.warn(stime(this, `.playerMoveEvent: not curPlayer ${this.curPlayerNdx}`))
+    }
     if (!this.isNetworked(sendMove, notCurPlayer, false)) {
       this.localMoveEvent(hev)
     }

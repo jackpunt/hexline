@@ -1,13 +1,13 @@
-import { Stage, EventDispatcher, Container, Shape, Text, DisplayObject, MouseEvent, Graphics } from "@thegraid/easeljs-module";
-import { F, S, stime, Dragger, DragInfo, KeyBinder, ScaleableContainer, XY, C, WH, AT } from "@thegraid/easeljs-lib"
+import { AT, C, Dragger, DragInfo, F, KeyBinder, S, ScaleableContainer, stime, XY } from "@thegraid/easeljs-lib";
+import { Container, DisplayObject, EventDispatcher, Graphics, MouseEvent, Shape, Stage, Text } from "@thegraid/easeljs-module";
 import { GamePlay, Progress } from "./game-play";
-import { Player } from "./player"
-import { Hex, Hex2, HexMap, IHex, } from "./hex";
+import { Hex, Hex2, HexMap, IHex } from "./hex";
 import { HexEvent } from "./hex-event";
-import { StatsPanel } from "./stats";
-import { TP, StoneColor, otherColor, stoneColor0, stoneColor1, StoneColorRecord, stoneColorRecord, stoneColorRecordF } from "./table-params";
 import { H, XYWH } from "./hex-intfs";
 import { TablePlanner } from "./planner";
+import { Player } from "./player";
+import { StatsPanel } from "./stats";
+import { otherColor, StoneColor, stoneColor0, stoneColor1, StoneColorRecord, stoneColorRecord, stoneColorRecordF, TP } from "./table-params";
 
 
 /**
@@ -189,25 +189,25 @@ export class Table extends EventDispatcher  {
 
   layoutTable(gamePlay: GamePlay) {
     this.gamePlay = gamePlay
-    this.hexMap = gamePlay.hexMap as HexMap
+    let hexMap = this.hexMap = gamePlay.hexMap
 
-    this.hexMap.addToCont().initInfluence()
-    this.hexMap.makeAllDistricts(TP.mHexes, TP.nHexes) // typically: 3,3 or 2,4
+    hexMap.addToCont().initInfluence()
+    hexMap.makeAllDistricts(TP.mHexes, TP.nHexes) // typically: 3,3 or 2,4
 
-    let mapCont = this.hexMap.mapCont;
+    let mapCont = hexMap.mapCont;
     this.scaleCont.addChild(mapCont)
 
-    let hexRect = this.hexMap.mapCont.hexCont.getBounds()
+    let hexRect = hexMap.mapCont.hexCont.getBounds()
     // background sized for hexMap:
-    let high = this.hexMap.height, wide = this.hexMap.width // h=rad*1.5; w=rad*r(3)
+    let high = hexMap.height, wide = hexMap.width // h=rad*1.5; w=rad*r(3)
     let miny = hexRect.y - high, minx = hexRect.x - wide
-    let { width, height } = this.hexMap.wh
+    let { width, height } = hexMap.wh
     let bgr: XYWH = { x: 0, y: 0, w: width, h: height + high}
     // align center of mapCont(0,0) == hexMap(center) with center of background
     mapCont.x = (bgr.w) / 2
     mapCont.y = (bgr.h) / 2
 
-    this.nextHex = new Hex2(this.hexMap, undefined, undefined, 'nextHex')
+    this.nextHex = new Hex2(hexMap, undefined, undefined, 'nextHex')
     this.nextHex.cont.scaleX = this.nextHex.cont.scaleY = 2
     this.nextHex.x = minx + 2 * wide; this.nextHex.y = miny + 1.4 * high;
     // tweak when hexMap is tiny:
@@ -216,20 +216,22 @@ export class Table extends EventDispatcher  {
     this.nextHex.x = Math.round(this.nextHex.x); this.nextHex.y = Math.round(this.nextHex.y)
     this.undoCont.x = this.nextHex.x
     this.undoCont.y = this.nextHex.y + 100
-    this.hexMap.mapCont.markCont.addChild(this.undoCont)
+    hexMap.mapCont.markCont.addChild(this.undoCont)
     this.progressMarker = stoneColorRecordF((sc) => ProgressMarker.make(sc, this.undoCont))
 
     this.bgRect = this.setBackground(this.scaleCont, bgr) // bounded by bgr
-    let p00 = this.scaleCont.localToLocal(0, 0, this.hexMap.mapCont.hexCont) 
-    let pbr = this.scaleCont.localToLocal(bgr.w, bgr.h, this.hexMap.mapCont.hexCont)
-    this.hexMap.mapCont.hexCont.cache(p00.x, p00.y, pbr.x-p00.x, pbr.y-p00.y) // cache hexCont (bounded by bgr)
+    let p00 = this.scaleCont.localToLocal(0, 0, hexMap.mapCont.hexCont) 
+    let pbr = this.scaleCont.localToLocal(bgr.w, bgr.h, hexMap.mapCont.hexCont)
+    hexMap.mapCont.hexCont.cache(p00.x, p00.y, pbr.x-p00.x, pbr.y-p00.y) // cache hexCont (bounded by bgr)
     this.setupUndoButtons(55, 60, 45, bgr)
 
     this.makeMiniMap(this.scaleCont, -(200+TP.mHexes*TP.hexRad), 600+100*TP.mHexes)
 
     this.on(S.add, this.gamePlay.playerMoveEvent, this.gamePlay)[S.Aname] = "playerMoveEvent"
   }
+  
   startGame() {
+    // NextPlayer is BLACK, but gamePlay will set curPlayer = WHITE
     this.gamePlay.setNextPlayer(this.gamePlay.allPlayers[0])   // make a placeable Stone for Player[0]
   }
   logCurPlayer(curPlayer: Player) {
@@ -256,8 +258,10 @@ export class Table extends EventDispatcher  {
     this.hexMap.update()
   }
   showNextStone(player: Player) {
+    let color = player.color
+    //if (this.gamePlay.turnNumber == 1) color = otherColor(color)
     this.nextHex.clearColor()           // remove prior Stone from the game [thank you for your service]
-    this.nextHex.setColor(player.color) // make a Stone to drag
+    this.nextHex.setColor(color)        // make a Stone to drag
     let stone = this.nextHex.stone
     stone[S.Aname] = `nextHex:${this.gamePlay.turnNumber}`
     this.dragger.makeDragable(stone, this, this.dragFunc, this.dropFunc)
@@ -392,8 +396,8 @@ export class Table extends EventDispatcher  {
    * All manual moves feed through this (drop & redo)
    * TablePlanner.logMove(); then dispatchEvent() --> gamePlay.doPlayerMove() 
    */
-  doTableMove(ihex: IHex, sc = this.gamePlay.curPlayer.color) {
-    if (sc != this.gamePlay.curPlayer.color) debugger;
+  doTableMove(ihex: IHex, sc = this.nextHex.stone.color) {
+    if (sc != this.nextHex.stone.color) debugger;
     let iHistory = this.gamePlay.iHistory
     this.tablePlanner.doMove(ihex, sc, iHistory).then(ihex => this.moveStoneToHex(ihex, sc))
   }

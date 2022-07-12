@@ -1,5 +1,5 @@
 import { Container, Stage } from "@thegraid/easeljs-module";
-import { stime, makeStage, S } from "@thegraid/easeljs-lib";
+import { stime, makeStage, S, DropdownStyle } from "@thegraid/easeljs-lib";
 import { ParamGUI, ParamItem} from '@thegraid/easeljs-lib' // './ParamGUI' //
 import { GamePlay } from "./game-play";
 import { StatsPanel, TableStats } from "./stats";
@@ -20,6 +20,7 @@ export class GameSetup {
   stage: Stage;
   gamePlay: GamePlay
   paramGUIs: ParamGUI[]
+  netGUI: ParamGUI
 
   /** @param canvasId supply undefined for 'headless' Stage */
   constructor(canvasId: string, ext?: string[]) {
@@ -32,9 +33,19 @@ export class GameSetup {
     }
     this.startup(ext)
   }
+  _netState = " " // or "yes" or "ref"
+  set netState(val: string) { 
+    this._netState = (val == "cnx") ? "yes" : val
+    console.log(stime(this, `.netState('${val}')->'${this._netState}'`))
+    this.netGUI?.selectValue("Network", val)
+  }
+  get netState() { return this._netState }
+  set playerId(val: string) { this.netGUI?.selectValue("PlayerId", val) }
+
   /** C-s ==> kill game, start a new one, possibly with new (mh,nh) */
   restart(mh = TP.mHexes, nh= TP.nHexes) {
-    this.gamePlay.hgClient?.closeStream(CLOSE_CODE.NormalClosure, 'restart')
+    let netState = this.netState
+    this.gamePlay.closeNetwork('restart')
     this.gamePlay.logWriter?.closeFile()
     this.gamePlay.forEachPlayer(p => p.endGame())
     let deContainer = (cont: Container) => {
@@ -46,11 +57,14 @@ export class GameSetup {
     }
     deContainer(this.stage)
     TP.fnHexes(mh, nh)
-    return this.startup()
+    let rv = this.startup()
+    this.netState = " "      // onChange->noop
+    // onChange-> ("yes" OR "ref") initiate a new connection
+    setTimeout(() => this.netState = netState, 100)
+    return rv
   }
   /**
    * Make new Table/layout & gamePlay/hexMap & Players. 
-   * @param gs generally *this* GameSetup
    * @param ext Extensions from URL
    */
   startup(ext: string[] = []) {
@@ -71,7 +85,7 @@ export class GameSetup {
       table.miniMap.mapCont.y = Math.max(gui.ymax, gui2.ymax) + gui.y + table.miniMap.wh.height / 2
       console.groupEnd()
     }
-    table.startGame()
+    table.startGame() // setNextPlayer()
     return gamePlay
   }
   makeStatsPanel(gStats: TableStats, parent: Container, x: number, y: number): StatsPanel {
@@ -151,9 +165,9 @@ export class GameSetup {
     gui.stage.update()
     return gui
   }
-  defStyle = { rootColor: "rgba(160,160,160,.5)", arrowColor: "grey" }
+  defStyle: DropdownStyle = { rootColor: "rgba(160,160,160,.5)", arrowColor: "grey", textAlign: 'right' };
   makeNetworkGUI (table: Table, parent: Container, x: number, y: number) {
-    let gui = new ParamGUI(TP, this.defStyle)
+    let gui = this.netGUI = new ParamGUI(TP, this.defStyle)
     gui.makeParamSpec("Network", [" ", "yes", "no", "ref", "cnx"], { fontColor: "red" })
     gui.makeParamSpec("PlayerId", [" ", 0, 1, 2, 3, "ref"], { fontColor: "blue" })
 
@@ -161,11 +175,11 @@ export class GameSetup {
       if (item.value == "yes") this.gamePlay.network.call(this.gamePlay, false, gui)  // provoked by nkey; HgClient
       if (item.value == "ref") this.gamePlay.network.call(this.gamePlay, true, gui)   // provoked by rkey; HgReferee
       if (item.value == "no") this.gamePlay.closeNetwork.call(this.gamePlay)     // provoked by ckey
-     }
-     parent.addChild(gui)
-     gui.makeLines()
-     gui.x = x; gui.y = y
-     parent.stage.update()
+    }
+    parent.addChild(gui)
+    gui.makeLines()
+    gui.x = x; gui.y = y
+    parent.stage.update()
     return gui
   }
 

@@ -1,8 +1,9 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { GameSetup } from '../game-setup';
 import { stime } from '@thegraid/easeljs-lib';
-import {  } from 'wicg-file-system-access'
+import { } from 'wicg-file-system-access';
+import { GameSetup } from '../game-setup';
+import { buildURL, TP } from '../table-params';
 
 @Component({
   selector: 'stage-comp',
@@ -50,6 +51,8 @@ export class StageComponent implements OnInit {
 
     }
     const urlParams = new URLSearchParams(window.location.search);
+    let host = urlParams.get('host')
+    if (!!host) TP.networkUrl = buildURL(undefined, host)
     let extstr = urlParams.get('ext')
     let ext = !!extstr ? extstr.split(',') : []
     new GameSetup(this.mapCanvasId, ext) // load images; new GamePlay

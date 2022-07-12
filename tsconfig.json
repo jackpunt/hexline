@@ -28,6 +28,9 @@
     "strictInputAccessModifiers": true,
     "strictTemplates": true
   },
+  "exclude": [
+    "node_modules/**/GgProto.ts" /* until proto-gen-ts inserts 'override', use patched GgProto.js in wspbclient. */
+  ],
   "include": [
     "src/**/*.ts"
   ]

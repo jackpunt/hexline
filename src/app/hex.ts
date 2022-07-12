@@ -19,7 +19,6 @@ type TopoEW = { [key in EwDir] }
 type TopoNS = { [key in NsDir] }
 type Topo = TopoEW | TopoNS
 
-export type HexMaps = HexMap | HexMapLayer
 export type HSC = { hex: Hex, sc: StoneColor, Aname: string }
 export function newHSC(hex: Hex, sc: StoneColor, Aname = hex.Aname) { return { Aname, hex, sc } }
 class InfMark extends Shape {
@@ -80,19 +79,20 @@ class HexCont extends Container {
 export class Hex {
   static capColor = H.capColor1 // dynamic set
   /** return indicated Hex from otherMap */
-  static ofMap(ihex: IHex, otherMap: HexMaps) {
+  static ofMap(ihex: IHex, otherMap: HexMap) {
     try {
       return (ihex.Aname === S_Skip) ? otherMap.skipHex
         : (ihex.Aname === S_Resign) ? otherMap.resignHex
           : otherMap[ihex.row][ihex.col]
     } catch (err) {
-      console.warn(`ofMap failed:`, err) // eg: otherMap is different (mh,nh)
+      console.warn(`ofMap failed:`, err, { ihex, otherMap }) // eg: otherMap is different (mh,nh)
+      throw err
     }
   }
   static aname(row: number, col: number) { 
     return (row >= 0) ? `Hex@[${row},${col}]` : col == -1 ? S_Skip : S_Resign
   }
-  constructor(map: HexMaps, row?: number, col?: number, name = Hex.aname(row, col)) {
+  constructor(map: HexMap, row?: number, col?: number, name = Hex.aname(row, col)) {
     this.Aname = name
     this.map = map
     this.row = row
@@ -128,7 +128,7 @@ export class Hex {
   set district(d: number) {
     this._district = d
   }
-  readonly map: HexMaps;  // Note: this.parent == this.map.hexCont [cached]
+  readonly map: HexMap;  // Note: this.parent == this.map.hexCont [cached]
   readonly row: number
   readonly col: number
   readonly inf = stoneColorRecord<INF>({},{})
@@ -268,7 +268,7 @@ export class Hex2 extends Hex {
   infm: Record<StoneColor,INFM> = stoneColorRecord({},{})
 
   /** Hex2 cell with graphics; shown as a polyStar Shape of radius @ (XY=0,0) */
-  constructor(map: HexMaps, row?: number, col?: number, name?: string) {
+  constructor(map: HexMap, row?: number, col?: number, name?: string) {
     super(map, row, col, name);
     map.mapCont.hexCont.addChild(this.cont)
     this.radius = Stone.radius
@@ -617,7 +617,7 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
    * @param mh order [number of 'rings'] of meta-hexes (2 or 3 for this game) [TP.mHexes]
    * @param nh size ['rings' in each meta-hex] of meta-hex (1..6) [TP.nHexes]
    */
-  makeAllDistricts(mh: number, nh: number) {
+  makeAllDistricts(mh = TP.mHexes, nh = TP.nHexes) {
     this.mh = mh; this.nh = nh
     let hexMap = this, district = 0
     let mrc: RC = { col: Math.ceil((mh+1) / 2), row: Math.floor(mh*1.25) } // row,col to be non-negative
@@ -745,48 +745,5 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
 }
 /** Marker class for HexMap used by GamePlayD */
 export class HexMapD extends HexMap {
-
-}
-
-/** a HexMap that relies on a stack of underlying HexMap... */
-export class HexMapLayer implements HexM {
-  constructor(map0: HexMaps, hex: Hex, stoneColor: StoneColor) {
-    this.base = (map0 instanceof HexMap) ? map0 : map0.base;
-    this.parent = map0
-    this.mh = this.base.mh
-    this.nh = this.base.nh
-    this.district = this.base.district
-    this.mapCont = this.base.mapCont
-    this.skipHex = this.base.skipHex
-    this.resignHex = this.base.resignHex
-    this.allStones = this.parent.allStones.concat([newHSC(hex, stoneColor)]) // new copy of allStones
-  }
-  base: HexMap
-  parent: HexMaps
-
-  readonly mh: number
-  readonly nh: number
-  readonly allStones: HSC[];
-  readonly district: Hex[][];
-  readonly mapCont: MapCont;
-  readonly skipHex: Hex;
-  readonly resignHex: Hex;
-
-  makeAllDistricts(mh: number, nh: number) {return this.base.makeAllDistricts(mh, nh)}
-  rcLinear(row: number, col: number): number { return this.base.rcLinear(row, col) }
-  forEachHex<K extends Hex>(fn: (hex: K) => void): void { return this.base.forEachHex(fn) }
-  update(): void { this.base.update() }
-  showMark(hex: Hex): void { this.base.showMark() }
-
-  addHex(row: number, col: number, district?: number) {
-    return this.addHexHex(this.base[row][col], district)
-  }
-  addHexHex(hex: Hex, district = hex.district): Hex {
-    let nhex = (hex instanceof Hex2)
-      ? new Hex2(this, hex.row, hex.col)
-      : new Hex(this, hex.row, hex.col)
-    nhex.district = district
-    return nhex
-  }
 
 }

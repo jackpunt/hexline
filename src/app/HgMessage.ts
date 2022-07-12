@@ -1,7 +1,7 @@
 import { json } from '@thegraid/common-lib'
-import { GgMessage, pbMessage, rost } from '@thegraid/wspbclient'
+import { pbMessage } from '@thegraid/wspbclient'
 import { HgMsgBase, HgType } from '../proto/HgProto'
-export { HgType, Rost } from '../proto/HgProto'
+export { HgType } from '../proto/HgProto'
 
 /** HgMessage.Rost as interface: */
 //export type rost = { name: string, client: number, player: number }
@@ -23,10 +23,12 @@ type HgObjType = ReturnType<HgMsgBase['toObject']>
 // https://github.com/microsoft/TypeScript/issues/41347
 // TS-4.6.2 does not allow Mixins to have override-able get accessors [d.ts cannot tell property from accessor]
 // so we forego 'extends MsgTypeMixin(HgMsgBase)' until that is fixed (tsc > ~Jun 2022...)
-export class HgMessage extends (HgMsgBase) implements GgMessage {
+
+export class HgMessage extends HgMsgBase  {
   constructor(obj: HgConsType) {
     super(obj)
     console.log(this.toObject().player)
+    super.toObject()
   }
   //declare toObject: () => ReturnType<HgMsgBase['toObject']>
   override toObject(): ReturnType<HgMsgBase['toObject']> { return super.toObject()}
@@ -36,14 +38,14 @@ export class HgMessage extends (HgMsgBase) implements GgMessage {
    * Remove default values from toObject()
    * and replace 'type: number' with 'msgType: string' 
    */
-  get msgObject(): HgObjType {
+  get msgObject(): {} {
     let msgObject = { msgType: `${this.msgType}(${this.type})`, ...this?.toObject() }
     if (msgObject.name.length == 0) delete msgObject.name
     if (msgObject.json.length == 0) delete msgObject.json
     if (msgObject.inform.length == 0) delete msgObject.inform
     if (msgObject.player == 0) delete msgObject.player // TODO: assign player=1 & player=2 ... allPlayers[!]
     // roster only meaningful when msgType == 'join(8)'
-    if (this.type != HgType.join && this.roster.length == 0) delete msgObject.roster
+    if (this.type != HgType.hg_join && this.roster.length == 0) delete msgObject.roster
     delete msgObject.type
     return msgObject
   }
@@ -59,7 +61,3 @@ export class HgMessage extends (HgMsgBase) implements GgMessage {
     return newMsg
   }
 }
-// type GK = keyof HgMessage
-// function foo(g: GK) {}
-// const hg = new HgMessage({})
-// hg.toObject()

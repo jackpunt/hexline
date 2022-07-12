@@ -1,8 +1,10 @@
 #!/bin/bash
 # $@: Proto file names
 # make-patch [-c] [ProtoName]
+base=$(pwd)
 function protoc_gen_ts() {
-  protoc -I . --ts_out=. ${1}.proto
+  echo base=$base
+  (cd ${base}; protoc -I . --ts_out=. src/proto/${1}.proto)
 }
 function makepatch() {
   local Proto="$1"

@@ -25,11 +25,13 @@ let WINMIN = STALEV[stoneColor0] // stop searching if Move achieves WINLIM[sc0] 
 type Dir1 = 'NW' | 'SE' // Axis for firstMove
 type Dir2 = Exclude<HexDir, Dir1> // intersecting axes for isSX
 type HexState = [Hex, State]
-class MOVES extends Map<Hex,State>{}
+
+/** Move with attached State */
 class PlanMove extends Move {
   state: State
 }
-interface GamePlayDH extends GamePlayD {
+/** upgrade history[] & newMove() to use **PlanMove**  */
+interface GamePlayWithPlanMove extends GamePlayD {
   history: PlanMove[];
   newMove(hex: Hex, sc: StoneColor, caps: Hex[], gp: GamePlay0): PlanMove
 }
@@ -193,7 +195,7 @@ export class SubPlanner implements IPlanner {
   roboMove(run = true) { this.roboRun = run }
   terminate() {} // TODO: maybe run GC or summary stats?
 
-  gamePlay: GamePlayDH
+  gamePlay: GamePlayWithPlanMove
   theWeightVecs: StoneColorRecord<number[]>
   myWeightVec: number[]
   prevMove: Move // previous Move
@@ -210,8 +212,12 @@ export class SubPlanner implements IPlanner {
   skipMove(color: StoneColor) { return new PlanMove(this.skipHex, color, [], this.gamePlay) as PlanMove }
   resignMove(color: StoneColor) { return new PlanMove(this.resignHex, color, [], this.gamePlay) as PlanMove }
 
+  /**
+   * SubPlanner: simple, standalone/Worker planner; make a hexMap(mh, nh)
+   * @param index playerNdx (0 or 1) -> (BLACK or WHITE)
+   */
   constructor(mh: number, nh: number, public index: number, public logWriter: ILogWriter, public stub?: PlanWorker ) {
-    this.gamePlay = new GamePlayD(mh, nh) as GamePlayDH // downgraded to GamePlayD: history, hexMap, undoRecs, allBoards, gStats
+    this.gamePlay = new GamePlayD(mh, nh) as GamePlayWithPlanMove
     this.gamePlay.newMoveFunc = (hex, sc, caps, gp) => new PlanMove(hex, sc, caps, gp)
     this.setWeightVecs()
     this.myWeightVec = this.theWeightVecs[index]
@@ -1158,7 +1164,7 @@ class SxInfo {
       })
       // ASSERT: dir2 intersects dir1
       let dir2: Dir2 = 'NE'  // Note: makeDistrict/metaMap uses nsTopo (even when nh==1) 
-      let allSXMetas = this.gamePlay.hexMap.district.map(d => d[0]).filter((mhex, ndx, hexary) => {
+      let allSXMetas = this.gamePlay.hexMap.district.map(d => d[0]).filter((mhex) => {
         while (mhex = mhex.metaLinks[dir2])
           if (metaLine.includes(mhex)) return true
         return false
