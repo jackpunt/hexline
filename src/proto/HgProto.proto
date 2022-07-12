@@ -1,5 +1,5 @@
 syntax="proto3";
-
+import 'node_modules/@thegraid/wspbclient/lib/proto/GgProto.proto';
 
 // makeMove(sc, iHistory), 
 // sendMove(ihex: [r,c,Aname?], sc?); 
@@ -14,25 +14,25 @@ syntax="proto3";
 // ParamSet
 
 enum HgType {
-    none = 0;
-    makeMove = 1;  // tell client it's their turn to make a Move; use json
-    sendMove = 2;  // send(Hex, Color, iHistory); use json
-    progress = 3;  // update display to confirm player is thinking; use json
-    setParam = 4;  // sync up table params; use json {targetName, fieldName, value} as tuple [string, string, MsgSimple]
-    next = 6;      // set Next player/turn; json: { }
-    undo = 7;      // player clicks UNDO button (or does move(iHistory obviate this?))
-    join = 8;      // send_join(to:ref, name="plyrName"); ref will reply_join(player: index=player_id) OR reply_join(player: undef, inform: 'name_in_use')
-    chat = 9;      // group or DM to a player; inter-player chat, log/status from ref.
+    hg_none = 0;
+    hg_makeMove = 1;  // tell client it's their turn to make a Move; use json
+    hg_sendMove = 2;  // send(Hex, Color, iHistory); use json
+    hg_progress = 3;  // update display to confirm player is thinking; use json
+    hg_setParam = 4;  // sync up table params; use json {targetName, fieldName, value} as tuple [string, string, MsgSimple]
+    hg_next = 6;      // set Next player/turn; json: { }
+    hg_undo = 7;      // player clicks UNDO button (or does move(iHistory obviate this?))
+    hg_join = 8;      // send_join(to:ref, name="plyrName"); ref will reply_join(player: index=player_id) OR reply_join(player: undef, inform: 'name_in_use')
+    hg_chat = 9;      // group or DM to a player; inter-player chat, log/status from ref.
 }
 // on Join: show who all is in the Group [subset of HgMessage!]
-message Rost {
-    int32 client = 2;     // client_id
-    int32 player = 3;     // player_id
-    string name = 4;      // player name
-}
+// message Rost {
+//     int32 client = 2;     // client_id
+//     int32 player = 3;     // player_id
+//     string name = 4;      // player name
+// }
 
 /** generally ref/player only accepts message from curPlayer */
-message HgMessage {
+message HgMsgBase {
     HgType type    = 1;    // indicates which fields are populated: 
     int32  client  = 2;    // client_id from send-wrapper: wrapper.client_from
     int32  player  = 3;    // player.index [0..N-1]; may be set on next(ndx); set by ref in join reply [< 0 for Observers]
