@@ -19,6 +19,7 @@ enum HgType {
     sendMove = 2;  // send(Hex, Color, iHistory); use json
     progress = 3;  // update display to confirm player is thinking; use json
     setParam = 4;  // sync up table params; use json {targetName, fieldName, value} as tuple [string, string, MsgSimple]
+    next = 6;      // set Next player/turn; json: { }
     undo = 7;      // player clicks UNDO button (or does move(iHistory obviate this?))
     join = 8;      // send_join(to:ref, name="plyrName"); ref will reply_join(player: index=player_id) OR reply_join(player: undef, inform: 'name_in_use')
     chat = 9;      // group or DM to a player; inter-player chat, log/status from ref.
