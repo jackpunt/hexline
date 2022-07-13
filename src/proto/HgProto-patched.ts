@@ -3,7 +3,7 @@
  * compiler version: 3.15.8
  * source: src/proto/HgProto.proto
  * git: https://github.com/thesayyn/protoc-gen-ts */
-import * as dependency_1 from "./../../node_modules/@thegraid/wspbclient/lib/proto/GgProto";
+import * as dependency_1 from "@thegraid/wspbclient";
 import * as pb_1 from "google-protobuf";
 export enum HgType {
     hg_none = 0,

@@ -29,9 +29,9 @@
     "strictTemplates": true
   },
   "exclude": [
-    "node_modules/**/GgProto.ts" /* until proto-gen-ts inserts 'override', use patched GgProto.js in wspbclient. */
+    "src/**/*-patched.ts"
   ],
   "include": [
-    "src/**/*.ts"
-  ]
+    "src/**/*.ts",
+  ],
 }

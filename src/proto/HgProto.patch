@@ -1,19 +1,19 @@
-*** HgProto.ts	2022-07-12 08:49:44.000000000 -0700
---- HgProto-patched.ts	2022-07-12 08:49:25.000000000 -0700
-*************** export class HgMsgBase extends pb_1.Mess
-*** 240,246 ****
-      serializeBinary(): Uint8Array {
-          return this.serialize();
-      }
-!     static deserializeBinary(bytes: Uint8Array): HgMsgBase {
-          return HgMsgBase.deserialize(bytes);
-      }
-  }
---- 240,246 ----
-      serializeBinary(): Uint8Array {
-          return this.serialize();
-      }
-!     static override deserializeBinary(bytes: Uint8Array): HgMsgBase {
-          return HgMsgBase.deserialize(bytes);
-      }
-  }
+*** HgProto.ts	2022-07-12 17:16:26.000000000 -0700
+--- HgProto-patched.ts	2022-07-12 17:16:04.000000000 -0700
+***************
+*** 3,9 ****
+   * compiler version: 3.15.8
+   * source: src/proto/HgProto.proto
+   * git: https://github.com/thesayyn/protoc-gen-ts */
+! import * as dependency_1 from "./../../node_modules/@thegraid/wspbclient/lib/proto/GgProto";
+  import * as pb_1 from "google-protobuf";
+  export enum HgType {
+      hg_none = 0,
+--- 3,9 ----
+   * compiler version: 3.15.8
+   * source: src/proto/HgProto.proto
+   * git: https://github.com/thesayyn/protoc-gen-ts */
+! import * as dependency_1 from "@thegraid/wspbclient";
+  import * as pb_1 from "google-protobuf";
+  export enum HgType {
+      hg_none = 0,
