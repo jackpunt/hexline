@@ -1,12 +1,12 @@
 import { AT, json } from "@thegraid/common-lib";
 import { KeyBinder, ParamGUI, S, stime, Undo } from "@thegraid/easeljs-lib";
 import { CgMessage, CLOSE_CODE, GgClient } from "@thegraid/wspbclient";
-import { HgMessage, HgType } from "./HgMessage";
 import { GameSetup } from "./game-setup";
 import { Hex, Hex2, HexMap, HSC, IHex, S_Resign } from "./hex";
 import { HexEvent } from "./hex-event";
 import { H } from "./hex-intfs";
 import { HgClient, HgReferee } from "./HgClient";
+import { HgMessage, HgType } from "./HgMessage";
 import { IMove, Move } from "./move";
 import { Planner } from "./planner";
 import { Player } from "./player";
@@ -579,6 +579,7 @@ export class GamePlay extends GamePlay0 {
       this.redoMoves.unshift(move)  // redoMoves[0] == move0
       this.undoStones()             // remove last Stone, replace captures
       this.undoCapMarks(move.captured) // unmark
+      this.table.unmarkAllSuicide() // Cap & Sui/Wasted mutually exclusive
       move.board.setRepCount(history)
       if (undoTurn) {
         this.setNextPlayer()
