@@ -362,7 +362,7 @@ export class GamePlay extends GamePlay0 {
     this.allPlayers.forEach((p, index, players) => f(p, index, players));
   }
 
-  useReferee = false
+  useReferee = true
   hgClient: HgClient
   /**
    * connect to CgServer(HgProto) for a network game.
@@ -649,7 +649,9 @@ export class GamePlay extends GamePlay0 {
   /** remove captured Stones, from placing Stone on Hex */
   override doPlayerMove(hex: Hex, color: StoneColor): StoneColor {
     this.unmarkOldCaptures()                 // this player no longer constrained
+    this.table.unmarkAllSuicide()
     let win = super.doPlayerMove(hex, color) // incrInfluence -> captureStone -> mark new Captures, closeUndo
+    this.hexMap.showMark(hex)
     this.hexMap.update()
     if (win !== undefined) {
       this.autoMove(false)  // disable robots
@@ -661,63 +663,83 @@ export class GamePlay extends GamePlay0 {
     this.turnNumber = this.history.length + 1
     this.curPlayerNdx = plyr.index
     this.curPlayer = plyr
+    console.log(stime(this, `.setNextPlayer0: curPlayer = ${this.curPlayer.color} iHistory =`), this.iHistory)
     return plyr
   }
   setNextPlayer(plyr = (this.turnNumber == 1) ? this.curPlayer : this.otherPlayer()) {
-    //if (this.turnNumber == 1 && plyr.index == 1) this.curPlayer = this.allPlayers[1]
+    // tn[0] -> plyr=='B', curPlayerNdx=0; show BLACK Stone; setNextPlayer(WHITE)
     this.setNextPlayer0(plyr)
     this.table.showNextPlayer() // get to nextPlayer, waitPaused when Player tries to make a move.?
-    if (this.turnNumber == 1) this.curPlayer = this.allPlayers[1]
+    if (this.turnNumber == 1) this.setNextPlayer0(this.allPlayers[1])
     this.makeMove()
   }
 
-  /** dropFunc indicating new Move attempt */
+  /** dropFunc | eval_sendMove -- indicating new Move attempt */
   localMoveEvent(hev: HexEvent): void {
     let redo = this.redoMoves.shift()   // pop one Move, maybe pop them all:
     if (!!redo && redo.hex !== hev.hex) this.redoMoves.splice(0, this.redoMoves.length)
     this.doPlayerMove(hev.hex, hev.stoneColor)
     this.setNextPlayer()
+    console.log(stime(this, `.localMoveEvent: after doPlayerMove - setNextPlayer =`), this.curPlayer.color)
     let msg: HgMessage;
     if (this.isNetworked((hgc) => {
-      msg = new HgMessage({ type: HgType.hg_next }) // TODO: move back inside isCurPlayer()
-      hgc.send_message(msg, { client_id: undefined, nocc: true }) // no referee, no echo
-    }, undefined, undefined)) {
+    }, undefined, (hgc) => {
+      msg = new HgMessage({ type: HgType.hg_next })
+      //let op_id = this.otherPlayer().index
+      //let op_client_id = this.hgClient.player_client_id(op_id)
+      hgc.send_message(msg, { client_id: CgMessage.GROUP_ID, nocc: true }) // no referee, no echo
+      return true
+    })) {
       console.log(stime(this, `.localMoveEvent: send_message(next)`), msg)
     }
   }
 
-  /** local Player has moved, maybe send to network... then, localMoveEvent() */
+  /** local Player has moved (S.add); network ? (sendMove.then(removeMoveEvent)) : localMoveEvent() */
   playerMoveEvent(hev: HexEvent): void {
     let hgClient = this.hgClient
+    let sc = hev.stoneColor, imove: IMove = hev.hex.iMove(sc)
+    let iHistory = this.iHistory.concat(); iHistory.unshift(imove)
+    let inform = `${imove.Aname}#${iHistory.length}`
+
     let moveToGrp = () => {
-      let sc = hev.stoneColor, imove: IMove = hev.hex.iMove(sc)
-      let iHistory = this.iHistory.concat(imove)
-      let msg = new HgMessage({ type: HgType.hg_sendMove, json: JSON.stringify({sc, iHistory}) })
-      let opts = this.useReferee ? { client_id: 0, nocc: true } : { nocc: false}
+      console.log(stime(this, `.playerMoveEvent: moveToGrp: iHistory=`), iHistory)
+      let msg = new HgMessage({ type: HgType.hg_sendMove, inform, json: JSON.stringify({sc, iHistory}) })
+      let opts = this.useReferee ? { client_id: 0, nocc: true } : { client_id: CgMessage.GROUP_ID, nocc: false}
       return hgClient.send_message(msg, opts) // CgServer will send it back to all of us
+    }
+    let rejectMove = (rej: any) => { 
+      console.warn(stime(this, `.playerMoveEvent: reject Move (${inform}):`), rej) 
+      // remove that stone, make a new [dragable] one:
+      this.table.showNextStone(this.curPlayer)
     }
     let sendMove = (hgClient: HgClient) => {
       if (this.useReferee) {
         let pred = (msg: HgMessage) => (msg && msg.type == HgType.hg_sendMove && msg.client_from == hgClient.client_id)
-        let moveMsg = (msg: HgMessage) => { return JSON.parse(msg.json) }
-        hgClient.sendAndReceive(moveToGrp, pred).then((msg) => this.remoteMoveEvent(moveMsg(msg)))
+        // bypass eval_sendMove(msg) -> removeMoveEvent(msg)
+        hgClient.sendAndReceive(moveToGrp, pred).then((msg) => this.remoteMoveEvent(msg))
       } else {
-        let rejectedMove = (rej: any) => {console.warn(stime(this, `.playerMoveEvent: rej Move`), rej)}
-        moveToGrp().then((ack) => this.localMoveEvent(hev), rejectedMove)
+        moveToGrp().then((ack) => this.localMoveEvent(hev), rejectMove)
       }
     }
     let notCurPlayer = () => { 
-      console.warn(stime(this, `.playerMoveEvent: not curPlayer ${this.curPlayerNdx}`))
+      rejectMove(`not curPlayer ${this.curPlayerNdx}`)
     }
-    if (!this.isNetworked(sendMove, notCurPlayer, false)) {
-      this.localMoveEvent(hev)
-    }
+    if (this.isNetworked(sendMove, notCurPlayer, false)) return
+    this.localMoveEvent(hev)
   }
 
-  remoteMoveEvent(moveMsg: {sc: StoneColor, iHistory: IMove[]}): void {
-    let { sc, iHistory } = moveMsg, move = iHistory[0], hex = Hex.ofMap(move.hex, this.hexMap)
+  /** received a hg_sendMove message via sendAndReceive OR eval_sendMove. 
+   * 
+   * playerMoveEvent -> network ? sendMove()then(removeMoveEvent) : localMoveEvent
+   */
+  remoteMoveEvent(hgMsg: HgMessage): void {
+    let moveMsg = JSON.parse(hgMsg.json) as {sc: StoneColor, iHistory: IMove[]}
+    let { sc, iHistory } = moveMsg
+    let move = iHistory[0]
+    let hex = Hex.ofMap(move.hex, this.hexMap)
+    let hev = new HexEvent(S.add, hex, sc)
     this.syncHistory(iHistory)
-    this.localMoveEvent(new HexEvent(S.add, hex, sc))
+    this.localMoveEvent(hev)
   }
 
   readerBreak = false

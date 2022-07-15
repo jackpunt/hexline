@@ -16,8 +16,28 @@ export enum HgType {
     hg_join = 8,
     hg_chat = 9
 }
+export enum hgField {
+    hgField_0 = 0,
+    hgField_type = 1,
+    hgField_client = 2,
+    hgField_player = 3,
+    hgField_name = 4,
+    hgField_json = 5,
+    hgField_inform = 7,
+    hgField_roster = 10,
+    hgField_client_to = 11
+}
 export class HgMsgBase extends pb_1.Message {
     #one_of_decls: number[][] = [];
+    get has_type() { return pb_1.Message.getField(this, hgField.hgField_type) }
+    get has_client() { return pb_1.Message.getField(this, hgField.hgField_client) }
+    get has_player() { return pb_1.Message.getField(this, hgField.hgField_player) }
+    get has_name() { return pb_1.Message.getField(this, hgField.hgField_name) }
+    get has_json() { return pb_1.Message.getField(this, hgField.hgField_json) }
+    get has_inform() { return pb_1.Message.getField(this, hgField.hgField_inform) }
+    get has_roster() { return this.roster?.length > 0 }
+    get has_client_to() { return pb_1.Message.getField(this, hgField.hgField_client_to) }
+
     constructor(data?: any[] | {
         type?: HgType;
         client?: number;

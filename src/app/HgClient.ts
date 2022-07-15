@@ -1,9 +1,7 @@
-import { S, stime } from '@thegraid/common-lib';
+import { stime } from '@thegraid/common-lib';
 import { ParamLine } from '@thegraid/easeljs-lib';
-import { AckPromise, CgBase, CgMessage, CgMessageOpts, GgClient, GgMessage, GgMessageOptT, GgRefMixin, LeaveEvent, Rost, rost, WebSocketBase } from '@thegraid/wspbclient';
+import { CgBase, CgMessage, GgClient, GgRefMixin, LeaveEvent, WebSocketBase } from '@thegraid/wspbclient';
 import { GamePlay } from './game-play';
-import { Hex } from './hex';
-import { HexEvent } from './hex-event';
 import { HgMessage, HgType } from './HgMessage';
 import { Player } from './player';
 import { TP } from './table-params';
@@ -49,10 +47,15 @@ export class HgClient extends GgClient<HgMessage> {
    */
   constructor(url?: string, onOpen?: (hgClient: HgClient) => void, CgB = CgBaseForHgClient) {
     super(HgMessage, CgB, WebSocketBase, url, onOpen)
+    this.deserialize = (buf: Uint8Array) => { return HgMessage.deserialize(buf) }
   }
+  override deserialize: (buf: Uint8Array) => HgMessage;
+  /** for dnstream to logData(message.msg: HgMessage) */
+  // override msgToString(msg: HgMessage) {
+  //   return msg.msgString
+  // }
   player: Player // could also move 'player' slot to GamePlay [which also holds hgClient]
   gamePlay: GamePlay
-
   override parseEval(message: HgMessage) {
     let type = message.type
     switch (type) {
@@ -80,9 +83,10 @@ export class HgClient extends GgClient<HgMessage> {
     console.log(stime(this, `.eval_joinGame:`), { message })
     super.eval_join(message)
   }
+  /** Not much use for GgType.next; HgType.hg_makeMove does the turn */
   override eval_next(message: HgMessage) {
     //super.eval_next()
-    this.gamePlay.setNextPlayer()
+    //console.log(stime(this, `.eval_next: after doPlayerMove - setNextPlayer =`), this.gamePlay.curPlayer.color)
   }
   /** indicates it is my turn to find the next Move. */
   eval_makeMove(message: HgMessage) {
@@ -91,11 +95,8 @@ export class HgClient extends GgClient<HgMessage> {
   }
   /** indicates curPlayer has sent their next Move */
   eval_sendMove(message: HgMessage) {
-    let map = this.gamePlay.hexMap
-    let { sc, iHistory } = JSON.parse(message.json)
-    let move = iHistory[0], hex = Hex.ofMap(move.hex, map)
-    let hev = new HexEvent(S.add, hex, sc)
-    this.gamePlay.localMoveEvent(hev)
+    this.gamePlay.remoteMoveEvent(message)
+    //this.sendCgAck('move made')
   }
   eval_progress(message: HgMessage) {
   }
@@ -127,59 +128,13 @@ export class HgReferee extends GgRefMixin<HgMessage, typeof HgClient>(HgClient) 
     }, cgBaseC as typeof CgBase);
     this.cgBaseType = cgBaseC as typeof CgBase
   }
-  override joinGroup(url: string, group: string, onOpen: (ggClient: GgClient<HgMessage>) => void, onJoin?: (ack: CgMessage) => void): typeof this {
-    // Stack: GgClient=this=GgReferee; CgClient=RefGgBase; WebSocketBase -> url
-    this.connectStack(url, (refClient: GgClient<HgMessage>) => {
-      onOpen(refClient)
-      refClient.cgbase.send_join(group, 0, "referee").then((ack: CgMessage) => {
-        this.ll(1) && console.log(stime(this, `.joinGroup: ack =`), ack)
-        this.roster.push({ client: ack.client_id, player: this.refid, name: "referee" })
-        onJoin && onJoin(ack)
-      })
-    })
-    let dnstream = (this.dnstream as CgBase<GgMessage>) // a [Ref]CgBase
-    dnstream.addEventListener('leave', (msg) => this.client_leave(msg))
-    console.log(stime(this, `.joinGroup: dnstream =`), dnstream)
-    return this
-  }
-  /** listener for LeaveEvent, from dnstream: CgReferee */
-  override client_leave(event: Event | LeaveEvent) {
-    let { client_id, cause, group } = event as LeaveEvent
-    this.ll(0) && console.log(stime(this, ".client_leave:"), { client_id, cause, group })
-    let rindex = this.roster.findIndex(pr => pr.client === client_id)
-    let pr: rost = this.roster[rindex]
-    // remove from roster, so they can join again! [or maybe just nullify rost.name?]
-    if (rindex >= 0) this.roster.splice(rindex, 1)
-    this.ll(0) && console.log(stime(this, `.client_leave: ${group}; roster =`), this.roster.concat())
-    // tell the other players: send_join(roster)
-    this.send_roster(pr, 'leaveGameRoster')  // noting that 'pr' will not appear in roster...
-  }
-  /** send new/departed player's name, client, player in a 'join' Game message;
-   * - all players update their roster using included roster: Rost[]
-   * @pr {name, client, player} of the requester/joiner; 
-   * @param info CgMessageOpts = { info }
-   */
-  override send_roster(pr: rost, info = 'joinGameRoster') {
-    let { name, client, player } = pr
-    let active = this.roster.filter(pr => pr.client != undefined)
-    let roster = active.map(pr => new Rost(pr))
-    this.send_join(name, { client, player, roster }, { info }) // fromReferee to Group.
-  }
-  /** send join with roster to everyone. */
-  override send_join(name: string, ggOpts: GgMessageOptT = {}, cgOpts: CgMessageOpts = {}): AckPromise {
-    let message = this.make_join(name, ggOpts)
-    this.ll(1) && console.log(stime(this, ".send_joinGame"), message)
-    return this.send_message(message, { client_id: CgMessage.GROUP_ID, nocc: true, ...cgOpts }) // from Referee
-    // If HgRef is the only one left, and nocc: true; 
-    // So server send_send(roster) distributes it to nobody; sendAck()
-  }
+
   /** indicates curPlayer has sent their next Move */
   override eval_sendMove(message: HgMessage) {
     super.eval_sendMove(message)  // localMakeMove & then send it:
-    let { client_from, type } = message
+    let { client_from, type } = message // type = HgType.hg_sendMove
     this.sendCgAck('move accepted', { client_id: client_from })
-    let outmsg = new HgMessage({ type })
-    outmsg.json = message.json
+    let outmsg = new HgMessage({ type, json: message.json, inform: message.inform })
     this.send_message(outmsg, { client_id: CgMessage.GROUP_ID, nocc: true, client_from })
   }
 }

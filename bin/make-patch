@@ -4,7 +4,7 @@
 base=$(pwd)
 function protoc_gen_ts() {
   echo base=$base
-  (cd ${base}; protoc -I . --ts_opt=explicit_override --ts_out=. src/proto/${1}.proto)
+  (cd ${base}; protoc --ts_opt=explicit_override --ts_out=. src/proto/${1}.proto)
 }
 function makepatch() {
   local Proto="$1"

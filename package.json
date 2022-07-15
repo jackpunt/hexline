@@ -2,6 +2,8 @@
   "name": "hexline",
   "version": "0.0.21",
   "scripts": {
+    "fixnpm": "npm cache validate",
+    "uncache": "rm -rf .angular/cache",
     "untarClient": "tar -x -C node_modules/@thegraid/wspbclient -f ../../ts/wspbclient/wspbclient.tar",
     "make-proto": "bin/make-patch",
     "clean": "rm -rf dist/*",
@@ -30,7 +32,7 @@
     "@thegraid/easeljs-lib": "^1.1.5",
     "@thegraid/easeljs-module": "^1.1.9",
     "@thegraid/ezpromise": "^1.0.10",
-    "@thegraid/wspbclient": "file:../../ts/wspbclient/thegraid-wspbclient-1.4.25.tgz",
+    "@thegraid/wspbclient": "file:../../ts/wspbclient/thegraid-wspbclient-1.4.26.tgz",
     "@types/wicg-file-system-access": "^2020.9.5",
     "rxjs": "~7.5.0",
     "tslib": "^2.3.0",
