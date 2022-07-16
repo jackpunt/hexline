@@ -1,6 +1,7 @@
 {
   "name": "hexline",
   "version": "0.0.21",
+  "browser": "true",
   "scripts": {
     "fixnpm": "npm cache validate",
     "uncache": "rm -rf .angular/cache",
@@ -10,6 +11,7 @@
     "make": "rm -rf dist/*; bin/make-patch; tsc; date",
     "instTar": "cd node_modules/@thegraid/wspbclient; tar -xf ../../../../../ts/wspbclient/thegraid-wspbclient*.tgz --strip-components=1",
     "instClient": "npm i ../../ts/wspbclient/thegraid-wspbclient*.tgz",
+    "prod": "ng build hexline --configuration production",
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
@@ -17,8 +19,8 @@
     "test": "ng test"
   },
   "private": true,
-  "for file:link dependency, disable cache": "ng config cli.cache.enabled false",
-  "but even so, ng/webpack will load createjs TWICE": "can't use links",
+  "note1": "for file-link dependency, disable cache; ng config cli.cache.enabled false",
+  "note2": "but_even_so, ng/webpack will load createjs TWICE; so: cant't use links",
   "dependencies": {
     "@angular/animations": "~13.2.0",
     "@angular/common": "~13.2.0",
