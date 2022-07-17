@@ -203,25 +203,20 @@ export class TableStats extends GameStats {
     if (win !== undefined) {
       let pc = win, pcr = TP.colorScheme[pc], pStats = this.pStat(pc)
       let opc = otherColor(pc), opcr = TP.colorScheme[opc], opStats = this.pStat(opc)
-      if (board.resigned) this.showWin(board, pc, `${opcr} RESIGNS`)
-      else if (board.repCount == 3) this.showWin(board, pc, `STALEMATE (${pStats.nStones} -- ${opStats.nStones})`)
-      else this.showWin(board, pc, `${opcr} loses`)
+      if (board.resigned) this.showWin(pc, `${opcr} RESIGNS`)
+      else if (board.repCount == 3) this.showWin(pc, `STALEMATE (${pStats.nStones} -- ${opStats.nStones})`)
+      else this.showWin(pc, `${opcr} loses`)
     }
     return winAry
   }
   // TODO: align with nextHex(x & y), background
-  showWin(board: Board, win: StoneColor, text: string): StoneColor {
+  showWin(win: StoneColor, text: string): StoneColor {
     this.table.showRedoUndoCount()
     let lose = otherColor(win), winS = this.score(win), loseS = this.score(lose)
     let winr = TP.colorScheme[win], msg = `${winr} WINS:\n${text}\n${winS} -- ${loseS}`
     console.log(stime(this, `.showWin:`), msg)
-    this.showWinText(msg)
+    this.table.showWinText(msg)
     return win
-  }
-  showWinText(msg?: string) {
-    this.table.winText.text = msg || "COLOR WINS:\nSTALEMATE (10 -- 10)\n0 -- 0"
-    this.table.winText.visible = this.table.winBack.visible = true
-    if (!msg) this.hexMap.update()
   }
   /** show count Stones in each District (on miniMap) */
   showControl(table: Table) {

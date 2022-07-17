@@ -117,11 +117,11 @@ export class GameSetup {
     const schemeAry = TP.schemeNames.map(n => { return { text: n, value: TP[n] } })
     let nHex = (mh: number, nh: number) => { restart && this.restart.call(this, mh, nh) }
     gui.makeParamSpec("log", [-1, 0, 1, 2], { style: { textAlign: 'right' } }); TP.log
-    gui.makeParamSpec("mHexes", [2, 3, 4, 5, 6, 7, 8, 9, 10]) // TODO: limit nHexes for mH > 4
-    gui.makeParamSpec("nHexes", [1, 2, 3, 4, 5, 6])
-    gui.makeParamSpec("maxPlys", [1, 2, 3, 4, 5, 6, 7, 8]); TP.maxPlys
-    gui.makeParamSpec("maxBreadth", [5, 6, 7, 8, 9, 10]); TP.maxBreadth
-    gui.makeParamSpec("nPerDist", [2, 3, 4, 5, 6, 8, 11, 15, 19]); TP.nPerDist
+    gui.makeParamSpec("mHexes", [2, 3, 4, 5, 6, 7, 8, 9, 10], { fontColor: "green" }) // TODO: limit nHexes for mH > 4
+    gui.makeParamSpec("nHexes", [1, 2, 3, 4, 5, 6], { fontColor: "green" })
+    gui.makeParamSpec("maxPlys", [1, 2, 3, 4, 5, 6, 7, 8], { fontColor: "blue" }); TP.maxPlys
+    gui.makeParamSpec("maxBreadth", [5, 6, 7, 8, 9, 10], { fontColor: "blue" }); TP.maxBreadth
+    gui.makeParamSpec("nPerDist", [2, 3, 4, 5, 6, 8, 11, 15, 19], { fontColor: "blue" }); TP.nPerDist
     gui.makeParamSpec("allowSuicide", [true, false]); TP.allowSuicide
     gui.makeParamSpec("colorScheme", schemeAry, { style: { textAlign: 'center' } })
     gui.spec("mHexes").onChange = (item: ParamItem) => { nHex(item.value, TP.nHexes) }
@@ -138,15 +138,16 @@ export class GameSetup {
     gui.x = x // (3*cw+1*ch+6*m) + max(line.width) - (max(choser.width) + 20)
     gui.y = y
     gui.makeLines()
-    gui.stage.update()
-    restart = true // *after* makeLines has stablilized selectValue
     const gui2 = this.makeParamGUI2(table, parent, x - 280, y)
     const gui3 = this.makeNetworkGUI(table, parent, x - 300, y + gui.ymax + 20 )
+    gui.parent.addChild(gui) // bring to top
+    gui.stage.update()
+    restart = true // *after* makeLines has stablilized selectValue
     return [gui, gui2, gui3]
   }
   makeParamGUI2(table: Table, parent: Container, x: number, y: number) {
     let gui = new ParamGUIP(TP, { textAlign: 'center' }, this.gamePlay), infName = "inf:sui"
-    gui.makeParamSpec(infName, ['1:1', '1:0', '0:1', '0:0'], { name: infName, target: table })
+    gui.makeParamSpec(infName, ['1:1', '1:0', '0:1', '0:0'], { name: infName, target: table, fontColor: 'green' })
     gui.makeParamSpec("pWeight", [1, .99, .97, .95, .9]) ; TP.pWeight
     gui.makeParamSpec("pWorker", [true, false]); TP.pWorker
     gui.makeParamSpec("pPlaner", [true, false], { name: "parallel" }); TP.pPlaner
@@ -169,7 +170,7 @@ export class GameSetup {
   makeNetworkGUI (table: Table, parent: Container, x: number, y: number) {
     let gui = this.netGUI = new ParamGUI(TP, this.defStyle)
     gui.makeParamSpec("Network", [" ", "yes", "no", "ref", "cnx"], { fontColor: "red" })
-    gui.makeParamSpec("PlayerId", [" ", 0, 1, 2, 3, "ref"], { fontColor: "blue" })
+    gui.makeParamSpec("PlayerId", [" ", 0, 1, 2, 3, "ref"], { fontColor: "red" })
 
     gui.spec("Network").onChange = (item: ParamItem) => {
       if (item.value == "yes") this.gamePlay.network.call(this.gamePlay, false, gui)  // provoked by nkey; HgClient

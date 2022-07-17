@@ -416,7 +416,7 @@ export class SubPlanner implements IPlanner {
       this.doHistoryMove(main[main.length - ours.length - 1])
     }
     this.moveNumber = ours.length + 1 // iHistory.length + 1
-    if (!this.sxInfo && this.moveNumber > 1) this.sxInfo = new SxInfo(this.gamePlay)
+    if (!this.sxInfo && this.gamePlay.hexMap.allStones.length > 1) this.sxInfo = new SxInfo(this.gamePlay)
     this.reduceBoards()  // update repCount and delete un-attained Boards
   }
   reduceBoards(prune = true) {
@@ -1100,7 +1100,7 @@ class HexGen {
   isLegal(hex: Hex) {
     if (this.hexes.has(hex)) return false
     this.hexes.add(hex)
-    if (this.sxInfo.ignoreSX(hex, this)) return false // if allStones are onAxis, ignore S/SW
+    if (this.sxInfo?.ignoreSX(hex, this)) return false // if allStones are onAxis, ignore S/SW
     this.attemptDist[hex.district]++
     // evalFun(move) will process each legal Move:
     this.evalSaysIgnore = false
@@ -1145,7 +1145,8 @@ class SxInfo {
    * @param hex0 the Hex where B[Move1]==history[0] was played
   */
   setSxInfo() {
-    let move0 = this.gamePlay.history[this.gamePlay.history.length - 1] // first Move of game
+    // first *actual* hex-occupying move; not the 'skip' moves.
+    let move0 = this.gamePlay.history.concat().reverse().find(move => move.hex.district !== undefined)
     let sig = move0.board.signature   //`[${TP.mHexes}x${TP.nHexes}]${move0.board.id}`
     if (this.signature != sig) {
       let metaLine: Hex[] = []

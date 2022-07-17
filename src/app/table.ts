@@ -44,7 +44,7 @@ export class Stone extends Shape {
 
 class ProgressMarker extends Container {
   static yoff = stoneColorRecord(40, 40)
-  static xoff = stoneColorRecord(-120, 80)
+  static xoff = stoneColorRecord(-100, 50)
   static make(sc: StoneColor, parent: Container) {
     let p0 = { b: 0, tsec: 0, tn: 0 } as Progress
     let pm = new ProgressMarker(p0)
@@ -96,7 +96,7 @@ export class Table extends EventDispatcher  {
   undoText: Text = new Text('', F.fontSpec(30));  // length of undo stack
   redoText: Text = new Text('', F.fontSpec(30));  // length of history stack
   winText: Text = new Text('', F.fontSpec(40), 'green')
-  winBack: Shape = new Shape(new Graphics().f(C.nameToRgbaString("lightgrey", .6)).r(-230, -5, 460, 130))
+  winBack: Shape = new Shape(new Graphics().f(C.nameToRgbaString("lightgrey", .6)).r(-180, -5, 360, 130))
 
   dragger: Dragger
   progressMarker: StoneColorRecord<ProgressMarker>
@@ -128,11 +128,21 @@ export class Table extends EventDispatcher  {
     undoC.addChild(this.winText);
     let pm0 = this.progressMarker[stoneColor0]
     let pmy = pm0.ymax + pm0.y // pm0.parent.localToLocal(0, pm0.ymax + pm0.y, undoC)
+    let progressBg = new Shape(), bgw = 200, bgym = 156, y0 = 0 
+    progressBg.graphics.f(TP.bgColor).r(-bgw/2, y0, bgw, bgym-y0)
+    undoC.addChildAt(progressBg, 0)
+    this.dragger.makeDragable(undoC)
     this.winText.y = Math.min(pmy, bgrpt.y - 135) // 135 = winBack.y = winBack.h
     this.winBack.visible = this.winText.visible = false 
     this.winBack.x = this.winText.x; this.winBack.y = this.winText.y; 
   }
-  enableHexInspector(qY: number) {
+  showWinText(msg?: string, color = 'green') {
+    this.winText.text = msg || "COLOR WINS:\nSTALEMATE (10 -- 10)\n0 -- 0"
+    this.winText.color = color
+    this.winText.visible = this.winBack.visible = true
+    this.hexMap.update()
+  }
+    enableHexInspector(qY: number) {
     let qShape = new Shape(), toggle = true
     qShape.graphics.f("black").dp(0, 0, 20, 6, 0, 0)
     qShape.y = qY  // size of skip Triangles
@@ -217,6 +227,7 @@ export class Table extends EventDispatcher  {
     this.undoCont.x = this.nextHex.x
     this.undoCont.y = this.nextHex.y + 100
     hexMap.mapCont.markCont.addChild(this.undoCont)
+    //this.undoCont.addChildAt(this.nextHex.cont, 0)
     this.progressMarker = stoneColorRecordF((sc) => ProgressMarker.make(sc, this.undoCont))
 
     this.bgRect = this.setBackground(this.scaleCont, bgr) // bounded by bgr
@@ -259,7 +270,6 @@ export class Table extends EventDispatcher  {
   }
   showNextStone(player: Player) {
     let color = player.color
-    //if (this.gamePlay.turnNumber == 1) color = otherColor(color)
     this.nextHex.clearColor()           // remove prior Stone from the game [thank you for your service]
     this.nextHex.setColor(color)        // make a Stone to drag
     let stone = this.nextHex.stone

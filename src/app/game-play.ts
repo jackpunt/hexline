@@ -340,7 +340,7 @@ export class GamePlay extends GamePlay0 {
     KeyBinder.keyBinder.setKey('L', { thisArg: this.logWriter, func: this.logWriter.showBacklog })
     KeyBinder.keyBinder.setKey('M-l', { thisArg: this.logWriter, func: () => { this.logWriter.closeFile() } }) // void vs Promise<void>
     KeyBinder.keyBinder.setKey('C-l', { thisArg: this, func: () => { this.readGameFile() } }) // void vs Promise<void>
-    KeyBinder.keyBinder.setKey('w', { thisArg: this, func: () => { this.gStats.showWinText() } })
+    KeyBinder.keyBinder.setKey('w', { thisArg: this, func: () => { this.gStats.showWin('b', "Stalemate (10 -- 10)") } })
 
     KeyBinder.keyBinder.setKey('M-r', { thisArg: this, func: () => { this.gameSetup.netState = "ref" } })
     KeyBinder.keyBinder.setKey('M-c', { thisArg: this, func: () => { this.gameSetup.netState = "yes" } })
@@ -527,10 +527,7 @@ export class GamePlay extends GamePlay0 {
     this.autoMove(false)
     this.curPlayer.stopMove()
     console.log(stime(this, `.stopPlan:`), { planner: this.curPlayer.planner }, '----------------------')
-    setTimeout(() => {
-      this.table.winText.text = `stopPlan:`
-      this.table.hexMap.update()
-    }, 400)
+    setTimeout(() => { this.table.showWinText(`stopPlan`) }, 400)
   }
   /** undo and makeMove(incb=1) */
   makeMoveAgain(arg?: boolean, ev?: any) {
@@ -670,7 +667,10 @@ export class GamePlay extends GamePlay0 {
     // tn[0] -> plyr=='B', curPlayerNdx=0; show BLACK Stone; setNextPlayer(WHITE)
     this.setNextPlayer0(plyr)
     this.table.showNextPlayer() // get to nextPlayer, waitPaused when Player tries to make a move.?
-    if (this.turnNumber == 1) this.setNextPlayer0(this.allPlayers[1])
+    if (this.turnNumber == 1) {
+      this.setNextPlayer0(this.allPlayers[1])
+      this.table.showWinText(`${TP.colorScheme['w']} places first\n${TP.colorScheme['b']} Stone`, 'white')
+    }
     this.makeMove()
   }
 
