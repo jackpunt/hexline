@@ -12,7 +12,8 @@ export default (
   //config.optimization.minimize = false
   //config.output.filename = '[name].[contenthash].bundle.js'
   //config.output.chunkFilename = `[id].chunk${Math.floor(Math.random()*100)}.js`
-  config.output.chunkFilename = `[id].js`
+  //config.output.chunkFilename = `[id].js` // `src_app_plan_worker_ts`
+  //console.log(JSON.stringify(config))
   return config;
 }
 

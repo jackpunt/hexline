@@ -110,7 +110,7 @@ export class PlannerProxy implements IPlanner, IPlanReply {
   makeWorker() {
     if (typeof Worker !== 'undefined') {
       // Create a new
-      const worker = new Worker(new URL('./plan.worker', import.meta.url));
+      const worker = new Worker(new URL('plan.worker', import.meta.url));
       worker.onmessage = (msg) => { this.onMessage(msg) }
       worker.onerror = (err) => { this.onError(err) }
       return worker

@@ -141,7 +141,7 @@ export class GameSetup {
     gui.stage.update()
     restart = true // *after* makeLines has stablilized selectValue
     const gui2 = this.makeParamGUI2(table, parent, x - 280, y)
-    const gui3 = this.makeNetworkGUI(table, parent, x, y + gui.ymax + 40 )
+    const gui3 = this.makeNetworkGUI(table, parent, x - 300, y + gui.ymax + 20 )
     return [gui, gui2, gui3]
   }
   makeParamGUI2(table: Table, parent: Container, x: number, y: number) {
