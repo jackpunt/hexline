@@ -334,6 +334,8 @@ export class GamePlay extends GamePlay0 {
     KeyBinder.keyBinder.setKey('M', { thisArg: this, func: this.makeMoveAgain, argVal: true })
     KeyBinder.keyBinder.setKey('n', { thisArg: this, func: this.autoMove, argVal: false })
     KeyBinder.keyBinder.setKey('N', { thisArg: this, func: this.autoMove, argVal: true})
+    KeyBinder.keyBinder.setKey('c', { thisArg: this, func: this.autoPlay, argVal: 0})
+    KeyBinder.keyBinder.setKey('v', { thisArg: this, func: this.autoPlay, argVal: 1})
     KeyBinder.keyBinder.setKey('y', { thisArg: this, func: () => TP.yield = true })
     KeyBinder.keyBinder.setKey('u', { thisArg: this, func: () => TP.yield = false })
     KeyBinder.keyBinder.setKey('l', { thisArg: this.logWriter, func: this.logWriter.pickLogFile })
@@ -556,11 +558,19 @@ export class GamePlay extends GamePlay0 {
     player.playerMove(sc, auto, incb) // make one robo move
   }
   /** if useRobo == true, then Player delegates to robo-player immediately. */
-  autoMove(useRobo: boolean = false) {
+  autoMove(useRobo = false) {
     this.forEachPlayer(p => {
-      p.useRobo = useRobo
-      console.log(stime(this, `.autoMove: ${p.colorn}.useRobo=`), p.useRobo)
+      this.roboPlay(p.index, useRobo)
     })
+  }
+  autoPlay(pid = 0) {  
+    this.roboPlay(pid, true)  // KeyBinder uses arg2
+    if (this.curPlayerNdx == pid) this.makeMove(true)
+  }
+  roboPlay(pid = 0, useRobo = true) {
+    let p = this.allPlayers[pid]
+    p.useRobo = useRobo
+    console.log(stime(this, `.autoPlay: ${p.colorn}.useRobo=`), p.useRobo)
   }
   /** when true, run all the redoMoves. */
   set runRedo(val: boolean) { (this._runRedo = val) && this.makeMove() }
