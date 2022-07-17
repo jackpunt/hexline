@@ -1,4 +1,6 @@
 // for @angular-builders/custom-webpack
+// https://www.digitalocean.com/community/tutorials/angular-custom-webpack-config
+// https://www.npmjs.com/package/@angular-builders/custom-webpack : merge config
 import * as webpack from 'webpack';
 import { CustomWebpackBrowserSchema, TargetOptions } from '@angular-builders/custom-webpack';
 

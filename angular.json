@@ -17,7 +17,10 @@
         "build": {
           "builder": "@angular-builders/custom-webpack:browser",
           "options": {
-            "customWebpackConfig": { "path": "./custom-webpack.config.ts" },
+            "customWebpackConfig": {
+              "path": "./custom-webpack.config.ts",
+              "mergeRules": { "externals": "replace" }
+            },
             "outputPath": "dist/hexline",
             "index": "src/index.html",
             "main": "src/main.ts",
@@ -71,15 +74,14 @@
         "serve": {
           "builder": "@angular-builders/custom-webpack:dev-server",
           "options": {
-            "browserTarget": "AngularCustomWebpackConfig:build"
+            "browserTarget": "hexline:build"
           },
           "configurations": {
             "production": {
               "browserTarget": "hexline:build:production"
             },
             "development": {
-              "browserTarget": "hexline:build:development", 
-              "port": 4201
+              "browserTarget": "hexline:build:development" 
             }
           },
           "defaultConfiguration": "development"
