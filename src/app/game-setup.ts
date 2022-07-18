@@ -115,7 +115,8 @@ export class GameSetup {
     let restart = false 
     const gui = new ParamGUIP(TP, { textAlign: 'right'}, this.gamePlay)
     const schemeAry = TP.schemeNames.map(n => { return { text: n, value: TP[n] } })
-    let nHex = (mh: number, nh: number) => { restart && this.restart.call(this, mh, nh) }
+    let mHex = (mh: number, nh: number) => { restart && this.restart.call(this, mh, nh) }
+    let nHex = (mh: number, nh: number) => { restart && this.restart.call(this, nh>3?Math.min(mh,3):nh>1?Math.min(mh,4):mh, nh) }
     gui.makeParamSpec("log", [-1, 0, 1, 2], { style: { textAlign: 'right' } }); TP.log
     gui.makeParamSpec("mHexes", [2, 3, 4, 5, 6, 7, 8, 9, 10], { fontColor: "green" }) // TODO: limit nHexes for mH > 4
     gui.makeParamSpec("nHexes", [1, 2, 3, 4, 5, 6], { fontColor: "green" })
@@ -124,7 +125,7 @@ export class GameSetup {
     gui.makeParamSpec("nPerDist", [2, 3, 4, 5, 6, 8, 11, 15, 19], { fontColor: "blue" }); TP.nPerDist
     gui.makeParamSpec("allowSuicide", [true, false]); TP.allowSuicide
     gui.makeParamSpec("colorScheme", schemeAry, { style: { textAlign: 'center' } })
-    gui.spec("mHexes").onChange = (item: ParamItem) => { nHex(item.value, TP.nHexes) }
+    gui.spec("mHexes").onChange = (item: ParamItem) => { mHex(item.value, TP.nHexes) }
     gui.spec("nHexes").onChange = (item: ParamItem) => { nHex(TP.mHexes, item.value) }
     gui.spec("colorScheme").onChange = (item: ParamItem) => {
       gui.setValue(item, TP)
