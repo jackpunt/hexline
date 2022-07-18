@@ -7,7 +7,6 @@ import { Table } from "./table";
 import { TP } from "./table-params";
 import { Hex2, HexMap } from "./hex";
 import { ParamGUIP } from "./ParamGUIP";
-import { CLOSE_CODE } from "@thegraid/wspbclient";
 
 /** show " R" for " N" */
 stime.anno = (obj: string | { constructor: { name: string; }; }) => {
@@ -36,7 +35,7 @@ export class GameSetup {
   _netState = " " // or "yes" or "ref"
   set netState(val: string) { 
     this._netState = (val == "cnx") ? "yes" : val
-    console.log(stime(this, `.netState('${val}')->'${this._netState}'`))
+    this.gamePlay.ll(2) && console.log(stime(this, `.netState('${val}')->'${this._netState}'`))
     this.netGUI?.selectValue("Network", val)
   }
   get netState() { return this._netState }

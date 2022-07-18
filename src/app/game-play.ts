@@ -19,6 +19,7 @@ import { otherColor, StoneColor, stoneColors, TP } from "./table-params";
 export class GamePlay0 {
   static gpid = 0
   readonly id = GamePlay0.gpid++
+  ll(n: number) { return TP.log > n }
 
   constructor() {
     this.gStats = new GameStats(this.hexMap) // AFTER allPlayers are defined so can set pStats
@@ -404,12 +405,12 @@ export class GamePlay extends GamePlay0 {
       hgClient.wsbase.log = lld0
       this.gameSetup.netState = (ref ? "ref" : "cnx")
       hgClient.addEventListener('close', (ev: CloseEvent) => {
-        console.log(stime(this, `.cgOpen: hgClient closed`), hgClient)
+        this.ll(1) && console.log(stime(this, `.cgOpen: hgClient closed`), hgClient)
         if (hgClient == this.gameSetup.gamePlay?.hgClient) {
           this.gameSetup.netState = " "
           this.gameSetup.playerId = " "
         } else {
-          console.log(stime(this, `.cgOpen: old hgClient closed`), hgClient)
+          this.ll(1) && console.log(stime(this, `.cgOpen: old hgClient closed`), hgClient)
         }
       })
     }
@@ -670,7 +671,7 @@ export class GamePlay extends GamePlay0 {
     this.turnNumber = this.history.length + 1
     this.curPlayerNdx = plyr.index
     this.curPlayer = plyr
-    console.log(stime(this, `.setNextPlayer0: curPlayer = ${this.curPlayer.color} iHistory =`), this.iHistory)
+    this.ll(1) && console.log(stime(this, `.setNextPlayer0: curPlayer = ${this.curPlayer.color} iHistory =`), this.iHistory)
     return plyr
   }
   setNextPlayer(plyr = (this.turnNumber == 1) ? this.curPlayer : this.otherPlayer()) {
@@ -690,7 +691,7 @@ export class GamePlay extends GamePlay0 {
     if (!!redo && redo.hex !== hev.hex) this.redoMoves.splice(0, this.redoMoves.length)
     this.doPlayerMove(hev.hex, hev.stoneColor)
     this.setNextPlayer()
-    console.log(stime(this, `.localMoveEvent: after doPlayerMove - setNextPlayer =`), this.curPlayer.color)
+    this.ll(2) && console.log(stime(this, `.localMoveEvent: after doPlayerMove - setNextPlayer =`), this.curPlayer.color)
     let msg: HgMessage;
     if (this.isNetworked((hgc) => {
     }, undefined, (hgc) => {
@@ -700,7 +701,7 @@ export class GamePlay extends GamePlay0 {
       hgc.send_message(msg, { client_id: CgMessage.GROUP_ID, nocc: true }) // no referee, no echo
       return true
     })) {
-      console.log(stime(this, `.localMoveEvent: send_message(next)`), msg)
+      this.ll(2) && console.log(stime(this, `.localMoveEvent: send_message(next)`), msg)
     }
   }
 
@@ -712,13 +713,13 @@ export class GamePlay extends GamePlay0 {
     let inform = `${imove.Aname}#${iHistory.length}`
 
     let moveToGrp = () => {
-      console.log(stime(this, `.playerMoveEvent: moveToGrp: iHistory=`), iHistory)
+      this.ll(2) && console.log(stime(this, `.playerMoveEvent: moveToGrp: iHistory=`), iHistory)
       let msg = new HgMessage({ type: HgType.hg_sendMove, inform, json: JSON.stringify({sc, iHistory}) })
       let opts = this.useReferee ? { client_id: 0, nocc: true } : { client_id: CgMessage.GROUP_ID, nocc: false}
       return hgClient.send_message(msg, opts) // CgServer will send it back to all of us
     }
     let rejectMove = (rej: any) => { 
-      console.warn(stime(this, `.playerMoveEvent: reject Move (${inform}):`), rej) 
+      this.ll(2) && console.warn(stime(this, `.playerMoveEvent: reject Move (${inform}):`), rej) 
       // remove that stone, make a new [dragable] one:
       this.table.showNextStone(this.curPlayer)
     }
@@ -757,11 +758,11 @@ export class GamePlay extends GamePlay0 {
     let logReader = new LogReader()
     let filep = logReader.pickFileToRead()
     let file = await filep
-    console.log(stime(this, `.readGameFile: File =`), file.name)
+    this.ll(1) && console.log(stime(this, `.readGameFile: file.name =`), file.name)
     let gameString = await logReader.readPickedFile(filep) // the WHOLE file contents!
     let lineAry = gameString.split('\n')
     let header = JSON.parse(lineAry.shift())
-    console.log(stime(this, `.readGameFile: header =`), header)
+    this.ll(1) && console.log(stime(this, `.readGameFile: header =`), header)
     let { time, mh, nh, maxBreadth, maxPlys, nPerDist, pBoards } = header
     TP.maxBreadth = maxBreadth
     TP.maxPlys = maxPlys
