@@ -142,7 +142,7 @@ export class Table extends EventDispatcher  {
     this.winText.visible = this.winBack.visible = true
     this.hexMap.update()
   }
-    enableHexInspector(qY: number) {
+  enableHexInspector(qY: number) {
     let qShape = new Shape(), toggle = true
     qShape.graphics.f("black").dp(0, 0, 20, 6, 0, 0)
     qShape.y = qY  // size of skip Triangles
@@ -176,6 +176,7 @@ export class Table extends EventDispatcher  {
       this.hexMap.update()               // after toggleText & updateCache()
     }
     qShape.on(S.click, toggleText, this) // toggle visible
+    toggleText(undefined, false)         // set initial visibility  
   }
   miniMap: HexMap;
   makeMiniMap(parent: Container, x: number, y: number) {

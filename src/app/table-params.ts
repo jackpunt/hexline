@@ -33,9 +33,9 @@ export class TP {
   static colorScheme = TP.Black_White
   static numPlayers = 2;
   /** Order [number of rings] of metaHexes */
-  static mHexes = 2    // number hexes on side of Meta-Hex
+  static mHexes = 3    // number hexes on side of Meta-Hex
   /** Order [number of Hexs on side] of District [# rings of Hexes in each metaHex] */
-  static nHexes = 1    // number of Hexes on side of District
+  static nHexes = 2    // number of Hexes on side of District
   static nDistricts = 7
   static nVictory = 4  // number of Districts to control
   static tHexes = TP.ftHexes(this.mHexes) * TP.ftHexes(this.nHexes)
@@ -56,6 +56,8 @@ export class TP {
   /** number of hexes in a metaHex of order n; number of districts(n=TP.mHexes)
    * @return an odd number: 1, 7, 19, 37, 61, 97, ... */
   static ftHexes(n: number): number { return (n <= 1) ? n : 6 * (n-1) + TP.ftHexes(n - 1) }
+  /** initialize fnHexes using initial mH, nH */
+  static xxx = TP.fnHexes(TP.mHexes, TP.nHexes)
 
   /** exclude whole Extension sets */
   static excludeExt: string[] = ["Policy", "Event", "Roads", "Transit"]; // url?ext=Transit,Roads
