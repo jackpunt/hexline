@@ -581,6 +581,7 @@ export class GamePlay extends GamePlay0 {
   /** invoked by GUI or Keyboard */
   undoMove(undoTurn: boolean = true) {
     this.table.stopDragging() // drop on nextHex (no Move)
+    this.autoMove(false)      // not point going back if auto-fwd is on.
     let move: Move = this.shiftMove() // remove last Move
     if (!!move) {
       let history = this.history
