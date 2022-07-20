@@ -1,0 +1,8 @@
+#!/bin/sh
+# upload "$1" "$@" 
+# $1 = bucket name (shift)
+# "$@" = objects
+
+bucket=$1; shift
+echo aws s3 sync  "$@" s3://${bucket}
+aws s3 sync  "$@"  s3://${bucket}

@@ -302,6 +302,10 @@ export class Table extends EventDispatcher  {
   }
 
   allSuicides: Set<Hex2> = new Set()
+  /** 
+   * @param color shift-key overrides curPlayer.color 
+   * @param show dragFunc sets 'true' to force show (overriding !showSui || !color)
+   */
   markAllSuicide(color: StoneColor = this.gamePlay.curPlayer?.color, show = false) {
     if (!show && (!this.showSui || !color)) return
     this.tablePlanner.syncToGame(this.gamePlay.iHistory)
@@ -312,8 +316,10 @@ export class Table extends EventDispatcher  {
       if (this.gamePlay.history[0]?.captured.includes(hex)) return
       let [legal, suicide] = this.gamePlay.isMoveLegal(hex, color, (move) => {
         if (!move.suicide && move.isFreeJeopardy && this.tablePlanner.isWastedMove(move)) {
+          if (this.showSui) {
           this.allSuicides.add(hex) // not actual suicide: will unmarkCapture()
           hex.markCapture(H.fjColor)
+          }
         }
       })
       if (suicide) {
@@ -330,7 +336,7 @@ export class Table extends EventDispatcher  {
   get showInf() { return this.hexMap.mapCont.infCont.visible }
   _showSui = true
   get showSui() { return this._showSui }
-  set showSui(val: boolean) { (this._showSui = val) ? this.markAllSuicide() : this.unmarkAllSuicide()}
+  set showSui(val: boolean) { (this._showSui = val) ? this.markAllSuicide() : this.unmarkAllSuicide() }
 
   dragShift = false // last shift state in dragFunc
   dragHex: Hex2 = undefined // last hex in dragFunc
@@ -340,7 +346,7 @@ export class Table extends EventDispatcher  {
   stopDragging(target: Hex2 = this.nextHex) {
     //console.log(stime(this, `.stopDragging: target=`), this.dragger.dragCont.getChildAt(0), {noMove, isDragging: this.isDragging()})
     if (!this.isDragging()) return
-    if (!this.showSui) this.unmarkAllSuicide()
+    this.unmarkAllSuicide()
     target && (this.dropTarget = target)
     this.dragger.stopDrag()
   }
@@ -357,15 +363,17 @@ export class Table extends EventDispatcher  {
       this.markAllSuicide(stone.color, true)
       //Hex2.infVis = this.showInf
     }
+    let remarkFromShift = false
     if (shiftKey != this.dragShift) {
       stone.paint(shiftKey ? color : undefined) // otherColor or orig color
-      if (shiftKey) { this.unmarkAllSuicide() } else { this.markAllSuicide(color, true) }
+      if (shiftKey) { this.unmarkAllSuicide() } else { remarkFromShift = true }
     }
     if (shiftKey == this.dragShift && hex == this.dragHex) return    // nothing new
     this.dragShift = shiftKey
 
     // close previous dragHex:
     if (this.protoHex) { this.gamePlay.undoProtoMove(); this.protoHex = undefined }
+    if (remarkFromShift) this.markAllSuicide(color, true)
 
     this.dragHex = hex
     if (!hex || hex == this.nextHex) return nonTarget(hex)

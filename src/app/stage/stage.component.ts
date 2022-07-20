@@ -57,9 +57,10 @@ export class StageComponent implements OnInit {
     let ext = !!extstr ? extstr.split(',') : []
     new GameSetup(this.mapCanvasId, ext) // load images; new GamePlay
   }
+  // see: stream-writer.setButton
   static enableOpenFilePicker(method: 'showOpenFilePicker' | 'showSaveFilePicker' | 'showDirectoryPicker',
-  options: OpenFilePickerOptions & { multiple?: false; } & SaveFilePickerOptions & DirectoryPickerOptions, 
-  cb: (fileHandleAry: any) => void) {
+    options: OpenFilePickerOptions & { multiple?: false; } & SaveFilePickerOptions & DirectoryPickerOptions,
+    cb: (fileHandleAry: any) => void) {
     const picker = window[method]       // showSaveFilePicker showDirectoryPicker
     const fsOpenButton = document.getElementById("fsOpenFileButton")
     fsOpenButton.onclick = async () => {

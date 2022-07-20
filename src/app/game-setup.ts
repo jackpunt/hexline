@@ -111,19 +111,25 @@ export class GameSetup {
     return panel
   }
   makeParamGUI(table: Table, parent: Container, x: number, y: number) {
-    let restart = false 
+    let restart = false, infName = "inf:sui"
     const gui = new ParamGUIP(TP, { textAlign: 'right'}, this.gamePlay)
     const schemeAry = TP.schemeNames.map(n => { return { text: n, value: TP[n] } })
     let mHex = (mh: number, nh: number) => { restart && this.restart.call(this, mh, nh) }
     let nHex = (mh: number, nh: number) => { restart && this.restart.call(this, nh>3?Math.min(mh,3):nh>1?Math.min(mh,4):mh, nh) }
-    gui.makeParamSpec("log", [-1, 0, 1, 2], { style: { textAlign: 'right' } }); TP.log
     gui.makeParamSpec("mHexes", [2, 3, 4, 5, 6, 7, 8, 9, 10], { fontColor: "green" }) // TODO: limit nHexes for mH > 4
     gui.makeParamSpec("nHexes", [1, 2, 3, 4, 5, 6], { fontColor: "green" })
+    gui.makeParamSpec(infName, ['1:1', '1:0', '0:1', '0:0'], { name: infName, target: table, fontColor: 'green' })
     gui.makeParamSpec("maxPlys", [1, 2, 3, 4, 5, 6, 7, 8], { fontColor: "blue" }); TP.maxPlys
     gui.makeParamSpec("maxBreadth", [5, 6, 7, 8, 9, 10], { fontColor: "blue" }); TP.maxBreadth
     gui.makeParamSpec("nPerDist", [2, 3, 4, 5, 6, 8, 11, 15, 19], { fontColor: "blue" }); TP.nPerDist
     gui.makeParamSpec("allowSuicide", [true, false]); TP.allowSuicide
     gui.makeParamSpec("colorScheme", schemeAry, { style: { textAlign: 'center' } })
+    let infSpec = gui.spec(infName); table[infSpec.fieldName] = infSpec.choices[0].text
+    infSpec.onChange = (item: ParamItem) => {
+      let v = item.value as string 
+      table.showInf = v.startsWith('1')
+      table.showSui = v.endsWith('1')
+    }
     gui.spec("mHexes").onChange = (item: ParamItem) => { mHex(item.value, TP.nHexes) }
     gui.spec("nHexes").onChange = (item: ParamItem) => { nHex(TP.mHexes, item.value) }
     gui.spec("colorScheme").onChange = (item: ParamItem) => {
@@ -146,20 +152,14 @@ export class GameSetup {
     return [gui, gui2, gui3]
   }
   makeParamGUI2(table: Table, parent: Container, x: number, y: number) {
-    let gui = new ParamGUIP(TP, { textAlign: 'center' }, this.gamePlay), infName = "inf:sui"
-    gui.makeParamSpec(infName, ['1:1', '1:0', '0:1', '0:0'], { name: infName, target: table, fontColor: 'green' })
+    let gui = new ParamGUIP(TP, { textAlign: 'center' }, this.gamePlay)
+    gui.makeParamSpec("log", [-1, 0, 1, 2], { style: { textAlign: 'right' } }); TP.log
     gui.makeParamSpec("pWeight", [1, .99, .97, .95, .9]) ; TP.pWeight
     gui.makeParamSpec("pWorker", [true, false]); TP.pWorker
     gui.makeParamSpec("pPlaner", [true, false], { name: "parallel" }); TP.pPlaner
     gui.makeParamSpec("pBoards", [true, false]); TP.pBoards
     gui.makeParamSpec("pMoves",  [true, false]); TP.pMoves
     gui.makeParamSpec("pGCM",    [true, false]); TP.pGCM
-    gui.spec(infName).onChange = (item: ParamItem) => {
-      let v = item.value as string 
-      table.showInf = v.startsWith('1')
-      table.showSui = v.endsWith('1')
-    }
-    let infSpec = gui.spec(infName); table[infSpec.fieldName] = infSpec.choices[0].text
     parent.addChild(gui)
     gui.x = x; gui.y = y
     gui.makeLines()
