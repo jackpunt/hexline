@@ -1,12 +1,11 @@
+import { DropdownChoice, DropdownItem, DropdownStyle, makeStage, ParamGUI, ParamItem, S, stime } from "@thegraid/easeljs-lib";
 import { Container, Stage } from "@thegraid/easeljs-module";
-import { stime, makeStage, S, DropdownStyle } from "@thegraid/easeljs-lib";
-import { ParamGUI, ParamItem} from '@thegraid/easeljs-lib' // './ParamGUI' //
 import { GamePlay } from "./game-play";
+import { Hex2, HexMap } from "./hex";
+import { ParamGUIP } from "./ParamGUIP";
 import { StatsPanel, TableStats } from "./stats";
 import { Table } from "./table";
 import { TP } from "./table-params";
-import { Hex2, HexMap } from "./hex";
-import { ParamGUIP } from "./ParamGUIP";
 
 /** show " R" for " N" */
 stime.anno = (obj: string | { constructor: { name: string; }; }) => {
@@ -155,11 +154,11 @@ export class GameSetup {
     let gui = new ParamGUIP(TP, { textAlign: 'center' }, this.gamePlay)
     gui.makeParamSpec("log", [-1, 0, 1, 2], { style: { textAlign: 'right' } }); TP.log
     gui.makeParamSpec("pWeight", [1, .99, .97, .95, .9]) ; TP.pWeight
-    gui.makeParamSpec("pWorker", [true, false]); TP.pWorker
-    gui.makeParamSpec("pPlaner", [true, false], { name: "parallel" }); TP.pPlaner
-    gui.makeParamSpec("pBoards", [true, false]); TP.pBoards
-    gui.makeParamSpec("pMoves",  [true, false]); TP.pMoves
-    gui.makeParamSpec("pGCM",    [true, false]); TP.pGCM
+    gui.makeParamSpec("pWorker", [true, false], { chooser: TF }); TP.pWorker
+    gui.makeParamSpec("pPlaner", [true, false], { chooser: TF, name: "parallel" }); TP.pPlaner
+    gui.makeParamSpec("pBoards", [true, false], { chooser: TF }); TP.pBoards
+    gui.makeParamSpec("pMoves",  [true, false], { chooser: TF }); TP.pMoves
+    gui.makeParamSpec("pGCM",    [true, false], { chooser: TF }); TP.pGCM
     parent.addChild(gui)
     gui.x = x; gui.y = y
     gui.makeLines()
@@ -184,4 +183,19 @@ export class GameSetup {
     return gui
   }
 
+}
+
+class TF extends DropdownChoice {
+  _bool: boolean
+  constructor(items: DropdownItem[], item_w: number, item_h: number, style?: DropdownStyle) {
+    super(items, item_w, item_h, style)
+    let _rootclick = () => { 
+      this._bool = !this._bool
+      this._index = -1
+      let item = this.items[this._bool ? 0 : 1];  // [true, false]
+      this.select(item); 
+      this.dropdown(false)
+    };
+    this._rootButton.click(_rootclick)
+  }
 }
