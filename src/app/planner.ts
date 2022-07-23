@@ -997,7 +997,7 @@ export class TablePlanner extends SubPlanner {
   override isWastedMove(move: Move): boolean {
     if (!move.isFreeJeopardy) return false
     let hex = Hex.ofMap(move.hex, this.gamePlay.hexMap)
-    let repC = move.board.repCount, mc = move.stoneColor, caps = [] // freeJeopary --> caps.length == 0
+    let repC = move.board.repCount, mc = move.stoneColor // freeJeopary --> caps.length == 0
     let move1 = this.placeStone(hex, mc) // placeStone, but not doLocalMove-->evalState()
     let isWasted = super.isWastedMove(move1, hex, repC, mc)
     this.unplaceStone()                  // TablePlanner.isWastedMove()

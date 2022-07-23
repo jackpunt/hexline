@@ -307,24 +307,23 @@ export class Table extends EventDispatcher  {
    * @param show dragFunc sets 'true' to force show (overriding !showSac || !color)
    */
   markAllSacrifice(color: StoneColor = this.gamePlay.curPlayer?.color, show = false) {
-    if (!(show || (this.showSac && color))) return
+    if (!this.showSac || !color) return
     this.tablePlanner.syncToGame(this.gamePlay.iHistory)
-    let tmap = this.tablePlanner.gamePlay.hexMap
-    let capColor = TP.allowSacrifice ? H.sacColor1 : H.capColor1
+    let capColor = H.sacColor1
     this.hexMap.forEachHex((hex: Hex2) => {
       if (hex.stoneColor !== undefined) return
       if (this.gamePlay.history[0]?.captured.includes(hex)) return
       let [legal, sacrifice] = this.gamePlay.isMoveLegal(hex, color, (move) => {
-        if (!move.sacrifice && move.isFreeJeopardy && this.tablePlanner.isWastedMove(move)) {
+        if (!move.sacrifice && this.tablePlanner.isWastedMove(move)) {
           if (this.showSac) {
-          this.allSacrifices.add(hex) // not actual sacrifice: will unmarkCapture()
-          hex.markCapture(H.fjColor)
+            this.allSacrifices.add(hex) // not actual sacrifice: will unmarkCapture()
+            hex.markCapture(H.fjColor)
           }
         }
       })
       if (sacrifice) {
         this.allSacrifices.add(hex)
-        hex.markCapture(capColor)
+        hex.markCapture(legal ? H.sacColor2 : capColor)
       }
     })
   }
@@ -361,7 +360,6 @@ export class Table extends EventDispatcher  {
       this.dropTarget = this.nextHex
       this.dragHex = this.nextHex   // indicate DRAG in progress
       this.markAllSacrifice(stone.color, true)
-      //Hex2.infVis = this.showInf
     }
     let remarkFromShift = false
     if (shiftKey != this.dragShift) {
@@ -377,7 +375,6 @@ export class Table extends EventDispatcher  {
 
     this.dragHex = hex
     if (!hex || hex == this.nextHex) return nonTarget(hex)
-    if (!TP.allowSacrifice && this.allSacrifices.has(hex)) return nonTarget(hex)
     // if isLegalMove then leave protoMove on display:
     if (this.gamePlay.isMoveLegal(hex, color, false)[0]) this.protoHex = hex
     else return nonTarget(hex)

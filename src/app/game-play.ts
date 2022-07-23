@@ -200,10 +200,12 @@ export class GamePlay0 {
       openRec: this.undoRecs.openRec.concat(), })
   }
   /**
-   * See if proposed Move is legal, and if it is sacrifice (when sacrifice is allowed)
+   * See if proposed Move is legal, and if it is sacrifice (stone removed after play)
+   * Hex not legal if: previous capture || district0 without suppport || sacrifice-notAllowed
    * 
-   * unshift(move); addStone(); isSacrifice(); undo(); shift()
-   * @param evalFun if false then leave protoMove in place; if function invoke evalFun(move)
+   * unshift(move); doProtoMove(); sac=move.sac; check evalFun; undoProtoMove()
+   * @param evalFun * if legal && (evalFun === false) -> leave ProtoMove in place;
+   * * if legal && evalFun is function -> invoke evalFun(move) while ProtoMove in place
    * @returns [isLegal, isSacrifice]
    */
   isMoveLegal(hex: Hex, color: StoneColor, evalFun: (boolean | ((move: Move) => void)) = true): [boolean, boolean] {
@@ -229,12 +231,14 @@ export class GamePlay0 {
   doProtoMove(hex: Hex, color: StoneColor) {
     let move = this.newMove(hex, color, [], this)
     this.undoRecs.saveUndo(`iLM`).enableUndo() // before addStone in isLegalMove
-    let capColor = Hex.capColor   // dynamic bind Hex.capColor
-    Hex.capColor = H.capColor2
-    // addUndoRec(removeStone), incrInfluence [& undoInf] -> captureStone() -> undoRec(addStone & capMark)
-    this.addStone(hex, color)     // stone on hexMap: exactly 1 undoRec (have have several undo-funcs)
-    move.sacrifice = !hex.stoneColor
-    Hex.capColor = capColor
+    {
+      let capColor = Hex.capColor   // dynamic bind Hex.capColor
+      Hex.capColor = H.capColor2
+      // addUndoRec(removeStone), incrInfluence [& undoInf] -> captureStone() -> undoRec(addStone & capMark)
+      this.addStone(hex, color)     // stone on hexMap: exactly 1 undoRec (have have several undo-funcs)
+      move.sacrifice = !hex.stoneColor
+      Hex.capColor = capColor
+    }
     this.incrBoard(move)          // set move.board
     return move
   }

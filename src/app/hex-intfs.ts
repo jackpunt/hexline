@@ -34,5 +34,6 @@ export namespace H {
   export const capColor1:   string = "rgba(150,  0,   0, .8)"  // unplayable: captured last turn
   export const capColor2:   string = "rgba(128,  80, 80, .8)"  // protoMove would capture
   export const sacColor1:   string = "rgba(228,  80,  0, .8)"  // unplayable: sacrifice w/o capture
-  export const fjColor:     string = "rgba(228,  228, 0, .8)"  // ~unplayable: jeopardy w/o capture
+  export const sacColor2:   string = "rgba(228, 120,  0, .6)"  // isplayable: sacrifice w/ capture
+  export const fjColor:     string = "rgba(228, 228,  0, .8)"  // ~unplayable: jeopardy w/o capture
 }
