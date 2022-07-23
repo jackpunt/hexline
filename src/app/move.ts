@@ -2,7 +2,7 @@ import { Board, GamePlay0 } from "./game-play";
 import { Hex, IHex } from "./hex";
 import { otherColor, StoneColor, TP } from "./table-params";
 
-/** Historical record of each move made; sans captured, suicide, board which can be recomputed. */
+/** Historical record of each move made; sans captured, sacrifice, board which can be recomputed. */
 export type IMove = { Aname: string, hex: IHex, stoneColor: StoneColor }
 
 export class Move {
@@ -15,7 +15,7 @@ export class Move {
   /** set by GamePlay.incrBoard(Move) */
   board: Board;
   /**  */
-  suicide: boolean
+  sacrifice: boolean
 
   get isFreeJeopardy() {
     return this.captured.length == 0 && this.hex.isThreat(otherColor(this.stoneColor))
@@ -49,7 +49,7 @@ export class Move {
   /** override in PlanMove to indicate move.state.fj */
   get ind() { 
     let caps = this.captured, cp = caps.length > 0, atk = this.hex.isThreat(otherColor(this.stoneColor))
-    let rv = (this.suicide ? '$' : !atk ? ' ' : cp ? '-' : '!') + (cp ? `${caps.length}` : atk ? '!' : ' ')
+    let rv = (this.sacrifice ? '$' : !atk ? ' ' : cp ? '-' : '!') + (cp ? `${caps.length}` : atk ? '!' : ' ')
     return rv
   }
 }

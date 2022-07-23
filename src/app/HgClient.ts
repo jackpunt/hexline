@@ -112,7 +112,7 @@ export class HgClient extends GgClient<HgMessage> {
       if (targetName === 'TP') TP[fieldName] = value
     }
   }
-  static paramNames = ['nHexes', 'mHexes', 'allowSuicide']
+  static paramNames = ['nHexes', 'mHexes', 'allowSacrifice']; refs = [TP.mHexes, TP.nHexes, TP.allowSacrifice]
 }
 export class HgReferee extends GgRefMixin<HgMessage, typeof HgClient>(HgClient) {
   cgBaseType = CgBase

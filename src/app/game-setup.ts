@@ -105,7 +105,7 @@ export class GameSetup {
     return panel
   }
   makeParamGUI(table: Table, parent: Container, x: number, y: number) {
-    let restart = false, infName = "inf:sui"
+    let restart = false, infName = "inf:sac"
     const gui = new ParamGUIP(TP, { textAlign: 'right'}, this.gamePlay)
     const schemeAry = TP.schemeNames.map(n => { return { text: n, value: TP[n] } })
     let mHex = (mh: number, nh: number) => { restart && this.restart.call(this, mh, nh) }
@@ -116,13 +116,13 @@ export class GameSetup {
     gui.makeParamSpec("maxPlys", [1, 2, 3, 4, 5, 6, 7, 8], { fontColor: "blue" }); TP.maxPlys
     gui.makeParamSpec("maxBreadth", [5, 6, 7, 8, 9, 10], { fontColor: "blue" }); TP.maxBreadth
     gui.makeParamSpec("nPerDist", [2, 3, 4, 5, 6, 8, 11, 15, 19], { fontColor: "blue" }); TP.nPerDist
-    gui.makeParamSpec("allowSuicide", [true, false], { chooser: BC, name: 'allowSacrifice' }); TP.allowSuicide
+    gui.makeParamSpec("allowSacrifice", [true, false], { chooser: BC }); TP.allowSacrifice
     gui.makeParamSpec("colorScheme", schemeAry, { chooser: CycleChoice, style: { textAlign: 'center' } })
     let infSpec = gui.spec(infName); table[infSpec.fieldName] = infSpec.choices[0].text
     infSpec.onChange = (item: ParamItem) => {
       let v = item.value as string 
       table.showInf = v.startsWith('1')
-      table.showSui = v.endsWith('1')
+      table.showSac = v.endsWith('1')
     }
     gui.spec("mHexes").onChange = (item: ParamItem) => { mHex(item.value, TP.nHexes) }
     gui.spec("nHexes").onChange = (item: ParamItem) => { nHex(TP.mHexes, item.value) }

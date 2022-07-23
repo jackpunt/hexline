@@ -376,7 +376,7 @@ export class SubPlanner implements IPlanner {
     if (pushUndo) this.gamePlay.undoRecs.saveUndo(pushUndo).enableUndo() // placeStone
     gamePlay.addStone(hex, color)        // may invoke captureStone() -> undoRec(Stone & capMark)
     gamePlay.incrBoard(move0)
-    move0.suicide = !hex.stoneColor
+    move0.sacrifice = !hex.stoneColor
     return move0
   }
   /** 
@@ -840,9 +840,9 @@ export class SubPlanner implements IPlanner {
     // move into jeopardy [without capturing] is generally bad: (see if the stone is un-takeable...)
     const evalFun = (move: Move) => {
       let caps = move.captured
-      // not a wastedMove of OP uses a [1-for-1] suicide to retake; IS wasted if [1-for-2]!
-      // if (caps?.includes(hex) && (!move.suicide || caps.length > 1)) {
-      if (caps?.includes(hex) && !(move.suicide && caps.length == 1 || move.board.repCount > repC)) {
+      // not a wastedMove of OP uses a [1-for-1] sacrifice to retake; IS wasted if [1-for-2]!
+      // if (caps?.includes(hex) && (!move.sacrifice || caps.length > 1)) {
+      if (caps?.includes(hex) && !(move.sacrifice && caps.length == 1 || move.board.repCount > repC)) {
         hexGen.breakSearch = true
       }
     }

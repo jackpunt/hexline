@@ -97,7 +97,7 @@ export class GamePlay0 {
     }
     if (!this.undoRecs.isUndoing) {
       this.addUndoRec(this, `removeStone(${hex.Aname}:${stoneColor})`, () => this.removeStone(hex)) // remove for undo
-      if (hex.isAttack(otherColor(stoneColor))) this.removeStone(hex) // legalSuicide --> clearColor
+      if (hex.isAttack(otherColor(stoneColor))) this.removeStone(hex) // legalSacrifice --> clearColor
     }
   }
   /** 
@@ -151,11 +151,11 @@ export class GamePlay0 {
     let move0 = this.newMove(hex, stoneColor, [], this) // new Move(); addStone(); incrBoard(); updateStates()
     if (hex.row >= 0) {
       this.addStone(hex, stoneColor) // add Stone and Capture (& removeStone) w/addUndoRec
-      move0.suicide = !hex.stoneColor
-      //if (move0.suicide) console.log(AT.ansiText(['red', 'bold'], `suicide: move0`), move0)
-      if (move0.suicide && !TP.allowSuicide) {
-        console.warn(stime(this, `.doPlayerMove: suicidal move: ${move0.Aname}`), { hex, color: TP.colorScheme[stoneColor] })
-        debugger; // illegal suicide
+      move0.sacrifice = !hex.stoneColor
+      //if (move0.sacrifice) console.log(AT.ansiText(['red', 'bold'], `sacrifice: move0`), move0)
+      if (move0.sacrifice && !TP.allowSacrifice) {
+        console.warn(stime(this, `.doPlayerMove: sacrifice not allowed: ${move0.Aname}`), { hex, color: TP.colorScheme[stoneColor] })
+        debugger; // illegal sacrifice
       }
     }
     this.undoRecs.closeUndo()         // expect ONE record, although GUI can pop as many as necessary
@@ -169,7 +169,7 @@ export class GamePlay0 {
     H.infDirs.forEach(dn => {
       let inc = hex.getInf(color, dn)         // because hex.stone: hex gets +1, and passes that on
       hex.propagateIncr(color, dn, inc, (hexi) => {
-        if (hexi != hex && hexi.isCapture(color)) {  // pick up suicide later... (hexi != hex <== curHex)
+        if (hexi != hex && hexi.isCapture(color)) {  // pick up sacrifice later... (hexi != hex <== curHex)
           this.captureStone(hexi)               // capture Stone of *other* color
         }
       })
@@ -200,11 +200,11 @@ export class GamePlay0 {
       openRec: this.undoRecs.openRec.concat(), })
   }
   /**
-   * See if proposed Move is legal, and if it is suicide (when suicide is legal)
+   * See if proposed Move is legal, and if it is sacrifice (when sacrifice is allowed)
    * 
-   * unshift(move); addStone(); isSuicide(); undo(); shift()
+   * unshift(move); addStone(); isSacrifice(); undo(); shift()
    * @param evalFun if false then leave protoMove in place; if function invoke evalFun(move)
-   * @returns [isLegal, isSuicide]
+   * @returns [isLegal, isSacrifice]
    */
   isMoveLegal(hex: Hex, color: StoneColor, evalFun: (boolean | ((move: Move) => void)) = true): [boolean, boolean] {
     if (hex.stoneColor !== undefined) return [false, false]
@@ -216,14 +216,14 @@ export class GamePlay0 {
     let pstats = this.gStats.pStat(color)
     if (hex.district == 0 && pstats.dMax <= pstats.dStones[0]) return [false, false]
     let move: Move = this.doProtoMove(hex, color)
-    let suicide = move.suicide
-    let legal = !suicide || (TP.allowSuicide && move.captured.length > 0 )
+    let sacrifice = move.sacrifice
+    let legal = !sacrifice || (TP.allowSacrifice && move.captured.length > 0 )
     if (legal) {
-      if (evalFun === false) return [legal, suicide]
+      if (evalFun === false) return [legal, sacrifice]
       if (typeof evalFun === 'function') evalFun(move) // history[0] = move; Stone on hex
     }
     this.undoProtoMove()
-    return [legal, suicide]
+    return [legal, sacrifice]
   }
   // similar to Planner.placeStone/unplaceStone, but with alt color for CapMarks
   doProtoMove(hex: Hex, color: StoneColor) {
@@ -233,7 +233,7 @@ export class GamePlay0 {
     Hex.capColor = H.capColor2
     // addUndoRec(removeStone), incrInfluence [& undoInf] -> captureStone() -> undoRec(addStone & capMark)
     this.addStone(hex, color)     // stone on hexMap: exactly 1 undoRec (have have several undo-funcs)
-    move.suicide = !hex.stoneColor
+    move.sacrifice = !hex.stoneColor
     Hex.capColor = capColor
     this.incrBoard(move)          // set move.board
     return move
@@ -588,7 +588,7 @@ export class GamePlay extends GamePlay0 {
       this.redoMoves.unshift(move)  // redoMoves[0] == move0
       this.undoStones()             // remove last Stone, replace captures
       this.undoCapMarks(move.captured) // unmark
-      this.table.unmarkAllSuicide() // Cap & Sui/Wasted mutually exclusive
+      this.table.unmarkAllSacrifice() // Cap & Sac/Wasted mutually exclusive
       move.board.setRepCount(history)
       if (undoTurn) {
         this.setNextPlayer()
@@ -658,7 +658,7 @@ export class GamePlay extends GamePlay0 {
   /** remove captured Stones, from placing Stone on Hex */
   override doPlayerMove(hex: Hex, color: StoneColor): StoneColor {
     this.unmarkOldCaptures()                 // this player no longer constrained
-    this.table.unmarkAllSuicide()
+    this.table.unmarkAllSacrifice()
     let win = super.doPlayerMove(hex, color) // incrInfluence -> captureStone -> mark new Captures, closeUndo
     this.hexMap.showMark(hex)
     this.hexMap.update()
