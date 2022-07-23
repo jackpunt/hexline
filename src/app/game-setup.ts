@@ -1,4 +1,4 @@
-import { DropdownChoice, DropdownItem, DropdownStyle, makeStage, ParamGUI, ParamItem, S, stime } from "@thegraid/easeljs-lib";
+import { BoolChoice, CycleChoice, DropdownStyle, makeStage, ParamGUI, ParamItem, S, stime } from "@thegraid/easeljs-lib";
 import { Container, Stage } from "@thegraid/easeljs-module";
 import { GamePlay } from "./game-play";
 import { Hex2, HexMap } from "./hex";
@@ -24,11 +24,6 @@ export class GameSetup {
   constructor(canvasId: string, ext?: string[]) {
     stime.fmt = "MM-DD kk:mm:ss.SSS"
     this.stage = makeStage(canvasId, false)
-    if (!this.stage.canvas) {
-      this.stage.enableMouseOver(0)
-      this.stage.enableDOMEvents(false)
-      this.stage.tickEnabled = this.stage.tickChildren = false
-    }
     this.startup(ext)
   }
   _netState = " " // or "yes" or "ref"
@@ -121,8 +116,8 @@ export class GameSetup {
     gui.makeParamSpec("maxPlys", [1, 2, 3, 4, 5, 6, 7, 8], { fontColor: "blue" }); TP.maxPlys
     gui.makeParamSpec("maxBreadth", [5, 6, 7, 8, 9, 10], { fontColor: "blue" }); TP.maxBreadth
     gui.makeParamSpec("nPerDist", [2, 3, 4, 5, 6, 8, 11, 15, 19], { fontColor: "blue" }); TP.nPerDist
-    gui.makeParamSpec("allowSuicide", [true, false]); TP.allowSuicide
-    gui.makeParamSpec("colorScheme", schemeAry, { style: { textAlign: 'center' } })
+    gui.makeParamSpec("allowSuicide", [true, false], { chooser: BC, name: 'allowSacrifice' }); TP.allowSuicide
+    gui.makeParamSpec("colorScheme", schemeAry, { chooser: CycleChoice, style: { textAlign: 'center' } })
     let infSpec = gui.spec(infName); table[infSpec.fieldName] = infSpec.choices[0].text
     infSpec.onChange = (item: ParamItem) => {
       let v = item.value as string 
@@ -154,11 +149,11 @@ export class GameSetup {
     let gui = new ParamGUIP(TP, { textAlign: 'center' }, this.gamePlay)
     gui.makeParamSpec("log", [-1, 0, 1, 2], { style: { textAlign: 'right' } }); TP.log
     gui.makeParamSpec("pWeight", [1, .99, .97, .95, .9]) ; TP.pWeight
-    gui.makeParamSpec("pWorker", [true, false], { chooser: TF }); TP.pWorker
-    gui.makeParamSpec("pPlaner", [true, false], { chooser: TF, name: "parallel" }); TP.pPlaner
-    gui.makeParamSpec("pBoards", [true, false], { chooser: TF }); TP.pBoards
-    gui.makeParamSpec("pMoves",  [true, false], { chooser: TF }); TP.pMoves
-    gui.makeParamSpec("pGCM",    [true, false], { chooser: TF }); TP.pGCM
+    gui.makeParamSpec("pWorker", [true, false], { chooser: BC }); TP.pWorker
+    gui.makeParamSpec("pPlaner", [true, false], { chooser: BC, name: "parallel" }); TP.pPlaner
+    gui.makeParamSpec("pBoards", [true, false], { chooser: BC }); TP.pBoards
+    gui.makeParamSpec("pMoves",  [true, false], { chooser: BC }); TP.pMoves
+    gui.makeParamSpec("pGCM",    [true, false], { chooser: BC }); TP.pGCM
     parent.addChild(gui)
     gui.x = x; gui.y = y
     gui.makeLines()
@@ -185,17 +180,5 @@ export class GameSetup {
 
 }
 
-class TF extends DropdownChoice {
-  _bool: boolean
-  constructor(items: DropdownItem[], item_w: number, item_h: number, style?: DropdownStyle) {
-    super(items, item_w, item_h, style)
-    let _rootclick = () => { 
-      this._bool = !this._bool
-      this._index = -1
-      let item = this.items[this._bool ? 0 : 1];  // [true, false]
-      this.select(item); 
-      this.dropdown(false)
-    };
-    this._rootButton.click(_rootclick)
-  }
-}
+/** present [false, true] with any pair of string: ['false', 'true'] */
+class BC extends BoolChoice {}
