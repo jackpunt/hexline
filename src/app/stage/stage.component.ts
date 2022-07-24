@@ -51,8 +51,9 @@ export class StageComponent implements OnInit {
 
     }
     const urlParams = new URLSearchParams(window.location.search);
-    let host = urlParams.get('host')
-    if (!!host) TP.networkUrl = buildURL(undefined, host)
+    TP.ghost = urlParams.get('host') || TP.ghost
+    TP.gport = Number.parseInt(urlParams.get('port') || TP.gport.toString(10), 10)
+    TP.networkUrl = buildURL(undefined)
     let extstr = urlParams.get('ext')
     let ext = !!extstr ? extstr.split(',') : []
     new GameSetup(this.mapCanvasId, ext) // load images; new GamePlay

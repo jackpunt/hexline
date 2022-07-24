@@ -68,7 +68,7 @@ export class TP {
 
   static bgColor: string = 'wheat'// C.BROWN
   static borderColor: string = 'peru'//TP.bgColor; //'burlywood'
-  static ghost: string = 'game7'   // game-setup.network()
+  static ghost: string = 'cgserver'   // game-setup.network()
   static gdomain: string = 'thegraid.com'
   static gport: number = 8447
   static networkUrl = buildURL();  // URL to cgserver (wspbserver)
