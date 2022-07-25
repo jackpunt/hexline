@@ -41,12 +41,21 @@
           },
           "configurations": {
             "production": {
+              "outputPath": "dist/hexline",
+              "sourceMap": {
+                "hidden": false,
+                "scripts": true,
+                "styles": true
+              },
+              "namedChunks": true,
+              "vendorChunk": true,
               "fileReplacements": [
                 {
                   "replace": "src/environments/environment.ts",
                   "with": "src/environments/environment.prod.ts"
                 }
               ],
+
               "budgets": [
                 {
                   "type": "initial",

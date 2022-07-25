@@ -302,7 +302,7 @@ export class GamePlay extends GamePlay0 {
     console.log(stime(this, `.constructor: -------------- ${line0} --------------`))
     this.logWriter = new ProgressLogWriter(logFile)
     this.logWriter.writeLine(line0)
-    this.logWriter.onProgress = (progress) =>{ 
+    this.logWriter.onProgress = (progress) => { 
       this.table.progressMarker[this.curPlayer.color].update(progress)
     }
     // Create and Inject all the Players:
@@ -310,7 +310,7 @@ export class GamePlay extends GamePlay0 {
     // setTable(table)
     this.table = table
     this.gStats = new TableStats(this, table) // reset gStats AFTER allPlayers are defined so can set pStats
-    this.bindKeys()
+    if (this.table.stage.canvas) this.bindKeys()
   }
   bindKeys() {
     let table = this.table
@@ -501,6 +501,7 @@ export class GamePlay extends GamePlay0 {
       console.log(stime(hgReferee, `.onOpen: now join_game_as_player(0)`))
     }
     let ref = refgs.gamePlay.hgClient = new HgReferee() // No URL, CgBase2
+    ref.gamePlay = refgs.gamePlay
     return ref.joinGroup(url, group, onOpen, onJoin);
   }
 
@@ -731,7 +732,7 @@ export class GamePlay extends GamePlay0 {
     let sendMove = (hgClient: HgClient) => {
       if (this.useReferee) {
         let pred = (msg: HgMessage) => (msg && msg.type == HgType.hg_sendMove && msg.client_from == hgClient.client_id)
-        // bypass eval_sendMove(msg) -> removeMoveEvent(msg)
+        // bypass eval_sendMove(msg) -> remoteMoveEvent(msg)
         hgClient.sendAndReceive(moveToGrp, pred).then((msg) => this.remoteMoveEvent(msg))
       } else {
         moveToGrp().then((ack) => this.localMoveEvent(hev), rejectMove)

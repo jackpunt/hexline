@@ -167,9 +167,9 @@ export class GameSetup {
     gui.makeParamSpec("PlayerId", [" ", 0, 1, 2, 3, "ref"], { fontColor: "red" })
 
     gui.spec("Network").onChange = (item: ParamItem) => {
-      if (item.value == "yes") this.gamePlay.network.call(this.gamePlay, false, gui)  // provoked by nkey; HgClient
-      if (item.value == "ref") this.gamePlay.network.call(this.gamePlay, true, gui)   // provoked by rkey; HgReferee
-      if (item.value == "no") this.gamePlay.closeNetwork.call(this.gamePlay)     // provoked by ckey
+      if (item.value == "yes") this.gamePlay.network(false, gui)  // provoked by nkey; HgClient
+      if (item.value == "ref") this.gamePlay.network(true, gui)   // provoked by rkey; HgReferee
+      if (item.value == "no") this.gamePlay.closeNetwork()     // provoked by ckey
     }
     parent.addChild(gui)
     gui.makeLines()

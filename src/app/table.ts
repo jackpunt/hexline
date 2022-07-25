@@ -106,7 +106,7 @@ export class Table extends EventDispatcher  {
 
     stage['table'] = this // backpointer so Containers can find their Table (& curMark)
     this.stage = stage
-    this.scaleCont = this.makeScaleCont(!!this.stage) // scaleCont & background
+    this.scaleCont = this.makeScaleCont(!!this.stage.canvas) // scaleCont & background
   }
   setupUndoButtons(xOffs: number, bSize: number, skipRad: number, bgr: XYWH) {
     this.skipShape.graphics.f("white").dp(0, 0, 40, 4, 0, skipRad)  
