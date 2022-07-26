@@ -1,11 +1,11 @@
-import { BoolChoice, CycleChoice, DropdownStyle, makeStage, ParamGUI, ParamItem, S, stime } from "@thegraid/easeljs-lib";
-import { Container, Stage } from "@thegraid/easeljs-module";
+import { BoolChoice, CycleChoice, DropdownButton, DropdownChoice, DropdownItem, DropdownStyle, makeStage, ParamGUI, ParamItem, ParamLine, S, stime } from "@thegraid/easeljs-lib";
+import { Container, DisplayObject, Stage } from "@thegraid/easeljs-module";
 import { GamePlay } from "./game-play";
 import { Hex2, HexMap } from "./hex";
 import { ParamGUIP } from "./ParamGUIP";
 import { StatsPanel, TableStats } from "./stats";
-import { Table } from "./table";
-import { TP } from "./table-params";
+import { Stone, Table } from "./table";
+import { stoneColors, TP } from "./table-params";
 
 /** show " R" for " N" */
 stime.anno = (obj: string | { constructor: { name: string; }; }) => {
@@ -28,12 +28,12 @@ export class GameSetup {
   }
   _netState = " " // or "yes" or "ref"
   set netState(val: string) { 
-    this._netState = (val == "cnx") ? "yes" : val
+    this._netState = (val == "cnx") ? "yes" : val || " "
     this.gamePlay.ll(2) && console.log(stime(this, `.netState('${val}')->'${this._netState}'`))
     this.netGUI?.selectValue("Network", val)
   }
   get netState() { return this._netState }
-  set playerId(val: string) { this.netGUI?.selectValue("PlayerId", val) }
+  set playerId(val: string) { this.netGUI?.selectValue("PlayerId", val || "     ") }
 
   /** C-s ==> kill game, start a new one, possibly with new (mh,nh) */
   restart(mh = TP.mHexes, nh= TP.nHexes) {
@@ -82,16 +82,14 @@ export class GameSetup {
     return gamePlay
   }
   makeStatsPanel(gStats: TableStats, parent: Container, x: number, y: number): StatsPanel {
-    let noArrow = { arrowColor: 'transparent' }
-    let panel = new StatsPanel(gStats, noArrow) // a ReadOnly ParamGUI reading gStats [& pstat(color)]
-    let sp = "                   " , opts = { }
-    panel.makeParamSpec("nStones", [sp], opts)
-    panel.makeParamSpec("nInf", [sp], opts)
-    panel.makeParamSpec("nAttacks", [sp], opts)
-    panel.makeParamSpec("nThreats", [sp], opts)
-    panel.makeParamSpec("dMax", [sp], opts)
-    panel.makeParamSpec("score", [sp], opts)
-    panel.makeParamSpec("sStat", [sp, 1], opts)
+    let panel = new StatsPanel(gStats) // a ReadOnly ParamGUI reading gStats [& pstat(color)]
+    panel.makeParamSpec("nStones")     // implicit: opts = { chooser: StatChoice }
+    panel.makeParamSpec("nInf")
+    panel.makeParamSpec("nAttacks")
+    panel.makeParamSpec("nThreats")
+    panel.makeParamSpec("dMax")
+    panel.makeParamSpec("score")
+    panel.makeParamSpec("sStat", [1])
     panel.spec("score").onChange = (item: ParamItem) => {
       panel.setNameText(item.fieldName, `score: ${TP.nVictory}`)
       panel.stage.update()
@@ -160,11 +158,12 @@ export class GameSetup {
     gui.stage.update()
     return gui
   }
-  defStyle: DropdownStyle = { rootColor: "rgba(160,160,160,.5)", arrowColor: "grey", textAlign: 'right' };
+  netColor: string = "rgba(160,160,160, .8)" 
+  netStyle: DropdownStyle = { textAlign: 'right' };
   makeNetworkGUI (table: Table, parent: Container, x: number, y: number) {
-    let gui = this.netGUI = new ParamGUI(TP, this.defStyle)
+    let gui = this.netGUI = new ParamGUIL(TP, this.netStyle)
     gui.makeParamSpec("Network", [" ", "yes", "no", "ref", "cnx"], { fontColor: "red" })
-    gui.makeParamSpec("PlayerId", [" ", 0, 1, 2, 3, "ref"], { fontColor: "red" })
+    gui.makeParamSpec("PlayerId", ["     ", 0, 1, 2, 3, "ref"], { chooser: PidChoice, fontColor: "red" })
 
     gui.spec("Network").onChange = (item: ParamItem) => {
       if (item.value == "yes") this.gamePlay.network(false, gui)  // provoked by nkey; HgClient
@@ -179,6 +178,55 @@ export class GameSetup {
   }
 
 }
+
+interface DDCx extends DropdownChoice {
+  setValue(item: ParamItem, target: object): void
+}
+class ParamGUIL extends ParamGUI {
+  /** delegate to per-line setValue if it is defined. */
+  override setValue(item: ParamItem, target?: object): void {
+    let line = this.findLine(item.fieldName)
+    let chooser = line.chooser as DDCx
+    let lineSetter = chooser.setValue
+    if (typeof lineSetter == 'function') { 
+      lineSetter.call(chooser, item, target); 
+      return 
+    }
+    super.setValue(item, target)
+  }
+}
+/** like StatsPanel: read-only output field */
+class PidChoice extends DropdownChoice implements DDCx {
+  static style(defStyle: DropdownStyle) {
+    let baseStyle = DropdownButton.mergeStyle(defStyle)
+    let pidStyle = { arrowColor: 'transparent', textAlign: 'right' }
+    return DropdownButton.mergeStyle(pidStyle, baseStyle)
+  }
+  readonly playerStone: Stone = new Stone()
+  constructor(items: DropdownItem[], item_w: number, item_h: number, defStyle?: DropdownStyle) {
+    super(items, item_w, item_h, PidChoice.style(defStyle))
+  }
+  override rootclick(): void {}  
+      
+
+  paintStone(pid) {
+    let stone = this.playerStone
+    stone.paint(stoneColors[pid])
+    stone.visible = true
+    if (!stone.parent) {
+      let line = this.parent as ParamLine
+      stone.scaleX = stone.scaleY = (line.height-2)/Stone.height/2
+      stone.x = stone.scaleY * Stone.height + 1
+      stone.y = line.height / 2
+      this.addChild(stone)
+    }
+  }
+  setValue(item: ParamItem, target: object) {
+    //target[item.fieldName] = item.value
+    this.paintStone(item.value) // do NOT set any fieldName/value
+  }
+}
+
 
 /** present [false, true] with any pair of string: ['false', 'true'] */
 class BC extends BoolChoice {}

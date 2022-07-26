@@ -1,14 +1,13 @@
 // Game win: a Player controls 4 of 7 Districts
 // Control: Stone on >= 7 Hexes && Player.nHexes(district) - otherPlayer.nHexes(district) >= 3
 
+import { C, DropdownButton, DropdownChoice, F, ParamGUI, ParamItem, ParamLine, ParamOpts, ParamSpec, ParamType, S, stime } from "@thegraid/easeljs-lib";
+import { Text } from "@thegraid/easeljs-module";
 import { Board, GamePlay } from "./game-play";
 import { Hex, Hex2, HexM } from "./hex";
+import { H } from "./hex-intfs";
 import { Table } from "./table";
 import { otherColor, StoneColor, stoneColor0, stoneColor1, StoneColorRecord, stoneColorRecordF, stoneColors, TP } from "./table-params";
-import { C, F, S, stime } from "@thegraid/easeljs-lib";
-import { ParamGUI, ParamItem, ParamLine, ParamType, ParamOpts, ParamSpec, DropdownButton} from '@thegraid/easeljs-lib'// './ParamGUI' //
-import { Text } from "@thegraid/easeljs-module";
-import { H } from "./hex-intfs";
 export type WINARY = [Board, StoneColor, number, number]
 export class PlayerStats {
 
@@ -284,15 +283,18 @@ export class StatsPanel extends ParamGUI {
   gStats: TableStats
   bFields = ['score', 'sStat'] //
   pFields = ['nStones', 'nInf', 'nThreats', 'nAttacks', 'dMax'] // 'dStones', 'dMinControl', 
+  valueSpace = "                   "       // could be set in constructor...
 
   /**  StatsPanel.setValue() does nothing; StatsPanel.selectValue() -> setValueText(stat) */
   constructor(gStats: TableStats, defStyle = {}) {
-    super(gStats, DropdownButton.mergeStyle(defStyle, DropdownButton.mergeStyle({ textAlign: 'center'})))
+    super(gStats, DropdownButton.mergeStyle(defStyle, DropdownButton.mergeStyle({ arrowColor: '0', textAlign: 'center'})))
     this.gStats = gStats
   }
-  override makeParamSpec(fieldName: string, ary: any[], opts?: ParamOpts): ParamSpec {
-    let decimal = ary[1]
-    let spec = super.makeParamSpec(fieldName, ary, opts)
+  /** very dodgy to pass the 'decimal' number as ary[0] */
+  override makeParamSpec(fieldName: string, ary: any[] = [], opts: ParamOpts = {}): ParamSpec {
+    let decimal = ary[0]
+    opts.chooser = SC
+    let spec = super.makeParamSpec(fieldName, [this.valueSpace], opts)
     spec['decimal'] = decimal
     return spec
   }
@@ -335,5 +337,9 @@ export class StatsPanel extends ParamGUI {
     this.bFields.forEach(fieldName => this.selectValue(fieldName))
   }
 }
-
+/** StatChoice: never expand the [sp] item */
+class SC extends DropdownChoice {
+  /** never expand */
+  override rootclick(): void {}
+}
 

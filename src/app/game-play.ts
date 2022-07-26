@@ -411,8 +411,9 @@ export class GamePlay extends GamePlay0 {
       hgClient.addEventListener('close', (ev: CloseEvent) => {
         this.ll(1) && console.log(stime(this, `.cgOpen: hgClient closed`), hgClient)
         if (hgClient == this.gameSetup.gamePlay?.hgClient) {
-          this.gameSetup.netState = " "
-          this.gameSetup.playerId = " "
+          // reset networkGUI
+          this.gameSetup.netState = undefined
+          this.gameSetup.playerId = undefined
         } else {
           this.ll(1) && console.log(stime(this, `.cgOpen: old hgClient closed`), hgClient)
         }

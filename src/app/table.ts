@@ -22,10 +22,11 @@ export class Stone extends Shape {
   readonly color: StoneColor;
 
   /** Stone is a Shape with a StoneColor */
-  constructor(color: StoneColor) {
+  constructor(color?: StoneColor) {
     super()
     this.color = color
-    this.paint(color)
+    if (color) this.paint(color) 
+    else this.visible = false
   }
   paint(color = this.color) {
     this.paint1(TP.colorScheme[color])
