@@ -44,7 +44,7 @@ export class Stone extends Shape {
 }
 
 class ProgressMarker extends Container {
-  static yoff = stoneColorRecord(40, 40)
+  static yoff = stoneColorRecord(80, 80)
   static xoff = stoneColorRecord(-100, 50)
   static make(sc: StoneColor, parent: Container) {
     let p0 = { b: 0, tsec: 0, tn: 0 } as Progress
@@ -125,15 +125,20 @@ export class Table extends EventDispatcher  {
     let bgrpt = this.bgRect.parent.localToLocal(bgr.x, bgr.h, undoC) // TODO: align with nextHex(x & y)
     this.undoText.mouseEnabled = this.redoText.mouseEnabled = false
     this.enableHexInspector(52)
-    undoC.addChild(this.winBack);
-    undoC.addChild(this.winText);
+    let aiControl = this.aiControl('pink', 75); aiControl.x = 0; aiControl.y = 100
+    undoC.addChild(aiControl)
+    ProgressMarker.yoff = stoneColorRecord(120, 120)
+    this.progressMarker = stoneColorRecordF((sc) => ProgressMarker.make(sc, this.undoCont))
     let pm0 = this.progressMarker[stoneColor0]
     let pmy = pm0.ymax + pm0.y // pm0.parent.localToLocal(0, pm0.ymax + pm0.y, undoC)
-    let progressBg = new Shape(), bgw = 200, bgym = 156, y0 = 0 
-    progressBg.graphics.f(TP.bgColor).r(-bgw/2, y0, bgw, bgym-y0)
+    let progressBg = new Shape(), bgw = 200, bgym = 240, y0 = 0 
+    let bgc = C.nameToRgbaString(TP.bgColor, .8)
+    progressBg.graphics.f(bgc).r(-bgw/2, y0, bgw, bgym-y0)
     undoC.addChildAt(progressBg, 0)
+    undoC.addChild(this.winBack);
+    undoC.addChild(this.winText);
     this.dragger.makeDragable(undoC)
-    this.winText.y = Math.min(pmy, bgrpt.y - 135) // 135 = winBack.y = winBack.h
+    this.winText.y = Math.min(pmy, bgrpt.y) // 135 = winBack.y = winBack.h
     this.winBack.visible = this.winText.visible = false 
     this.winBack.x = this.winText.x; this.winBack.y = this.winText.y; 
   }
@@ -178,6 +183,37 @@ export class Table extends EventDispatcher  {
     }
     qShape.on(S.click, toggleText, this) // toggle visible
     toggleText(undefined, false)         // set initial visibility  
+  }
+  aiControl(color = TP.bgColor, dx = 100, rad = 16) {
+    let table = this
+    // c m v on buttons
+    let makeButton = (dx: number, bc = TP.bgColor, tc = TP.bgColor, text: string, key = text) => {
+      let cont = new Container
+      let circ = new Graphics().f(bc).drawCircle(0, 0, rad)
+      let txt = new Text(text, F.fontSpec(rad), tc)
+      txt.y = - rad/2
+      txt.textAlign = 'center'
+      txt.mouseEnabled = false
+      cont.x = dx
+      cont.addChild(new Shape(circ))
+      cont.addChild(txt)
+      cont.on(S.click, (ev) => { KeyBinder.keyBinder.dispatchChar(key) })
+      return cont
+    }
+    let bpanel = new Container()
+    let c0 = TP.colorScheme[stoneColor0], c1 = TP.colorScheme[stoneColor1]
+    let cm = "rgba(100,100,100,.5)"
+    let bc = makeButton(-dx, c0, c1, 'C', 'c')
+    let bv = makeButton(dx, c1, c0, 'V', 'v')
+    let bm = makeButton(0, cm, C.BLACK, 'M', 'm'); bm.y -= 10
+    let bn = makeButton(0, cm, C.BLACK, 'N', 'n'); bn.y += rad*2
+    let bs = makeButton(0, cm, C.BLACK, ' ', ' '); bs.y += rad*5
+    bpanel.addChild(bc)
+    bpanel.addChild(bv)
+    bpanel.addChild(bm)
+    bpanel.addChild(bn)
+    bpanel.addChild(bs)
+    return bpanel
   }
   miniMap: HexMap;
   makeMiniMap(parent: Container, x: number, y: number) {
@@ -224,18 +260,15 @@ export class Table extends EventDispatcher  {
     this.nextHex.x = minx + 2 * wide; this.nextHex.y = miny + 1.4 * high;
     // tweak when hexMap is tiny:
     let nh = TP.nHexes, mh = TP.mHexes
-    if (nh == 1 || nh + mh <= 5) { bgr.w += 3*wide; mapCont.x += 3*wide; this.nextHex.x = minx - H.sqrt3/2*wide }
+    if (nh == 1 || nh + mh <= 5) { bgr.w += 3*wide; bgr.h += 50; mapCont.x += 3*wide; this.nextHex.x = minx - H.sqrt3/2*wide }
     this.nextHex.x = Math.round(this.nextHex.x); this.nextHex.y = Math.round(this.nextHex.y)
-    this.undoCont.x = this.nextHex.x
-    this.undoCont.y = this.nextHex.y + 100
-    hexMap.mapCont.markCont.addChild(this.undoCont)
-    //this.undoCont.addChildAt(this.nextHex.cont, 0)
-    this.progressMarker = stoneColorRecordF((sc) => ProgressMarker.make(sc, this.undoCont))
 
     this.bgRect = this.setBackground(this.scaleCont, bgr) // bounded by bgr
     let p00 = this.scaleCont.localToLocal(0, 0, hexMap.mapCont.hexCont) 
     let pbr = this.scaleCont.localToLocal(bgr.w, bgr.h, hexMap.mapCont.hexCont)
     hexMap.mapCont.hexCont.cache(p00.x, p00.y, pbr.x-p00.x, pbr.y-p00.y) // cache hexCont (bounded by bgr)
+    this.nextHex.cont.parent.localToLocal(this.nextHex.x, this.nextHex.y+100, this.scaleCont, this.undoCont)
+    this.scaleCont.addChild(this.undoCont)
     this.setupUndoButtons(55, 60, 45, bgr)
 
     this.makeMiniMap(this.scaleCont, -(200+TP.mHexes*TP.hexRad), 600+100*TP.mHexes)
