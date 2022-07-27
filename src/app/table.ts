@@ -481,7 +481,7 @@ export class Table extends EventDispatcher  {
       //this.scaleUp(Dragger.dragCont, 1.7); // Items being dragged appear larger!
     }
     if (bindKeys) {
-      this.bindKeysToScale("a", scaleC, 800, 10)
+      this.bindKeysToScale("a", scaleC, 820, 10)
       KeyBinder.keyBinder.setKey(' ', {thisArg: this, func: this.dragStone})
       KeyBinder.keyBinder.setKey('S-Space', {thisArg: this, func: this.dragStone})
     }

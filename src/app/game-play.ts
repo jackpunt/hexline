@@ -21,19 +21,20 @@ export class GamePlay0 {
   readonly id = GamePlay0.gpid++
   ll(n: number) { return TP.log > n }
 
-  constructor() {
-    this.gStats = new GameStats(this.hexMap) // AFTER allPlayers are defined so can set pStats
-  }
-
   readonly hexMap: HexMap = new HexMap()
   readonly history: Move[] = []          // sequence of Move that bring board to its state
   readonly redoMoves: IMove[] = []
   readonly allBoards = new BoardRegister()
   readonly gStats: GameStats       // 'readonly' (set once by clone constructor)
+
+  constructor() {
+    this.gStats = new GameStats(this.hexMap) // AFTER allPlayers are defined so can set pStats
+  }
+
   get iHistory() { return this.history.map(move => move.toIMove) }
 
   turnNumber: number = 0    // = history.lenth + 1 [by this.setNextPlayer] 
-  curPlayerNdx: number = 0
+  curPlayerNdx: number = 0  // curPlayer defined in GamePlay extends GamePlay0
   
   newMoveFunc: (hex: Hex, sc: StoneColor, caps: Hex[], gp: GamePlay0) => Move 
   newMove(hex: Hex, sc: StoneColor, caps: Hex[], gp: GamePlay0) {
@@ -292,6 +293,8 @@ export class GamePlay extends GamePlay0 {
   readonly logWriter: ProgressLogWriter
   readonly table: Table
   declare readonly gStats: TableStats // https://github.com/TypeStrong/typedoc/issues/1597
+  readonly allPlayers: Player[] = [];
+
   constructor(table: Table, public gameSetup: GameSetup) {
     super()            // hexMap, history, gStats...
     let time = stime('').substring(6,15), size=`${TP.mHexes}x${TP.nHexes}`
@@ -350,14 +353,14 @@ export class GamePlay extends GamePlay0 {
     KeyBinder.keyBinder.setKey('w', { thisArg: this, func: () => { this.gStats.showWin('b', "Stalemate (10 -- 10)") } })
 
     KeyBinder.keyBinder.setKey('M-r', { thisArg: this, func: () => { this.gameSetup.netState = "ref" } })
-    KeyBinder.keyBinder.setKey('M-c', { thisArg: this, func: () => { this.gameSetup.netState = "yes" } })
+    KeyBinder.keyBinder.setKey('M-J', { thisArg: this, func: () => { this.gameSetup.netState = "new" } })
+    KeyBinder.keyBinder.setKey('M-j', { thisArg: this, func: () => { this.gameSetup.netState = "join" } })
     KeyBinder.keyBinder.setKey('M-d', { thisArg: this, func: () => { this.gameSetup.netState = "no" } })
     table.undoShape.on(S.click, () => this.undoMove(), this)
     table.redoShape.on(S.click, () => this.redoMove(), this)
     table.skipShape.on(S.click, () => this.skipMove(), this)
   }
 
-  readonly allPlayers: Player[] = [];
   curPlayer: Player;
   getPlayer(color: StoneColor): Player {
     return this.allPlayers.find(p => p.color == color)
@@ -373,8 +376,9 @@ export class GamePlay extends GamePlay0 {
   hgClient: HgClient
   /**
    * connect to CgServer(HgProto) for a network game.
+   * @param type "new", "join", "ref"
    */
-  network(ref: boolean, paramGUI: ParamGUI) {
+  network(type: 'new' | 'join' | 'ref', netGUI: ParamGUI) {
     let nameByClientId = ["Referee", "Alice", "Bob", "Charlie", "Doris"];
     let group = TP.networkGroup, url = TP.networkUrl
     // invoked after [a] referee has joined the game
@@ -394,7 +398,7 @@ export class GamePlay extends GamePlay0 {
           hgClient.gamePlay = this    // so non-Player (ref/observer) can access a hexMap
           if (hgClient.isPlayer) {
             let player = this.allPlayers[player_id], player0 = this.allPlayers[0]
-            paramGUI.selectValue("PlayerId", player_id) // hgClient has 1 ea of: { Table, GamePlay, Player }
+            netGUI.selectValue("PlayerId", player_id) // hgClient has 1 ea of: { Table, GamePlay, Player }
             hgClient.player = player    // indicate isNetworked(player); ggClient.localPlayer += player
             //this.table.startGame()    // ndx & putButtonOnPlayer [can we re-join a game in progress?]
           }
@@ -407,7 +411,7 @@ export class GamePlay extends GamePlay0 {
       hgClient.log = lld2
       hgClient.cgbase.log = lld1
       hgClient.wsbase.log = lld0
-      this.gameSetup.netState = (ref ? "ref" : "cnx")
+      this.gameSetup.netState = (type == "ref" ? "ref" : "cnx") // new, join -> "cnx"
       hgClient.addEventListener('close', (ev: CloseEvent) => {
         this.ll(1) && console.log(stime(this, `.cgOpen: hgClient closed`), hgClient)
         if (hgClient == this.gameSetup.gamePlay?.hgClient) {
@@ -419,17 +423,19 @@ export class GamePlay extends GamePlay0 {
         }
       })
     }
-    let initPlyrClient = () => {
+    let initPlyrClient = (cause?: 'new' | 'join') => {
       // connectStack; then onOpen(hgClient); maybeMakeRef; join_game
       this.hgClient = new HgClient(url, (hgClient) => {
         cgOpen(hgClient, 1)
-        hgClient.cgbase.send_join(group).then((ack: CgMessage) => {
+        hgClient.cgbase.send_join(group, undefined, cause).then((ack: CgMessage) => {
+          let { success, client_id, group, cause } = ack
           console.log(stime(this, `.network CgJoin(${group}) ack:`), 
-            { success: ack.success, client_id: ack.client_id, hgCid: hgClient.client_id, hgClient, ack })
-          if (!ack.success) return        // did not join Client-Group!
-          if (ack.client_id === 0) return // asked for Referee connection and got it!
+            { success, client_id, hgCid: hgClient.client_id, hgClient, ack })
+          if (!success) return        // did not join Client-Group!
+          if (client_id === 0) return // asked for Referee connection and got it!
+          this.gameSetup.showNetworkGroup(group)
           // joined ClientGroup with cgBase.client_id; try make a Referee, then join_game as player
-          if (ack.cause === "auto-approve") {
+          if (cause === "auto-approve") {
             this.makeRefJoinGroup(url, group, ack => join_game_as_player(ack, hgClient))
           } else {
             join_game_as_player(ack, hgClient)
@@ -447,7 +453,7 @@ export class GamePlay extends GamePlay0 {
       })
     }
     // client for GUI connection to GgServer:
-    ref ? initRefClient() : initPlyrClient()
+    type == "ref" ? initRefClient() : initPlyrClient(type)
   }
   closeNetwork(reason = 'GUI -> no') {
     let closeMe = (hgClient: HgClient) => { 

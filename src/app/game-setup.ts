@@ -18,7 +18,7 @@ export class GameSetup {
   stage: Stage;
   gamePlay: GamePlay
   paramGUIs: ParamGUI[]
-  netGUI: ParamGUI
+  netGUI: ParamGUI // paramGUIs[2]
 
   /** @param canvasId supply undefined for 'headless' Stage */
   constructor(canvasId: string, ext?: string[]) {
@@ -28,7 +28,7 @@ export class GameSetup {
   }
   _netState = " " // or "yes" or "ref"
   set netState(val: string) { 
-    this._netState = (val == "cnx") ? "yes" : val || " "
+    this._netState = (val == "cnx") ? this._netState : val || " "
     this.gamePlay.ll(2) && console.log(stime(this, `.netState('${val}')->'${this._netState}'`))
     this.netGUI?.selectValue("Network", val)
   }
@@ -51,9 +51,9 @@ export class GameSetup {
     deContainer(this.stage)
     TP.fnHexes(mh, nh)
     let rv = this.startup()
-    this.netState = " "      // onChange->noop
-    // onChange-> ("yes" OR "ref") initiate a new connection
-    setTimeout(() => this.netState = netState, 100)
+    this.netState = " "      // onChange->noop; change to new/join/ref will trigger onChange(val)
+    // next tick, new thread...
+    setTimeout(() => this.netState = netState, 100) // onChange-> ("new", "join", "ref") initiate a new connection
     return rv
   }
   /**
@@ -162,23 +162,28 @@ export class GameSetup {
   netStyle: DropdownStyle = { textAlign: 'right' };
   makeNetworkGUI (table: Table, parent: Container, x: number, y: number) {
     let gui = this.netGUI = new ParamGUIL(TP, this.netStyle)
-    gui.makeParamSpec("Network", [" ", "yes", "no", "ref", "cnx"], { fontColor: "red" })
+    gui.makeParamSpec("Network", [" ", "new", "join", "no", "ref", "cnx"], { fontColor: "red" })
     gui.makeParamSpec("PlayerId", ["     ", 0, 1, 2, 3, "ref"], { chooser: PidChoice, fontColor: "red" })
-    gui.makeParamSpec("networkGroup", [TP.networkGroup], { chooser: NC, name: 'gid' }) ; TP.networkGroup
+    //gui.makeParamSpec("networkGroup", [TP.networkGroup], { chooser: NC, name: 'gid' }) ; TP.networkGroup
 
     gui.spec("Network").onChange = (item: ParamItem) => {
-      if (item.value == "yes") this.gamePlay.network(false, gui)  // provoked by nkey; HgClient
-      if (item.value == "ref") this.gamePlay.network(true, gui)   // provoked by rkey; HgReferee
+      if (['new', 'join', 'ref'].includes(item.value)) {
+        this.gamePlay.closeNetwork()
+        this.gamePlay.network(item.value, gui)
+      }
       if (item.value == "no") this.gamePlay.closeNetwork()     // provoked by ckey
     }
-
+    this.netGUI = gui
+    this.showNetworkGroup()
     parent.addChild(gui)
     gui.makeLines()
     gui.x = x; gui.y = y
     parent.stage.update()
     return gui
   }
-
+  showNetworkGroup(group_name = TP.networkGroup) {
+    document.getElementById('group_name').innerText = group_name
+  }
 }
 
 interface DDCx extends DropdownChoice {
