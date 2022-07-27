@@ -1,4 +1,4 @@
-import { BoolChoice, CycleChoice, DropdownButton, DropdownChoice, DropdownItem, DropdownStyle, makeStage, ParamGUI, ParamItem, ParamLine, S, stime } from "@thegraid/easeljs-lib";
+import { BoolChoice, CycleChoice, DropdownButton, DropdownChoice, DropdownItem, DropdownStyle, makeStage, ParamGUI, ParamItem, ParamLine, ParamType, S, stime } from "@thegraid/easeljs-lib";
 import { Container, DisplayObject, Stage } from "@thegraid/easeljs-module";
 import { GamePlay } from "./game-play";
 import { Hex2, HexMap } from "./hex";
@@ -129,7 +129,7 @@ export class GameSetup {
       let hexMap = table.gamePlay.hexMap as HexMap
       hexMap.initInfluence()
       hexMap.forEachHex((h: Hex2) => h.stone && h.stone.paint())
-      table.nextHex.stone?.paint()
+      table.nextHex.stone?.paint() // TODO: also paint buttons on undoPanel
       table.hexMap.update()
     }
     parent.addChild(gui)
@@ -164,12 +164,14 @@ export class GameSetup {
     let gui = this.netGUI = new ParamGUIL(TP, this.netStyle)
     gui.makeParamSpec("Network", [" ", "yes", "no", "ref", "cnx"], { fontColor: "red" })
     gui.makeParamSpec("PlayerId", ["     ", 0, 1, 2, 3, "ref"], { chooser: PidChoice, fontColor: "red" })
+    gui.makeParamSpec("networkGroup", [TP.networkGroup], { chooser: NC, name: 'gid' }) ; TP.networkGroup
 
     gui.spec("Network").onChange = (item: ParamItem) => {
       if (item.value == "yes") this.gamePlay.network(false, gui)  // provoked by nkey; HgClient
       if (item.value == "ref") this.gamePlay.network(true, gui)   // provoked by rkey; HgReferee
       if (item.value == "no") this.gamePlay.closeNetwork()     // provoked by ckey
     }
+
     parent.addChild(gui)
     gui.makeLines()
     gui.x = x; gui.y = y
@@ -180,36 +182,74 @@ export class GameSetup {
 }
 
 interface DDCx extends DropdownChoice {
-  setValue(item: ParamItem, target: object): void
+  /**
+   * 
+   * @param value the new value to be set
+   * @param item included for those that need item.fieldName or such
+   * @param target the associated object to which fieldName applies
+   */
+  setValue(value: ParamType, item: ParamItem, target: object): void
 }
+
+/** delegate setValue() to per-line choser; ? vs onChange()? */
 class ParamGUIL extends ParamGUI {
-  /** delegate to per-line setValue if it is defined. */
+  /** 
+   * setValue() is called when item gets selected; the default 'onChange(item)' 
+   * 
+   * delegate to per-line chooser.setValue() if it is defined. [ex: PidChoice]
+   */
   override setValue(item: ParamItem, target?: object): void {
     let line = this.findLine(item.fieldName)
     let chooser = line.chooser as DDCx
     let lineSetter = chooser.setValue
     if (typeof lineSetter == 'function') { 
-      lineSetter.call(chooser, item, target); 
+      chooser.setValue(item.value, item, target)
       return 
     }
     super.setValue(item, target)
   }
+
+  /** GamePlay.network invokes when joining a group, setting group_name string 
+   * @param value might have been item.value
+   */
+  override selectValue(fieldName: string, value: any, line = this.findLine(fieldName)): ParamItem {
+    let item = super.selectValue(fieldName, value, line)
+    if (item) return item
+    // item with matching value not found... use item[0] presumed to be mutable
+    item = line.spec.choices[0]
+    //this.setValue(item, line.spec.target)
+    let chooser = line.chooser as DDCx
+    if (typeof chooser.setValue == 'function') {
+      chooser.setValue(value, item, line.spec.target)
+    }
+    return item;    
+  }
 }
-/** like StatsPanel: read-only output field */
-class PidChoice extends DropdownChoice implements DDCx {
+
+/** no choice: a DropdownChoice with 1 mutable item that can be set by setValue(...) */
+class NC extends DropdownChoice implements DDCx {
   static style(defStyle: DropdownStyle) {
     let baseStyle = DropdownButton.mergeStyle(defStyle)
     let pidStyle = { arrowColor: 'transparent', textAlign: 'right' }
     return DropdownButton.mergeStyle(pidStyle, baseStyle)
   }
-  readonly playerStone: Stone = new Stone()
   constructor(items: DropdownItem[], item_w: number, item_h: number, defStyle?: DropdownStyle) {
-    super(items, item_w, item_h, PidChoice.style(defStyle))
+    super(items, item_w, item_h, NC.style(defStyle))
   }
-  override rootclick(): void {}  
-      
+  /** never expand */
+  override rootclick(): void {}
 
-  paintStone(pid) {
+  setValue(value: string, item: ParamItem, target: object): void {
+    item.value = value // for reference?
+    this._rootButton.text.text = value
+  }
+
+  // TODO: selectValue() to write the root_item text
+}
+/** like StatsPanel: read-only output field */
+class PidChoice extends NC implements DDCx {
+  readonly playerStone: Stone = new Stone()
+  paintStone(pid: number) {
     let stone = this.playerStone
     stone.paint(stoneColors[pid])
     stone.visible = true
@@ -221,12 +261,11 @@ class PidChoice extends DropdownChoice implements DDCx {
       this.addChild(stone)
     }
   }
-  setValue(item: ParamItem, target: object) {
+  override setValue(value: any, item: ParamItem, target: object) {
     //target[item.fieldName] = item.value
     this.paintStone(item.value) // do NOT set any fieldName/value
   }
 }
-
 
 /** present [false, true] with any pair of string: ['false', 'true'] */
 class BC extends BoolChoice {}
