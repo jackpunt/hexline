@@ -306,29 +306,20 @@ export class StatsPanel extends ParamGUI {
       return target[color][fieldName]
     }
   }
-  setValueText(line: ParamLine, decimal = 0) {
-    let fieldName = line.spec.fieldName
+  /** show 'fieldName[0] -- fieldName[1]' in _rootButton.text.text */
+  override selectValue(fieldName: string, value?: ParamType, line = this.findLine(fieldName)) {
+    if (!line) return null
+    let decimal = line.spec.choices[0]
     let lineValue = "?"
     let target = this.pFields.includes(fieldName) ? this.gStats.pStats : this.gStats
     let v0 = this.targetValue(target, stoneColor0, fieldName).toFixed(decimal)
     let v1 = this.targetValue(target, stoneColor1, fieldName).toFixed(decimal)
     lineValue = `${v0} -- ${v1}`
+    let chooser = line.chooser as SC
+    chooser._rootButton.text.text = lineValue
+    return undefined as ParamItem // Note: return value is never used!
+  }
 
-    line.chooser._rootButton.text.text = lineValue
-  }
-  /** when a new value is selected, push it back into the target object */
-  // Note: return value is never used!
-  override selectValue(fieldName: string, value?: ParamType, line?: ParamLine): ParamItem | undefined {
-    line = line || this.findLine(fieldName)
-    if (!line) return null
-    let decimal = line.spec['decimal']
-    // instead of chooser.select(item), invoke setValueText(line)
-    this.setValueText(line, decimal)
-    // invoke onChanged() for those which have supplied one.
-    let item = line.spec.choices.find(item => (item.fieldName === fieldName))
-    line.chooser.changed(item)
-    return item
-  }
   /** read-only... do nothing, unless spec.onChange(...) */
   override setValue(item: ParamItem): void {  }
 

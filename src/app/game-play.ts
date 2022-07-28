@@ -430,7 +430,7 @@ export class GamePlay extends GamePlay0 {
         hgClient.cgbase.send_join(group, undefined, cause).then((ack: CgMessage) => {
           let { success, client_id, group, cause } = ack
           console.log(stime(this, `.network CgJoin(${group}) ack:`), 
-            { success, client_id, hgCid: hgClient.client_id, hgClient, ack })
+            { success, client_id, hgCid: hgClient.client_id, hgClient, ack: ack.msgObject })
           if (!success) return        // did not join Client-Group!
           if (client_id === 0) return // asked for Referee connection and got it!
           this.gameSetup.showNetworkGroup(group)

@@ -1,5 +1,5 @@
-import { BoolChoice, CycleChoice, DropdownButton, DropdownChoice, DropdownItem, DropdownStyle, makeStage, ParamGUI, ParamItem, ParamLine, ParamType, S, stime } from "@thegraid/easeljs-lib";
-import { Container, DisplayObject, Stage } from "@thegraid/easeljs-module";
+import { BoolChoice, C, ChoiceItem, ChoiceStyle, Chooser, CycleChoice, DropdownButton, DropdownChoice, DropdownItem, DropdownStyle, EditBox, F, makeStage, ParamGUI, ParamItem, ParamLine, ParamOpts, ParamType, S, stime, TextStyle, textWidth, XYWH } from "@thegraid/easeljs-lib";
+import { Container, Stage, Text } from "@thegraid/easeljs-module";
 import { GamePlay } from "./game-play";
 import { Hex2, HexMap } from "./hex";
 import { ParamGUIP } from "./ParamGUIP";
@@ -88,12 +88,8 @@ export class GameSetup {
     panel.makeParamSpec("nAttacks")
     panel.makeParamSpec("nThreats")
     panel.makeParamSpec("dMax")
-    panel.makeParamSpec("score")
+    panel.makeParamSpec("score", [], {name: `score: ${TP.nVictory}`})
     panel.makeParamSpec("sStat", [1])
-    panel.spec("score").onChange = (item: ParamItem) => {
-      panel.setNameText(item.fieldName, `score: ${TP.nVictory}`)
-      panel.stage.update()
-    }
 
     parent.addChild(panel)
     panel.x = x
@@ -164,7 +160,7 @@ export class GameSetup {
     let gui = this.netGUI = new ParamGUIL(TP, this.netStyle)
     gui.makeParamSpec("Network", [" ", "new", "join", "no", "ref", "cnx"], { fontColor: "red" })
     gui.makeParamSpec("PlayerId", ["     ", 0, 1, 2, 3, "ref"], { chooser: PidChoice, fontColor: "red" })
-    //gui.makeParamSpec("networkGroup", [TP.networkGroup], { chooser: NC, name: 'gid' }) ; TP.networkGroup
+    gui.makeParamSpec("networkGroup", [TP.networkGroup], { chooser: EBC, name: 'gid', style: { textColor: C.BLACK } }); TP.networkGroup
 
     gui.spec("Network").onChange = (item: ParamItem) => {
       if (['new', 'join', 'ref'].includes(item.value)) {
@@ -183,17 +179,9 @@ export class GameSetup {
   }
   showNetworkGroup(group_name = TP.networkGroup) {
     document.getElementById('group_name').innerText = group_name
+    let line = this.netGUI.findLine("networkGroup"), chooser = line?.chooser
+    chooser?.setValue(group_name, chooser.items[0], undefined)
   }
-}
-
-interface DDCx extends DropdownChoice {
-  /**
-   * 
-   * @param value the new value to be set
-   * @param item included for those that need item.fieldName or such
-   * @param target the associated object to which fieldName applies
-   */
-  setValue(value: ParamType, item: ParamItem, target: object): void
 }
 
 /** delegate setValue() to per-line choser; ? vs onChange()? */
@@ -205,7 +193,7 @@ class ParamGUIL extends ParamGUI {
    */
   override setValue(item: ParamItem, target?: object): void {
     let line = this.findLine(item.fieldName)
-    let chooser = line.chooser as DDCx
+    let chooser = line.chooser
     let lineSetter = chooser.setValue
     if (typeof lineSetter == 'function') { 
       chooser.setValue(item.value, item, target)
@@ -223,7 +211,7 @@ class ParamGUIL extends ParamGUI {
     // item with matching value not found... use item[0] presumed to be mutable
     item = line.spec.choices[0]
     //this.setValue(item, line.spec.target)
-    let chooser = line.chooser as DDCx
+    let chooser = line.chooser
     if (typeof chooser.setValue == 'function') {
       chooser.setValue(value, item, line.spec.target)
     }
@@ -232,7 +220,7 @@ class ParamGUIL extends ParamGUI {
 }
 
 /** no choice: a DropdownChoice with 1 mutable item that can be set by setValue(...) */
-class NC extends DropdownChoice implements DDCx {
+class NC extends DropdownChoice {
   static style(defStyle: DropdownStyle) {
     let baseStyle = DropdownButton.mergeStyle(defStyle)
     let pidStyle = { arrowColor: 'transparent', textAlign: 'right' }
@@ -244,15 +232,32 @@ class NC extends DropdownChoice implements DDCx {
   /** never expand */
   override rootclick(): void {}
 
-  setValue(value: string, item: ParamItem, target: object): void {
+  override setValue(value: string, item: ParamItem, target: object): boolean {
     item.value = value // for reference?
     this._rootButton.text.text = value
+    return true
+  }
+}
+
+/** Chooser with an EditBox */
+class EBC extends Chooser {
+  editBox: EditBox;
+  constructor(items: ChoiceItem[], item_w: number, item_h: number, style?: ChoiceStyle & TextStyle) {
+    super(items, item_w, item_h, style)
+    style && (style.bgColor = style.fillColor)
+    style && (style.textColor = C.BLACK)
+    this.editBox = new EditBox({x: 0, y: 0, w: item_w, h: item_h}, style )
+    this.addChild(this.editBox)
   }
 
-  // TODO: selectValue() to write the root_item text
+  override setValue(value: any, item: ChoiceItem, target: object): boolean {
+    this.editBox.setText(value)
+    return true
+  }
 }
+
 /** like StatsPanel: read-only output field */
-class PidChoice extends NC implements DDCx {
+class PidChoice extends NC {
   readonly playerStone: Stone = new Stone()
   paintStone(pid: number) {
     let stone = this.playerStone
@@ -268,7 +273,8 @@ class PidChoice extends NC implements DDCx {
   }
   override setValue(value: any, item: ParamItem, target: object) {
     //target[item.fieldName] = item.value
-    this.paintStone(item.value) // do NOT set any fieldName/value
+    this.paintStone(item ? item.value : "   ") // do NOT set any fieldName/value
+    return false
   }
 }
 
