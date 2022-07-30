@@ -1,5 +1,5 @@
 import { C } from "@thegraid/common-lib"
-import { DropdownChoice, DropdownStyle, DropdownButton, DropdownItem, ParamItem, Chooser, EditBox, ChoiceItem, ChoiceStyle, TextStyle, ParamLine, BoolChoice } from "@thegraid/easeljs-lib"
+import { BoolChoice, ChoiceItem, ChoiceStyle, Chooser, DropdownButton, DropdownChoice, DropdownItem, DropdownStyle, EditBox, KeyBinder, ParamItem, ParamLine, TextStyle } from "@thegraid/easeljs-lib"
 import { Stone } from "./table"
 import { stoneColors } from "./table-params"
 
@@ -32,9 +32,18 @@ export class EBC extends Chooser {
     style && (style.textColor = C.BLACK)
     this.editBox = new EditBox({ x: 0, y: 0, w: item_w, h: item_h * 1 }, style)
     this.addChild(this.editBox)
+    let scope = this.editBox.keyScope
+    KeyBinder.keyBinder.setKey('M-v', { func: this.pasteClipboard, thisArg: this }, scope)
+  }
+  pasteClipboard(arg?: any) {
+    let paste = async () => {
+      let text = await navigator.clipboard.readText()
+      this.editBox.setText(text)
+    }
+    paste()
   }
 
-  override setValue(value: any, item: ChoiceItem, target: object): boolean {
+  override setValue(value: any, item?: ChoiceItem, target?: object): boolean {
     this.editBox.setText(value)
     return true
   }

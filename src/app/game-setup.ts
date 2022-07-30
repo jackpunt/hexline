@@ -161,16 +161,20 @@ export class GameSetup {
     let gui = this.netGUI = new ParamGUI(TP, this.netStyle)
     gui.makeParamSpec("Network", [" ", "new", "join", "no", "ref", "cnx"], { fontColor: "red" })
     gui.makeParamSpec("PlayerId", ["     ", 0, 1, 2, 3, "ref"], { chooser: PidChoice, fontColor: "red" })
-    gui.makeParamSpec("networkGroup", [TP.networkGroup], { chooser: EBC, name: 'gid', style: { textColor: C.BLACK } }); TP.networkGroup
+    gui.makeParamSpec("networkGroup", [TP.networkGroup], { chooser: EBC, name: 'gid', fontColor: C.GREEN, style: { textColor: C.BLACK } }); TP.networkGroup
 
     gui.spec("Network").onChange = (item: ParamItem) => {
       if (['new', 'join', 'ref'].includes(item.value)) {
+        let group = (gui.findLine('networkGroup').chooser as EBC).editBox.innerText
         this.gamePlay.closeNetwork()
-        this.gamePlay.network(item.value, gui)
+        this.gamePlay.network(item.value, gui, group)
       }
       if (item.value == "no") this.gamePlay.closeNetwork()     // provoked by ckey
     }
-    this.netGUI = gui
+    (this.stage.canvas as HTMLCanvasElement).parentElement.addEventListener('paste', (ev) => {
+      let text = ev.clipboardData.getData('Text')
+      ;(gui.findLine('networkGroup').chooser as EBC).setValue(text)
+    });
     this.showNetworkGroup()
     parent.addChild(gui)
     gui.makeLines()

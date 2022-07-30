@@ -378,9 +378,9 @@ export class GamePlay extends GamePlay0 {
    * connect to CgServer(HgProto) for a network game.
    * @param type "new", "join", "ref"
    */
-  network(type: 'new' | 'join' | 'ref', netGUI: ParamGUI) {
+  network(type: 'new' | 'join' | 'ref', netGUI: ParamGUI, group = TP.networkGroup) {
     let nameByClientId = ["Referee", "Alice", "Bob", "Charlie", "Doris"];
-    let group = TP.networkGroup, url = TP.networkUrl
+    let url = TP.networkUrl
     // invoked after [a] referee has joined the game
     let join_game_as_player = (ack: CgMessage, hgClient: HgClient) => {
       let client_id = hgClient.client_id // 0 = ref; 1, 2, ... for other player/observers
