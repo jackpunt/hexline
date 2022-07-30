@@ -1,11 +1,12 @@
-import { BoolChoice, C, ChoiceItem, ChoiceStyle, Chooser, CycleChoice, DropdownButton, DropdownChoice, DropdownItem, DropdownStyle, EditBox, F, makeStage, ParamGUI, ParamItem, ParamLine, ParamOpts, ParamType, S, stime, TextStyle, textWidth, XYWH } from "@thegraid/easeljs-lib";
-import { Container, Stage, Text } from "@thegraid/easeljs-module";
+import { C, CycleChoice, DropdownStyle, makeStage, ParamGUI, ParamItem, S, stime } from "@thegraid/easeljs-lib";
+import { Container, Stage } from "@thegraid/easeljs-module";
+import { BC, EBC, PidChoice } from "./choosers";
 import { GamePlay } from "./game-play";
 import { Hex2, HexMap } from "./hex";
 import { ParamGUIP } from "./ParamGUIP";
 import { StatsPanel, TableStats } from "./stats";
-import { Stone, Table } from "./table";
-import { stoneColors, TP } from "./table-params";
+import { Table } from "./table";
+import { TP } from "./table-params";
 
 /** show " R" for " N" */
 stime.anno = (obj: string | { constructor: { name: string; }; }) => {
@@ -157,7 +158,7 @@ export class GameSetup {
   netColor: string = "rgba(160,160,160, .8)" 
   netStyle: DropdownStyle = { textAlign: 'right' };
   makeNetworkGUI (table: Table, parent: Container, x: number, y: number) {
-    let gui = this.netGUI = new ParamGUIL(TP, this.netStyle)
+    let gui = this.netGUI = new ParamGUI(TP, this.netStyle)
     gui.makeParamSpec("Network", [" ", "new", "join", "no", "ref", "cnx"], { fontColor: "red" })
     gui.makeParamSpec("PlayerId", ["     ", 0, 1, 2, 3, "ref"], { chooser: PidChoice, fontColor: "red" })
     gui.makeParamSpec("networkGroup", [TP.networkGroup], { chooser: EBC, name: 'gid', style: { textColor: C.BLACK } }); TP.networkGroup
@@ -183,100 +184,3 @@ export class GameSetup {
     chooser?.setValue(group_name, chooser.items[0], undefined)
   }
 }
-
-/** delegate setValue() to per-line choser; ? vs onChange()? */
-class ParamGUIL extends ParamGUI {
-  /** 
-   * setValue() is called when item gets selected; the default 'onChange(item)' 
-   * 
-   * delegate to per-line chooser.setValue() if it is defined. [ex: PidChoice]
-   */
-  override setValue(item: ParamItem, target?: object): void {
-    let line = this.findLine(item.fieldName)
-    let chooser = line.chooser
-    let lineSetter = chooser.setValue
-    if (typeof lineSetter == 'function') { 
-      chooser.setValue(item.value, item, target)
-      return 
-    }
-    super.setValue(item, target)
-  }
-
-  /** GamePlay.network invokes when joining a group, setting group_name string 
-   * @param value might have been item.value
-   */
-  override selectValue(fieldName: string, value: any, line = this.findLine(fieldName)): ParamItem {
-    let item = super.selectValue(fieldName, value, line)
-    if (item) return item
-    // item with matching value not found... use item[0] presumed to be mutable
-    item = line.spec.choices[0]
-    //this.setValue(item, line.spec.target)
-    let chooser = line.chooser
-    if (typeof chooser.setValue == 'function') {
-      chooser.setValue(value, item, line.spec.target)
-    }
-    return item;    
-  }
-}
-
-/** no choice: a DropdownChoice with 1 mutable item that can be set by setValue(...) */
-class NC extends DropdownChoice {
-  static style(defStyle: DropdownStyle) {
-    let baseStyle = DropdownButton.mergeStyle(defStyle)
-    let pidStyle = { arrowColor: 'transparent', textAlign: 'right' }
-    return DropdownButton.mergeStyle(pidStyle, baseStyle)
-  }
-  constructor(items: DropdownItem[], item_w: number, item_h: number, defStyle?: DropdownStyle) {
-    super(items, item_w, item_h, NC.style(defStyle))
-  }
-  /** never expand */
-  override rootclick(): void {}
-
-  override setValue(value: string, item: ParamItem, target: object): boolean {
-    item.value = value // for reference?
-    this._rootButton.text.text = value
-    return true
-  }
-}
-
-/** Chooser with an EditBox */
-class EBC extends Chooser {
-  editBox: EditBox;
-  constructor(items: ChoiceItem[], item_w: number, item_h: number, style?: ChoiceStyle & TextStyle) {
-    super(items, item_w, item_h, style)
-    style && (style.bgColor = style.fillColor)
-    style && (style.textColor = C.BLACK)
-    this.editBox = new EditBox({x: 0, y: 0, w: item_w, h: item_h}, style )
-    this.addChild(this.editBox)
-  }
-
-  override setValue(value: any, item: ChoiceItem, target: object): boolean {
-    this.editBox.setText(value)
-    return true
-  }
-}
-
-/** like StatsPanel: read-only output field */
-class PidChoice extends NC {
-  readonly playerStone: Stone = new Stone()
-  paintStone(pid: number) {
-    let stone = this.playerStone
-    stone.paint(stoneColors[pid])
-    stone.visible = true
-    if (!stone.parent) {
-      let line = this.parent as ParamLine
-      stone.scaleX = stone.scaleY = (line.height-2)/Stone.height/2
-      stone.x = stone.scaleY * Stone.height + 1
-      stone.y = line.height / 2
-      this.addChild(stone)
-    }
-  }
-  override setValue(value: any, item: ParamItem, target: object) {
-    //target[item.fieldName] = item.value
-    this.paintStone(item ? item.value : "   ") // do NOT set any fieldName/value
-    return false
-  }
-}
-
-/** present [false, true] with any pair of string: ['false', 'true'] */
-class BC extends BoolChoice {}
