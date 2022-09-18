@@ -2,6 +2,8 @@
 # upload "$1" "$@" 
 # $1 = bucket name (shift)
 # "$@" = objects
+# upload hexline.thegraid.com dist/hexline
+# aws cloudfront get-distribution-config --id E359U992Z74T19 > dist_config
 
 bucket=$1; shift
 echo aws s3 sync  "$@" s3://${bucket}
