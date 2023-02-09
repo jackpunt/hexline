@@ -33,17 +33,17 @@ export class GamePlay0 {
 
   get iHistory() { return this.history.map(move => move.toIMove) }
 
-  turnNumber: number = 0    // = history.lenth + 1 [by this.setNextPlayer] 
+  turnNumber: number = 0    // = history.lenth + 1 [by this.setNextPlayer]
   curPlayerNdx: number = 0  // curPlayer defined in GamePlay extends GamePlay0
-  
-  newMoveFunc: (hex: Hex, sc: StoneColor, caps: Hex[], gp: GamePlay0) => Move 
+
+  newMoveFunc: (hex: Hex, sc: StoneColor, caps: Hex[], gp: GamePlay0) => Move
   newMove(hex: Hex, sc: StoneColor, caps: Hex[], gp: GamePlay0) {
     return this.newMoveFunc? this.newMoveFunc(hex,sc, caps, gp) : new Move(hex, sc, caps, gp)
   }
   undoRecs: Undo = new Undo().enableUndo();
-  addUndoRec(obj: Object, name: string, value: any | Function = obj[name]) { 
-    this.undoRecs.addUndoRec(obj, name, value); 
-  }  
+  addUndoRec(obj: Object, name: string, value: any | Function = obj[name]) {
+    this.undoRecs.addUndoRec(obj, name, value);
+  }
 
   /** compute Board.id _after_ addStone sets move.captures */
   get boardId(): [string, StoneColor] {
@@ -101,7 +101,7 @@ export class GamePlay0 {
       if (hex.isAttack(otherColor(stoneColor))) this.removeStone(hex) // legalSacrifice --> clearColor
     }
   }
-  /** 
+  /**
    * capture [or undoMove->isUndoing]
    * remove Move/HSC from map
    * remove stone Shape from hex
@@ -120,15 +120,15 @@ export class GamePlay0 {
   }
   /** undo capture; this is not a Move */
   readdStone(hex: Hex, stoneColor: StoneColor) {
-    if (hex.stoneColor !== undefined) 
+    if (hex.stoneColor !== undefined)
       console.log(stime(this, `.readdStone: hex occupied: ${hex.stoneColor}, trying to [re-]addStone: ${stoneColor}`))
     this.addStone(hex, stoneColor) // ASSERT: produces no captures [Move(hex) did caps in prior turn]
   }
-  /** 
+  /**
    * undoStones(false); shiftMove()
    */
   unplaceStone() {
-    this.undoStones(false) 
+    this.undoStones(false)
     this.shiftMove()
   }
 
@@ -164,7 +164,7 @@ export class GamePlay0 {
     let [win] = this.gStats.updateStats(board) // check for WIN: showRepCount(), showWin()
     return win
   }
-  
+
   /** after add Stone to hex: propagate influence in each direction; maybe capture. */
   incrInfluence(hex: Hex, color: StoneColor) {
     H.infDirs.forEach(dn => {
@@ -192,18 +192,18 @@ export class GamePlay0 {
   }
   /** used for diagnosing undoRecs. */
   logUndoRecs(ident: string, move: Move) {
-    TP.log > 1 && console.log(stime(this, ident), { 
-      movedepth: this.history.length+1, 
-      //hex12_color: this.hexMap[1][2].stoneColor ? this.hexMap[1][2].stoneColor : ' ', 
+    TP.log > 1 && console.log(stime(this, ident), {
+      movedepth: this.history.length+1,
+      //hex12_color: this.hexMap[1][2].stoneColor ? this.hexMap[1][2].stoneColor : ' ',
       move, Aname: move?.Aname || '',
-      undoRecs: this.undoRecs.concat(), 
-      undoLast: this.undoRecs[this.undoRecs.length-1]?.concat(), 
+      undoRecs: this.undoRecs.concat(),
+      undoLast: this.undoRecs[this.undoRecs.length-1]?.concat(),
       openRec: this.undoRecs.openRec.concat(), })
   }
   /**
    * See if proposed Move is legal, and if it is sacrifice (stone removed after play)
    * Hex not legal if: previous capture || district0 without suppport || sacrifice-notAllowed
-   * 
+   *
    * unshift(move); doProtoMove(); sac=move.sac; check evalFun; undoProtoMove()
    * @param evalFun * if legal && (evalFun === false) -> leave ProtoMove in place;
    * * if legal && evalFun is function -> invoke evalFun(move) while ProtoMove in place
@@ -298,14 +298,16 @@ export class GamePlay extends GamePlay0 {
   constructor(table: Table, public gameSetup: GameSetup) {
     super()            // hexMap, history, gStats...
     let time = stime('').substring(6,15), size=`${TP.mHexes}x${TP.nHexes}`
-    let line = {time: stime.fs(), mh: TP.mHexes, nh: TP.nHexes, maxBreadth: TP.maxBreadth, 
-      maxPlys: TP.maxPlys, nPerDist: TP.nPerDist, pBoards: TP.pBoards, pMoves: TP.pMoves, pWeight: TP.pWeight}
+    let line = {
+      time: stime.fs(), mh: TP.mHexes, nh: TP.nHexes, maxBreadth: TP.maxBreadth,
+      maxPlys: TP.maxPlys, nPerDist: TP.nPerDist, pBoards: TP.pBoards, pMoves: TP.pMoves, pWeight: TP.pWeight
+    }
     let line0 = json(line, false)
     let logFile = `log${size}_${time}`
     console.log(stime(this, `.constructor: -------------- ${line0} --------------`))
     this.logWriter = new ProgressLogWriter(logFile)
     this.logWriter.writeLine(line0)
-    this.logWriter.onProgress = (progress) => { 
+    this.logWriter.onProgress = (progress) => {
       this.table.progressMarker[this.curPlayer.color].update(progress)
     }
     // Create and Inject all the Players:
@@ -319,7 +321,7 @@ export class GamePlay extends GamePlay0 {
     let table = this.table
     let roboPause = () => { this.forEachPlayer(p => this.pauseGame(p) )}
     let roboResume = () => { this.forEachPlayer(p => this.resumeGame(p) )}
-    let roboStep = () => { 
+    let roboStep = () => {
       let p = this.curPlayer, op = this.otherPlayer(p)
       this.pauseGame(op); this.resumeGame(p);
     }
@@ -388,7 +390,7 @@ export class GamePlay extends GamePlay0 {
       console.log(stime(this, ".network join_game_as_player: start"), { name, client_id, ack })
       // send join_game request to Referee {client_id: 0}; handle the subsequent join message
       let hgJoinP = hgClient.sendAndReceive(() => hgClient.send_join(name),
-        // predicate: indicating join by player/name 
+        // predicate: indicating join by player/name
         (msg) => (msg && msg.type == HgType.hg_join && msg.name == name))
       hgJoinP.then(
         // like a 'once' Listener; in addition to CgClient.eval_join:
@@ -429,7 +431,7 @@ export class GamePlay extends GamePlay0 {
         cgOpen(hgClient, 1)
         hgClient.cgbase.send_join(group, undefined, cause).then((ack: CgMessage) => {
           let { success, client_id, group, cause } = ack
-          console.log(stime(this, `.network CgJoin(${group}) ack:`), 
+          console.log(stime(this, `.network CgJoin(${group}) ack:`),
             { success, client_id, hgCid: hgClient.client_id, hgClient, ack: ack.msgObject })
           if (!success) return        // did not join Client-Group!
           if (client_id === 0) return // asked for Referee connection and got it!
@@ -456,7 +458,7 @@ export class GamePlay extends GamePlay0 {
     type == "ref" ? initRefClient() : initPlyrClient(type)
   }
   closeNetwork(reason = 'GUI -> no') {
-    let closeMe = (hgClient: HgClient) => { 
+    let closeMe = (hgClient: HgClient) => {
       // let CgServerDriver do this; anyway: we're not waiting for the Ack/Nak
       // hgClient.cgBase.send_leave(TP.networkGroup, hgClient.client_id, reason)
       hgClient.closeStream(CLOSE_CODE.NormalClosure, reason)
@@ -465,20 +467,20 @@ export class GamePlay extends GamePlay0 {
   }
   /**
    * execute code when network is being used:
-   * 
+   *
    * isReferee can return false or true, so application can proceed as networked or standalone.
-   * 
+   *
    * if notCurPlayer === undefined do NOTHING; if === true, use isCurPlayer
-   * 
+   *
    * If isReferee === undefined, treat same as notCurPlayer, return true.
-   * 
+   *
    * @param isCurPlayer invoked if hgClient is running curPlayer
    * @param notCurPlayer invoked if hgClient is NOT running curPlayer [true: use isCurPlayer()]
    * @param isReferee invoked if hgClient is running as Referee (false | return false: isNetworked->false)
    * @returns false if Table is running StandAlone (or referee...)
    */
   isNetworked(isCurPlayer?: (hgClient?: HgClient) => void,
-    notCurPlayer?: true | ((hgClient?: HgClient) => void), 
+    notCurPlayer?: true | ((hgClient?: HgClient) => void),
     isReferee?: false | ((refClient?: HgClient) => boolean)): boolean {
     if (!this.hgClient?.wsOpen) return false    // running in standalone browser mode
     // if isReferee is not supplied: use otherPlayer(); but return true
@@ -494,9 +496,9 @@ export class GamePlay extends GamePlay0 {
     }
     return true   // isNetworked: has an Open HgClient
   }
-  
-  /** 
-   * setup game and table for headless GgReferee in a Player's browser. 
+
+  /**
+   * setup game and table for headless GgReferee in a Player's browser.
    * @param onJoin inform caller that GgReferee is ready.
    * @returns the GgReferee (like a constructor...)
    */
@@ -512,7 +514,7 @@ export class GamePlay extends GamePlay0 {
     return ref.joinGroup(url, group, onOpen, onJoin);
   }
 
-  
+
   async waitPaused(p = this.curPlayer, ident = '') {
     this.table.nextHex.markCapture()
     this.hexMap.update()
@@ -527,14 +529,14 @@ export class GamePlay extends GamePlay0 {
   }
   pauseGame(p = this.curPlayer) {
     p.planner?.pause();
-    this.table.nextHex.markCapture(); 
-    this.hexMap.update(); 
-    console.log(stime(this, `.pauseGame: ${p.colorn}`)) 
+    this.table.nextHex.markCapture();
+    this.hexMap.update();
+    console.log(stime(this, `.pauseGame: ${p.colorn}`))
   }
   resumeGame(p = this.curPlayer) {
     p.planner?.resume();
-    this.table.nextHex.unmarkCapture(); 
-    this.hexMap.update(); 
+    this.table.nextHex.unmarkCapture();
+    this.hexMap.update();
     console.log(stime(this, `.resumeGame: ${p.colorn}`))
   }
   /** tell [robo-]Player to stop thinking and make their Move; also set useRobo = false */
@@ -551,13 +553,15 @@ export class GamePlay extends GamePlay0 {
     this.makeMove(true, undefined, 1)
   }
 
-  /** 
-   * after setNextPlayer: enable Player (GUI or Planner) to respond 
+  /**
+   * after setNextPlayer: enable Player (GUI or Planner) to respond
    * with table.moveStoneToHex()
-   * 
+   *
    * Note: 1st move: player = otherPlayer(curPlayer)
    * @param auto this.runRedo || undefined -> player.useRobo
-   */ 
+   * @param ev KeyBinder event, not used.
+   * @param incb increase Breadth of search
+   */
   makeMove(auto = undefined, ev?: any, incb = 0) {
     let sc = this.table.nextHex.stone?.color
     if (!sc) debugger;
@@ -576,7 +580,7 @@ export class GamePlay extends GamePlay0 {
       this.roboPlay(p.index, useRobo)
     })
   }
-  autoPlay(pid = 0) {  
+  autoPlay(pid = 0) {
     this.roboPlay(pid, true)  // KeyBinder uses arg2
     if (this.curPlayerNdx == pid) this.makeMove(true)
   }
@@ -589,7 +593,7 @@ export class GamePlay extends GamePlay0 {
   set runRedo(val: boolean) { (this._runRedo = val) && this.makeMove() }
   get runRedo() { return this.redoMoves.length > 0 ? this._runRedo : (this._runRedo = false) }
   _runRedo = false
-  
+
   /** invoked by GUI or Keyboard */
   undoMove(undoTurn: boolean = true) {
     this.table.stopDragging() // drop on nextHex (no Move)
@@ -628,7 +632,7 @@ export class GamePlay extends GamePlay0 {
   showRedoMark(hex: IHex | Hex = this.redoMoves[0]?.hex) {
     if (!!hex) { // unless Skip or Resign...
       this.hexMap.showMark((hex instanceof Hex) ? hex : Hex.ofMap(hex, this.hexMap))
-    }    
+    }
   }
   /** addUndoRec to [re-]setStoneId() */
   override removeStone(hex: Hex2): void {
@@ -731,8 +735,8 @@ export class GamePlay extends GamePlay0 {
       let opts = this.useReferee ? { client_id: 0, nocc: true } : { client_id: CgMessage.GROUP_ID, nocc: false}
       return hgClient.send_message(msg, opts) // CgServer will send it back to all of us
     }
-    let rejectMove = (rej: any) => { 
-      this.ll(2) && console.warn(stime(this, `.playerMoveEvent: reject Move (${inform}):`), rej) 
+    let rejectMove = (rej: any) => {
+      this.ll(2) && console.warn(stime(this, `.playerMoveEvent: reject Move (${inform}):`), rej)
       // remove that stone, make a new [dragable] one:
       this.table.showNextStone(this.curPlayer)
     }
@@ -745,15 +749,15 @@ export class GamePlay extends GamePlay0 {
         moveToGrp().then((ack) => this.localMoveEvent(hev), rejectMove)
       }
     }
-    let notCurPlayer = () => { 
+    let notCurPlayer = () => {
       rejectMove(`not curPlayer ${this.curPlayerNdx}`)
     }
     if (this.isNetworked(sendMove, notCurPlayer, false)) return
     this.localMoveEvent(hev)
   }
 
-  /** received a hg_sendMove message via sendAndReceive OR eval_sendMove. 
-   * 
+  /** received a hg_sendMove message via sendAndReceive OR eval_sendMove.
+   *
    * playerMoveEvent -> network ? sendMove()then(removeMoveEvent) : localMoveEvent
    */
   remoteMoveEvent(hgMsg: HgMessage): void {
@@ -808,7 +812,7 @@ export class GamePlay extends GamePlay0 {
 
   async runGameFromLog(histAry: IMove[], toTurn = 0, delay = 0) {
     this.readerBreak = false
-    let histMismatch = (nth = this.history.length - 1) => { 
+    let histMismatch = (nth = this.history.length - 1) => {
       return this.history.find((move, ndx) => move.hex !== histAry[nth - ndx][0])
     }
     let turn = 0
@@ -833,7 +837,7 @@ export class GamePlay extends GamePlay0 {
 
 /** a uniquifying 'symbol table' of Board.id */
 class BoardRegister extends Map<string, Board> {}
-/** Identify state of HexMap by itemizing all the extant Stones 
+/** Identify state of HexMap by itemizing all the extant Stones
  * id: string = Board(nextPlayer.color, captured)resigned?, allStones
  * resigned: StoneColor
  * repCount: number

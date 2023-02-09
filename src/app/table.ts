@@ -12,7 +12,7 @@ import { otherColor, StoneColor, stoneColor0, stoneColor1, StoneColorRecord, sto
 
 /**
  * Graphical representation of the 'color' of a Move onto the HexMap.
- * 
+ *
  * can be repainted temporarily by 'shift', but that does not change the underlying color.
  */
 export class Stone extends Shape {
@@ -25,7 +25,7 @@ export class Stone extends Shape {
   constructor(color?: StoneColor) {
     super()
     this.color = color
-    if (color) this.paint(color) 
+    if (color) this.paint(color)
     else this.visible = false
   }
   paint(color = this.color) {
@@ -93,7 +93,7 @@ export class Table extends EventDispatcher  {
   undoCont: Container = new Container()
   undoShape: Shape = new Shape();
   skipShape: Shape = new Shape();
-  redoShape: Shape = new Shape(); 
+  redoShape: Shape = new Shape();
   undoText: Text = new Text('', F.fontSpec(30));  // length of undo stack
   redoText: Text = new Text('', F.fontSpec(30));  // length of history stack
   winText: Text = new Text('', F.fontSpec(40), 'green')
@@ -110,9 +110,9 @@ export class Table extends EventDispatcher  {
     this.scaleCont = this.makeScaleCont(!!this.stage.canvas) // scaleCont & background
   }
   setupUndoButtons(xOffs: number, bSize: number, skipRad: number, bgr: XYWH) {
-    this.skipShape.graphics.f("white").dp(0, 0, 40, 4, 0, skipRad)  
+    this.skipShape.graphics.f("white").dp(0, 0, 40, 4, 0, skipRad)
     this.undoShape.graphics.f("red").dp(-xOffs, 0, bSize, 3, 0, 180);
-    this.redoShape.graphics.f("green").dp(+xOffs, 0, bSize, 3, 0, 0); 
+    this.redoShape.graphics.f("green").dp(+xOffs, 0, bSize, 3, 0, 0);
     this.undoText.x = -52; this.undoText.textAlign = "center"
     this.redoText.x = 52; this.redoText.textAlign = "center"
     this.winText.x = 0; this.winText.textAlign = "center"
@@ -131,7 +131,7 @@ export class Table extends EventDispatcher  {
     this.progressMarker = stoneColorRecordF((sc) => ProgressMarker.make(sc, this.undoCont))
     let pm0 = this.progressMarker[stoneColor0]
     let pmy = pm0.ymax + pm0.y // pm0.parent.localToLocal(0, pm0.ymax + pm0.y, undoC)
-    let progressBg = new Shape(), bgw = 200, bgym = 240, y0 = 0 
+    let progressBg = new Shape(), bgw = 200, bgym = 240, y0 = 0
     let bgc = C.nameToRgbaString(TP.bgColor, .8)
     progressBg.graphics.f(bgc).r(-bgw/2, y0, bgw, bgym-y0)
     undoC.addChildAt(progressBg, 0)
@@ -139,8 +139,8 @@ export class Table extends EventDispatcher  {
     undoC.addChild(this.winText);
     this.dragger.makeDragable(undoC)
     this.winText.y = Math.min(pmy, bgrpt.y) // 135 = winBack.y = winBack.h
-    this.winBack.visible = this.winText.visible = false 
-    this.winBack.x = this.winText.x; this.winBack.y = this.winText.y; 
+    this.winBack.visible = this.winText.visible = false
+    this.winBack.x = this.winText.x; this.winBack.y = this.winText.y;
   }
   showWinText(msg?: string, color = 'green') {
     this.winText.text = msg || "COLOR WINS:\nSTALEMATE (10 -- 10)\n0 -- 0"
@@ -153,9 +153,9 @@ export class Table extends EventDispatcher  {
     qShape.graphics.f("black").dp(0, 0, 20, 6, 0, 0)
     qShape.y = qY  // size of skip Triangles
     this.undoCont.addChild(qShape)
-    this.dragger.makeDragable(qShape, this, 
+    this.dragger.makeDragable(qShape, this,
       // dragFunc:
-      (qShape: Shape, ctx: DragInfo) => { 
+      (qShape: Shape, ctx: DragInfo) => {
         let hex = this.hexUnderObj(qShape)
         this.dropTarget = hex
       },
@@ -175,14 +175,14 @@ export class Table extends EventDispatcher  {
         info[`Infm[${stoneColor1}]`] = hex.infm[stoneColor1]
         console.log(`HexInspector:`, hex.Aname, info)
       })
-    let toggleText = (evt: MouseEvent, vis?: boolean) => { 
+    let toggleText = (evt: MouseEvent, vis?: boolean) => {
       if (!toggle) return (toggle = true, undefined) // skip one 'click' when pressup/dropfunc
       this.hexMap.forEachHex<Hex2>(hex => hex.showText(vis))
       this.hexMap.mapCont.hexCont.updateCache()  // when toggleText: hexInspector
       this.hexMap.update()               // after toggleText & updateCache()
     }
     qShape.on(S.click, toggleText, this) // toggle visible
-    toggleText(undefined, false)         // set initial visibility  
+    toggleText(undefined, false)         // set initial visibility
   }
   aiControl(color = TP.bgColor, dx = 100, rad = 16) {
     let table = this
@@ -228,11 +228,11 @@ export class Table extends EventDispatcher  {
     mapCont.x = x; mapCont.y = y
     mapCont.rotation = rotC
     miniMap.forEachHex<Hex2>(h => {
-      h.distText.visible = h.rcText.visible = false; 
+      h.distText.visible = h.rcText.visible = false;
       h.cont.rotation = rotH; h.cont.scaleX = h.cont.scaleY = .985
     })
     parent.addChild(mapCont)
-    mapCont.visible = (TP.nHexes > 1) 
+    mapCont.visible = (TP.nHexes > 1)
   }
 
   layoutTable(gamePlay: GamePlay) {
@@ -264,7 +264,7 @@ export class Table extends EventDispatcher  {
     this.nextHex.x = Math.round(this.nextHex.x); this.nextHex.y = Math.round(this.nextHex.y)
 
     this.bgRect = this.setBackground(this.scaleCont, bgr) // bounded by bgr
-    let p00 = this.scaleCont.localToLocal(0, 0, hexMap.mapCont.hexCont) 
+    let p00 = this.scaleCont.localToLocal(0, 0, hexMap.mapCont.hexCont)
     let pbr = this.scaleCont.localToLocal(bgr.w, bgr.h, hexMap.mapCont.hexCont)
     hexMap.mapCont.hexCont.cache(p00.x, p00.y, pbr.x-p00.x, pbr.y-p00.y) // cache hexCont (bounded by bgr)
     this.nextHex.cont.parent.localToLocal(this.nextHex.x, this.nextHex.y+100, this.scaleCont, this.undoCont)
@@ -275,7 +275,7 @@ export class Table extends EventDispatcher  {
 
     this.on(S.add, this.gamePlay.playerMoveEvent, this.gamePlay)[S.Aname] = "playerMoveEvent"
   }
-  
+
   startGame() {
     // NextPlayer is BLACK, but gamePlay will set curPlayer = WHITE
     this.gamePlay.setNextPlayer(this.gamePlay.allPlayers[0])   // make a placeable Stone for Player[0]
@@ -285,7 +285,7 @@ export class Table extends EventDispatcher  {
     const tn = this.gamePlay.turnNumber
     const lm = history[0]
     const prev = lm ? `${lm.Aname}${lm.ind}#${tn-1}` : ""
-    const capd = lm?.captured || [] //this.gamePlay.lastCaptured 
+    const capd = lm?.captured || [] //this.gamePlay.lastCaptured
     const board = !!this.hexMap.allStones[0] && lm?.board // TODO: hexMap.allStones>0 but history.len == 0
     const robo = curPlayer.useRobo ? AT.ansiText(['red','bold'],"robo") : "----"
     const info = { turn: `#${tn}`, plyr: curPlayer.name, prev, capd, gamePlay: this.gamePlay, board }
@@ -330,14 +330,14 @@ export class Table extends EventDispatcher  {
     this.viewCaptured.forEach(hex => hex.markCapture()) // show Mark *above* stoneCont
   }
   /** remove captured mark from would be captured Hex(s) */
-  unmarkViewCaptured() { 
+  unmarkViewCaptured() {
     this.viewCaptured.forEach(hex => hex.unmarkCapture())
     this.viewCaptured = []
   }
 
   allSacrifices: Set<Hex2> = new Set()
-  /** 
-   * @param color shift-key overrides curPlayer.color 
+  /**
+   * @param color shift-key overrides curPlayer.color
    * @param show dragFunc sets 'true' to force show (overriding !showSac || !color)
    */
   markAllSacrifice(color: StoneColor = this.gamePlay.curPlayer?.color, show = false) {
@@ -430,7 +430,7 @@ export class Table extends EventDispatcher  {
     Hex2.infVis = true
     if (this.protoHex) { this.gamePlay.undoProtoMove(); this.protoHex = undefined }
     stone.paint()
-    let target = this.dropTarget 
+    let target = this.dropTarget
     stone.x = target.x
     stone.y = target.y
     if (target === this.nextHex) return
@@ -438,13 +438,13 @@ export class Table extends EventDispatcher  {
     this.doTableMove(target.iHex, stone.color) // TODO: migrate to doTableMove vs dispatchEVent
   }
   _tablePlanner: TablePlanner
-  get tablePlanner() { 
-    return this._tablePlanner || 
+  get tablePlanner() {
+    return this._tablePlanner ||
     (this._tablePlanner = new TablePlanner(this.gamePlay))
   }
-  /** 
+  /**
    * All manual moves feed through this (drop & redo)
-   * TablePlanner.logMove(); then dispatchEvent() --> gamePlay.doPlayerMove() 
+   * TablePlanner.logMove(); then dispatchEvent() --> gamePlay.doPlayerMove()
    */
   doTableMove(ihex: IHex, sc = this.nextHex.stone.color) {
     if (sc != this.nextHex.stone.color) debugger;
@@ -458,20 +458,20 @@ export class Table extends EventDispatcher  {
     this.hexMap.showMark(hex)
     this.dispatchEvent(new HexEvent(S.add, hex, sc)) // -> GamePlay.playerMoveEvent(hex, sc)
   }
- 
+
   /** default scaling-up value */
   upscale: number = 1.5;
   /** change cont.scale to given scale value. */
   scaleUp(cont: Container, scale = this.upscale) {
     cont.scaleX = cont.scaleY = scale;
   }
-  scaleParams = { zscale: .20, initScale: .324, zero: 0.125, max: 30, limit: 4, base: 1.1, min: -2 };
+  scaleParams = { initScale: .125, scale0: .05, scaleMax: 1, steps: 30, zscale: .20,  };
 
-  /** makeScaleableBack and setup scaleParams 
+  /** makeScaleableBack and setup scaleParams
    * @param bindkeys true if there's a GUI/user/keyboard
    */
   makeScaleCont(bindKeys: boolean): ScaleableContainer {
-    this.scaleParams.initScale = 0.324; // .125 if full-size cards
+    this.scaleParams.initScale = 0.125; // .125 if full-size cards
     /** scaleCont: a scalable background */
     let scaleC = new ScaleableContainer(this.stage, this.scaleParams);
     this.dragger = new Dragger(scaleC)
@@ -506,7 +506,7 @@ export class Table extends EventDispatcher  {
     }
     return bgRect
   }
-  /** 
+  /**
    * @param xos x-offset-to-center in Original Scale
    * @param xos y-offset-to-center in Original Scale
    * @param scale Original Scale
@@ -514,23 +514,23 @@ export class Table extends EventDispatcher  {
   // bindKeysToScale(scaleC, 800, 0, scale=.324)
   bindKeysToScale(char: string, scaleC: ScaleableContainer, xos: number, yos: number) {
     let ns0 = scaleC.getScale(), sXY = { x: -scaleC.x, y: -scaleC.y } // generally == 0,0
-    let nsA = scaleC.findIndex(.5), apt = { x: -xos, y: -yos } 
-    let nsZ = scaleC.findIndex(ns0), zpt = { x: -xos, y: -yos } 
-    
+    let nsA = scaleC.findIndex(.5), apt = { x: -xos, y: -yos }
+    let nsZ = scaleC.findIndex(ns0), zpt = { x: -xos, y: -yos }
+
     // set Keybindings to reset Scale:
     /** xy in [unscaled] model coords; sxy in screen coords */
     const setScaleXY = (si?: number, xy?: XY, sxy: XY = sXY) => {
       let ns = scaleC.setScaleXY(si, xy, sxy)
       //console.log({si, ns, xy, sxy, cw: this.canvas.width, iw: this.map_pixels.width})
       this.stage.update()
-    } 
+    }
     let setScaleZ = () => {
       ns0 = scaleC.getScale()
       nsZ = scaleC.findIndex(ns0)
       zpt = { x: -scaleC.x/ns0, y: -scaleC.y/ns0 }
     };
     let goup = () => {
-      this.stage.getObjectsUnderPoint(500, 100, 1) 
+      this.stage.getObjectsUnderPoint(500, 100, 1)
     }
 
     // Scale-setting keystrokes:

@@ -18,7 +18,7 @@ export class TP {
   static yieldMM = 1
   static pPlaner = true
   static pWorker = false
-  static pWeight = 1
+  static pWeight = 1      // allocation of new value: vNew * w + vOld * (1-w)
   static keepMoves = 4;   // number of predicted/evaluated moves to retain in State.moveAry
   static pResign = 1      // if lookahead(resignAhead).bv = -Infinity --> Resign
   static pBoards = true   // true: evalState saves board->state

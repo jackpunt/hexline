@@ -15,8 +15,9 @@ export type IHex = { Aname: string, row: number, col: number }
 type LINKS = { [key in InfDir]?: Hex }
 type INF   = { [key in InfDir]?: number }
 type INFM   = { [key in HexAxis]?: InfMark }
-type TopoEW = { [key in EwDir] }
-type TopoNS = { [key in NsDir] }
+type DCR    = { [key in "dc" | "dr"]: number }  // Delta for Col & Row
+type TopoEW = { [key in EwDir]: DCR }
+type TopoNS = { [key in NsDir]: DCR }
 type Topo = TopoEW | TopoNS
 
 export type HSC = { hex: Hex, sc: StoneColor, Aname: string }
@@ -39,7 +40,7 @@ class InfMark extends Shape {
     return g
   }
   /** 2 Graphics, one is used by each InfMark */
-  static infG = stoneColorRecord(undefined as Graphics, undefined as Graphics)
+  static infG = stoneColorRecord(undefined as unknown as Graphics, undefined as unknown as Graphics)
   static setInfGraphics(): StoneColorRecord<Graphics> {
     return InfMark.infG = stoneColorRecordF<Graphics>(sc => InfMark.gColor(sc, InfMark.infG[sc]))
   }
@@ -52,6 +53,8 @@ class InfMark extends Shape {
     this[S.Aname] = `Inf[${TP.colorScheme[sc]},${ds},${this.id}]`  // for debug, not production
   }
 }
+
+/** CapMark indicates if hex has been captured. */
 class CapMark extends Shape {
   static capSize = 4   // depends on HexMap.height
   constructor(hex: Hex2, color = Hex.capColor) {
@@ -73,7 +76,7 @@ class HexCont extends Container {
 
 
 /** Base Hex, has no connection to graphics.
- * 
+ *
  * (although an InfMark contains a graphics)
  */
 export class Hex {
@@ -89,10 +92,10 @@ export class Hex {
       throw err
     }
   }
-  static aname(row: number, col: number) { 
+  static aname(row: number, col: number) {
     return (row >= 0) ? `Hex@[${row},${col}]` : col == -1 ? S_Skip : S_Resign
   }
-  constructor(map: HexMap, row?: number, col?: number, name = Hex.aname(row, col)) {
+  constructor(map: HexMap, row: number, col: number, name = Hex.aname(row, col)) {
     this.Aname = name
     this.map = map
     this.row = row
@@ -177,7 +180,7 @@ export class Hex {
   getInf(color: StoneColor, dn: InfDir) { return this.inf[color][dn] || 0 }
   setInf(color: StoneColor, dn: InfDir, inf: number) { return this.inf[color][dn] = inf }
 
-  /** 
+  /**
    * @param inc is influence *passed-in* to Hex; hex get [inc or inc+1]; *next* gets [inc or inc-1]
    */
   propagateIncr(color: StoneColor, dn: InfDir, inc: number, test?: (hex: Hex) => void) {
@@ -217,7 +220,7 @@ export class Hex {
   /** @return true if Hex is influenced on 2 or more Axies of color */
   isAttack(color: StoneColor): boolean {
     let attacks = new Set<HexAxis>(), infs = this.inf[color]
-    return !!Object.entries(infs).find(([dn, inf]) => 
+    return !!Object.entries(infs).find(([dn, inf]) =>
       (inf > 0) && (attacks.add(H.dnToAxis[dn]).size >= 2)
     )
   }
@@ -229,7 +232,7 @@ export class Hex {
   lastHex(ds: InfDir): Hex {
     let hex: Hex = this, nhex: Hex
     while (!!(nhex = hex.links[ds])) { hex = nhex }
-    return hex    
+    return hex
   }
   /** distance between Hexes: adjacent = 1 */
   radialDist(hex: Hex): number {
@@ -268,11 +271,11 @@ export class Hex2 extends Hex {
   infm: Record<StoneColor,INFM> = stoneColorRecord({},{})
 
   /** Hex2 cell with graphics; shown as a polyStar Shape of radius @ (XY=0,0) */
-  constructor(map: HexMap, row?: number, col?: number, name?: string) {
+  constructor(map: HexMap, row: number, col: number, name?: string) {
     super(map, row, col, name);
     map.mapCont.hexCont.addChild(this.cont)
-    this.radius = Stone.radius
-  
+    this.radius = TP.hexRad;
+
     this.setHexColor("grey")  // until setHexColor(by district)
     this.stoneIdText = new Text('', F.fontSpec(26))
     this.stoneIdText.textAlign = 'center'; this.stoneIdText.regY = -20
@@ -290,7 +293,7 @@ export class Hex2 extends Hex {
     rct.textAlign = 'center'; rct.y = tdy // based on fontSize? & radius
     this.cont.addChild(rct)
 
-    this.distText = new Text(``, F.fontSpec(20)); 
+    this.distText = new Text(``, F.fontSpec(20));
     this.distText.textAlign = 'center'; this.distText.y = tdy + 46 // yc + 26+20
     this.cont.addChild(this.distText)
     this.showText(true)
@@ -320,7 +323,7 @@ export class Hex2 extends Hex {
   }
   override clearInf(): void {
     stoneColors.forEach(color => {
-      for (let mark of Object.values(this.infm[color])) 
+      for (let mark of Object.values(this.infm[color]))
         //mark?.parent?.removeChild(mark)
         mark && (mark.visible = false)
     })
@@ -334,7 +337,7 @@ export class Hex2 extends Hex {
     this.capMark.visible = true
   }
    unmarkCapture() {
-    this.capMark && (this.capMark.visible = false) 
+    this.capMark && (this.capMark.visible = false)
   }
 
   setStoneId(id: number | string) {
@@ -407,30 +410,30 @@ export interface HexM {
   rcLinear(row: number, col: number): number
   forEachHex<K extends Hex>(fn: (hex: K) => void): void // stats forEachHex(incCounters(hex))
   //used by GamePlay:
-  readonly skipHex: Hex 
+  readonly skipHex: Hex
   readonly resignHex: Hex
   update(): void
   showMark(hex: Hex): void
 
 }
-/** 
+/**
  * Collection of Hex *and* Graphics-Containers for Hex2
  * allStones: HSC[] and districts: Hex[]
- * 
- * HexMap[row][col]: Hex or Hex2 elements. 
- * If mapCont is set, then populate with Hex2 
- * 
+ *
+ * HexMap[row][col]: Hex or Hex2 elements.
+ * If mapCont is set, then populate with Hex2
+ *
  * (TP.mh X TP.nh) hexes in districts; allStones: HSC[]
- * 
+ *
  * With a Mark and off-map: skipHex & resignHex
- * 
+ *
  */
 export class HexMap extends Array<Array<Hex>> implements HexM {
   // A color for each District:
   static readonly distColor = ["lightgrey","limegreen","deepskyblue","rgb(255,165,0)","violet","rgb(250,80,80)","yellow"]
 
   /** Each occupied Hex, with the occupying StoneColor  */
-  readonly allStones: HSC[] = []                    // aka hexStones in Board (readonly when we stop remove/filter)
+  readonly allStones: HSC[] = []              // aka hexStones in Board (readonly when we stop remove/filter)
   readonly district: Array<Hex[]> = []
   readonly mapCont: MapCont = new MapCont     // if using Hex2
   readonly skipHex: Hex;
@@ -469,8 +472,8 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
     return mark
   }
 
-  /** 
-   * HexMap: TP.mh X TP.nh hexes in districts; with a Mark, an off-map: skipHex & resignHex 
+  /**
+   * HexMap: TP.mh X TP.nh hexes in districts; with a Mark, an off-map: skipHex & resignHex
    * @param addToMapcont use Hex2 for Hex, make Containers: hexCont, infCont, markCont, stoneCont
    */
   constructor(radius: number = TP.hexRad, addToMapCont = false) {
@@ -521,7 +524,7 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
   /** Array.forEach does not use negative indices: ASSERT [row,col] is non-negative (so 'of' works) */
   forEachHex<K extends Hex>(fn: (hex: K) => void) {
     // minRow generally [0 or 1] always <= 5, so not worth it
-    //for (let ir = this.minRow || 0; ir < this.length; ir++) { 
+    //for (let ir = this.minRow || 0; ir < this.length; ir++) {
     for (let ir of this) {
       // beginning and end of this AND ir may be undefined
       if (ir !== undefined) for (let hex of ir) { hex !== undefined && fn(hex as K) }
@@ -575,7 +578,7 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
   ewTopo(rc: RC): TopoEW { return (rc.row % 2 == 0) ? this.ewEvenRow : this.ewOddRow}
 
   nextRowCol(hex: RC, dir: HexDir, nt: Topo = this.ewTopo(hex)): RC {
-    let row = hex.row + nt[dir].dr, col = hex.col + nt[dir].dc 
+    let row = hex.row + nt[dir].dr, col = hex.col + nt[dir].dc
     return {row, col}
   }
   addMetaHex(hex: Hex, mr: number, mc: number) {
@@ -605,7 +608,7 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
    * The Hex under the given x,y coordinates.
    * If on the line, then the top (last drawn) Hex.
    * @param x in local coordinates of this HexMap.cont
-   * @param y 
+   * @param y
    * @returns the Hex under mouse or false, if not a Hex (background)
    */
   hexUnderPoint(x: number, y: number): Hex2 {
@@ -613,7 +616,7 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
     return (obj instanceof HexCont) && obj.hex
   }
   /**
-   * 
+   *
    * @param mh order [number of 'rings'] of meta-hexes (2 or 3 for this game) [TP.mHexes]
    * @param nh size ['rings' in each meta-hex] of meta-hex (1..6) [TP.nHexes]
    */
@@ -653,14 +656,14 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
     })
     return HexMap.distColor.find(ci => !adjColor.includes(ci))
   }
-  /** 
+  /**
    * @param nh order of inner-hex: number hexes on side of meta-hex
    * @param mr make new district on meta-row
    * @param mc make new district on meta-col
    */
   makeDistrict(nh: number, district: number, mr: number, mc: number): Hex[] {
     let mcp = Math.abs(mc % 2), mrp = Math.abs(mr % 2), dia = 2 * nh - 1
-    // irow-icol define topology of MetaHex composed of HexDistrict 
+    // irow-icol define topology of MetaHex composed of HexDistrict
     let irow = (mr: number, mc: number) => {
       let ir = mr * dia - nh * (mcp + 1) + 1
       ir -= Math.floor((mc) / 2)              // - half a row for each metaCol
@@ -670,7 +673,7 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
       let np = Math.abs(nh % 2), rp = Math.abs(row % 2)
       let ic = Math.floor(mc * ((nh * 3 - 1) / 2))
       ic += (nh - 1)                        // from left edge to center
-      ic -= Math.floor((mc + (2 - np)) / 4) // 4-metaCol means 2-rows, mean 1-col 
+      ic -= Math.floor((mc + (2 - np)) / 4) // 4-metaCol means 2-rows, mean 1-col
       ic += Math.floor((mr - rp) / 2)       // 2-metaRow means +1 col
       return ic
     }
@@ -696,11 +699,11 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
     return hexAry
   }
   /**
-   * 
+   *
    * @param n number of Hex to create
    * @param hex start with a Hex to the West of this Hex
    * @param dir after first Hex move this Dir for each other hex
-   * @param district 
+   * @param district
    * @param hexAry push created Hex(s) on this array
    * @returns RC of next Hex to create (==? RC of original hex)
    */
@@ -723,7 +726,7 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
   }
   /**
    * clear Stones & influence, add Stones, assertInfluence
-   * @param gamePlay 
+   * @param gamePlay
    */
    syncToGame(gamePlay: GamePlay0) {
     let oldMap = gamePlay.hexMap

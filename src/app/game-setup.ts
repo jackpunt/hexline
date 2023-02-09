@@ -28,7 +28,7 @@ export class GameSetup {
     this.startup(ext)
   }
   _netState = " " // or "yes" or "ref"
-  set netState(val: string) { 
+  set netState(val: string) {
     this._netState = (val == "cnx") ? this._netState : val || " "
     this.gamePlay.ll(2) && console.log(stime(this, `.netState('${val}')->'${this._netState}'`))
     this.netGUI?.selectValue("Network", val)
@@ -58,7 +58,7 @@ export class GameSetup {
     return rv
   }
   /**
-   * Make new Table/layout & gamePlay/hexMap & Players. 
+   * Make new Table/layout & gamePlay/hexMap & Players.
    * @param ext Extensions from URL
    */
   startup(ext: string[] = []) {
@@ -115,7 +115,7 @@ export class GameSetup {
     gui.makeParamSpec("colorScheme", schemeAry, { chooser: CycleChoice, style: { textAlign: 'center' } })
     let infSpec = gui.spec(infName); table[infSpec.fieldName] = infSpec.choices[0].text
     infSpec.onChange = (item: ParamItem) => {
-      let v = item.value as string 
+      let v = item.value as string
       table.showInf = v.startsWith('1')
       table.showSac = v.endsWith('1')
     }
@@ -123,11 +123,11 @@ export class GameSetup {
     gui.spec("nHexes").onChange = (item: ParamItem) => { nHex(TP.mHexes, item.value) }
     gui.spec("colorScheme").onChange = (item: ParamItem) => {
       gui.setValue(item, TP)
-      let hexMap = table.gamePlay.hexMap as HexMap
+      let hexMap = table.hexMap;
       hexMap.initInfluence()
       hexMap.forEachHex((h: Hex2) => h.stone && h.stone.paint())
       table.nextHex.stone?.paint() // TODO: also paint buttons on undoPanel
-      table.hexMap.update()
+      hexMap.update();
     }
     parent.addChild(gui)
     gui.x = x // (3*cw+1*ch+6*m) + max(line.width) - (max(choser.width) + 20)
@@ -155,7 +155,7 @@ export class GameSetup {
     gui.stage.update()
     return gui
   }
-  netColor: string = "rgba(160,160,160, .8)" 
+  netColor: string = "rgba(160,160,160, .8)"
   netStyle: DropdownStyle = { textAlign: 'right' };
   makeNetworkGUI (table: Table, parent: Container, x: number, y: number) {
     let gui = this.netGUI = new ParamGUI(TP, this.netStyle)
