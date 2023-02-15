@@ -1,7 +1,7 @@
 import { C } from "@thegraid/common-lib"
 import { BoolChoice, ChoiceItem, ChoiceStyle, Chooser, DropdownButton, DropdownChoice, DropdownItem, DropdownStyle, EditBox, KeyBinder, ParamItem, ParamLine, TextStyle } from "@thegraid/easeljs-lib"
 import { Stone } from "./table"
-import { stoneColors } from "./table-params"
+import { playerColors } from "./table-params"
 
 /** no choice: a DropdownChoice with 1 mutable item that can be set by setValue(...) */
 export class NC extends DropdownChoice {
@@ -54,7 +54,7 @@ export class PidChoice extends NC {
   readonly playerStone: Stone = new Stone()
   paintStone(pid: number) {
     let stone = this.playerStone
-    stone.paint(stoneColors[pid])
+    stone.paint(playerColors[pid])
     stone.visible = true
     if (!stone.parent) {
       let line = this.parent as ParamLine

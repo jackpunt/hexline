@@ -5,7 +5,7 @@ import { HexMap, IHex } from "./hex";
 import { IMove } from "./move";
 import { Planner } from "./planner";
 import { ILogWriter } from "./stream-writer";
-import { StoneColor, stoneColors, TP } from "./table-params";
+import { PlayerColor, playerColors, TP } from "./table-params";
 
 export type ParamSet = [string, string, MsgSimple]   // targetName, fieldName, value
 export type MsgSimple = string | number | boolean
@@ -34,7 +34,7 @@ interface IPlannerMethods {
   /** enable Planner to continue/stop searching */
   roboMove(run: boolean): void;
   /** provoke Planner to search for next Move */
-  makeMove(stoneColor: StoneColor, history: IMove[], incb?: number): Promise<IHex>;
+  makeMove(playerColor: PlayerColor, history: IMove[], incb?: number): Promise<IHex>;
   /** permanently stop this IPlanner */
   terminate(): void;
 }
@@ -50,7 +50,7 @@ export interface IPlanMsg extends IPlannerMethods {
 /** PlanProxy implements IPlanReply message methods: */
 export type IPlanReply = {
   newDone(args: MsgArgs[]): void // newPlanner -> ACK (ready)
-  sendMove(ihex: IHex): void     // 
+  sendMove(ihex: IHex): void     //
   logFile(file: string, text: string): void
   progress(pv: Progress): void
   terminateDone(): void // terminate this instance (of Planner & Game)
@@ -78,7 +78,7 @@ export class MK {
  * IPlanner factory method, invoked from Player.newGame()
  * @param hexMap from the main GamePlay, location of Hex for makeMove
  * @param index player.index [0 -> 'b', 1 -> 'w']
- * @returns Planner or PlannerProxy 
+ * @returns Planner or PlannerProxy
  */
 export function newPlanner(hexMap: HexMap, index: number, logWriter: ILogWriter): IPlanner {
   let planner = TP.pWorker
@@ -92,12 +92,12 @@ export class PlannerProxy implements IPlanner, IPlanReply {
   static id = 0
   id = ++PlannerProxy.id
   colorn: string
-  worker: Worker 
+  worker: Worker
   get ll0() { return TP.log > 0 }
   get ll1() { return TP.log > 1 }
 
   constructor(public mh: number, public nh: number, public index: number, public logWriter: ILogWriter) {
-    let colorn = this.colorn = TP.colorScheme[stoneColors[index]] || `SC-${index}`
+    let colorn = this.colorn = TP.colorScheme[playerColors[index]] || `SC-${index}`
     this.ll0 && console.log(stime(this, `(${this.colorn}).newPlannerProxy:`), { mh, nh, index, colorn })
     this.worker = this.makeWorker()
     this.worker['Aname'] = `Worker-${colorn}`
@@ -172,10 +172,10 @@ export class PlannerProxy implements IPlanner, IPlanReply {
     )
   }
   movePromise: EzPromise<IHex>
-  makeMove(stoneColor: StoneColor, iHistory: IMove[], incb = 0): Promise<IHex> {
+  makeMove(playerColor: PlayerColor, iHistory: IMove[], incb = 0): Promise<IHex> {
     ///*this.ll0 &&*/ console.log(stime(this, `(${this.colorn}).makeMove: iHistory =`), iHistory)
     this.logHistory(`.makeMove(${this.colorn}#${this.id}) `, iHistory)
-    this.postMessage(`.makeMove:`, MK.makeMove, stoneColor, iHistory, incb )
+    this.postMessage(`.makeMove:`, MK.makeMove, playerColor, iHistory, incb )
     return this.movePromise = new EzPromise<IHex>()
   }
 

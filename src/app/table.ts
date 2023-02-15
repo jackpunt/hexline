@@ -7,7 +7,7 @@ import { H, XYWH } from "./hex-intfs";
 import { TablePlanner } from "./planner";
 import { Player } from "./player";
 import { StatsPanel } from "./stats";
-import { otherColor, StoneColor, stoneColor0, stoneColor1, StoneColorRecord, stoneColorRecord, stoneColorRecordF, TP } from "./table-params";
+import { otherColor, PlayerColor, playerColor0, playerColor1, PlayerColorRecord, playerColorRecord, playerColorRecordF, TP } from "./table-params";
 
 
 /**
@@ -19,10 +19,10 @@ export class Stone extends Shape {
   static radius: number = TP.hexRad
   static height: number = Stone.radius*H.sqrt3/2
   get radius() { return Stone.height -1 }
-  readonly color: StoneColor;
+  readonly color: PlayerColor;
 
-  /** Stone is a Shape with a StoneColor */
-  constructor(color?: StoneColor) {
+  /** Stone is a Shape with a PlayerColor */
+  constructor(color?: PlayerColor) {
     super()
     this.color = color
     if (color) this.paint(color)
@@ -44,9 +44,9 @@ export class Stone extends Shape {
 }
 
 class ProgressMarker extends Container {
-  static yoff = stoneColorRecord(80, 80)
-  static xoff = stoneColorRecord(-100, 50)
-  static make(sc: StoneColor, parent: Container) {
+  static yoff = playerColorRecord(80, 80)
+  static xoff = playerColorRecord(-100, 50)
+  static make(sc: PlayerColor, parent: Container) {
     let p0 = { b: 0, tsec: 0, tn: 0 } as Progress
     let pm = new ProgressMarker(p0)
     pm.x = ProgressMarker.xoff[sc]
@@ -100,7 +100,7 @@ export class Table extends EventDispatcher  {
   winBack: Shape = new Shape(new Graphics().f(C.nameToRgbaString("lightgrey", .6)).r(-180, -5, 360, 130))
 
   dragger: Dragger
-  progressMarker: StoneColorRecord<ProgressMarker>
+  progressMarker: PlayerColorRecord<ProgressMarker>
 
   constructor(stage: Stage) {
     super();
@@ -127,9 +127,9 @@ export class Table extends EventDispatcher  {
     this.enableHexInspector(52)
     let aiControl = this.aiControl('pink', 75); aiControl.x = 0; aiControl.y = 100
     undoC.addChild(aiControl)
-    ProgressMarker.yoff = stoneColorRecord(120, 120)
-    this.progressMarker = stoneColorRecordF((sc) => ProgressMarker.make(sc, this.undoCont))
-    let pm0 = this.progressMarker[stoneColor0]
+    ProgressMarker.yoff = playerColorRecord(120, 120)
+    this.progressMarker = playerColorRecordF((sc) => ProgressMarker.make(sc, this.undoCont))
+    let pm0 = this.progressMarker[playerColor0]
     let pmy = pm0.ymax + pm0.y // pm0.parent.localToLocal(0, pm0.ymax + pm0.y, undoC)
     let progressBg = new Shape(), bgw = 200, bgym = 240, y0 = 0
     let bgc = C.nameToRgbaString(TP.bgColor, .8)
@@ -168,11 +168,11 @@ export class Table extends EventDispatcher  {
         if (!hex) return
         let InfDisp = this.hexMap.mapCont.infCont.children.filter(obj => obj.x == hex.x && obj.y == hex.y)
         let InfName = InfDisp.map(i => i[S.Aname])
-        let info = { hex, stone: hex.stoneColor, InfName }
-        info[`Inf[${stoneColor0}]`] = hex.inf[stoneColor0]
-        info[`Inf[${stoneColor1}]`] = hex.inf[stoneColor1]
-        info[`Infm[${stoneColor0}]`] = hex.infm[stoneColor0]
-        info[`Infm[${stoneColor1}]`] = hex.infm[stoneColor1]
+        let info = { hex, stone: hex.playerColor, InfName }
+        info[`Inf[${playerColor0}]`] = hex.inf[playerColor0]
+        info[`Inf[${playerColor1}]`] = hex.inf[playerColor1]
+        info[`Infm[${playerColor0}]`] = hex.infm[playerColor0]
+        info[`Infm[${playerColor1}]`] = hex.infm[playerColor1]
         console.log(`HexInspector:`, hex.Aname, info)
       })
     let toggleText = (evt: MouseEvent, vis?: boolean) => {
@@ -201,7 +201,7 @@ export class Table extends EventDispatcher  {
       return cont
     }
     let bpanel = new Container()
-    let c0 = TP.colorScheme[stoneColor0], c1 = TP.colorScheme[stoneColor1]
+    let c0 = TP.colorScheme[playerColor0], c1 = TP.colorScheme[playerColor1]
     let cm = "rgba(100,100,100,.5)"
     let bc = makeButton(-dx, c0, c1, 'C', 'c')
     let bv = makeButton(dx, c1, c0, 'V', 'v')
@@ -340,12 +340,12 @@ export class Table extends EventDispatcher  {
    * @param color shift-key overrides curPlayer.color
    * @param show dragFunc sets 'true' to force show (overriding !showSac || !color)
    */
-  markAllSacrifice(color: StoneColor = this.gamePlay.curPlayer?.color, show = false) {
+  markAllSacrifice(color: PlayerColor = this.gamePlay.curPlayer?.color, show = false) {
     if (!this.showSac || !color) return
     this.tablePlanner.syncToGame(this.gamePlay.iHistory)
     let capColor = H.sacColor1
     this.hexMap.forEachHex((hex: Hex2) => {
-      if (hex.stoneColor !== undefined) return
+      if (hex.playerColor !== undefined) return
       if (this.gamePlay.history[0]?.captured.includes(hex)) return
       let [legal, sacrifice] = this.gamePlay.isMoveLegal(hex, color, (move) => {
         if (!move.sacrifice && this.tablePlanner.isWastedMove(move)) {
@@ -452,7 +452,7 @@ export class Table extends EventDispatcher  {
     this.tablePlanner.doMove(ihex, sc, iHistory).then(ihex => this.moveStoneToHex(ihex, sc))
   }
   /** All moves (GUI & player) feed through this: */
-  moveStoneToHex(ihex: IHex, sc: StoneColor) {
+  moveStoneToHex(ihex: IHex, sc: PlayerColor) {
     this.unmarkAllSacrifice()
     let hex = Hex.ofMap(ihex, this.hexMap)
     this.hexMap.showMark(hex)

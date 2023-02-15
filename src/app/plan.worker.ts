@@ -3,7 +3,7 @@ import { IMove } from './move';
 import { IPlanMsg, MK, MsgArgs, ParamSet, PlanData, ReplyArgs, ReplyData, ReplyKey } from './plan-proxy';
 import { SubPlanner } from './planner';
 import { ILogWriter } from './stream-writer';
-import { StoneColor, stoneColors, TP } from './table-params';
+import { PlayerColor, playerColors, TP } from './table-params';
 // importScripts ('MyWorker.js')
 // https://www.html5rocks.com/en/tutorials/workers/basics/#toc-inlineworkers
 // type of Worker: https://github.com/Microsoft/TypeScript/issues/20595#issuecomment-763604612
@@ -40,12 +40,12 @@ export class PlanWorker implements IPlanMsg {
 
   /// Handle inbound command messages:
 
-  /** make a Planner in Worker thread: HexMap(mh, nh) 
-   * @param index show stoneColors[index] in the stime.anno
+  /** make a Planner in Worker thread: HexMap(mh, nh)
+   * @param index show playerColors[index] in the stime.anno
    */
   newPlanner(mh: number, nh: number, index: number) {
     let ident = MK.newPlanner           // new Planner(mh, nh, logWriter)
-    this.annoColor = stoneColors[index] || `x${-index}`
+    this.annoColor = playerColors[index] || `x${-index}`
     TP.fnHexes(mh, nh)
     let logWriter: ILogWriter = { writeLine: (text: string) => { this.reply(MK.logFile, text)}}
     this.ll0 && console.log(stime(this, `.${ident}:`), { mh, nh, index, logWriter, pPlaner: TP.pPlaner }) // [Object object]
@@ -56,8 +56,8 @@ export class PlanWorker implements IPlanMsg {
   roboMove(run: boolean) {
     MK.roboMove; this.planner.roboMove(run)
   }
-  makeMove(stoneColor: StoneColor, iHistory: IMove[], incb = 0) {
-    MK.makeMove; let movePromise = this.planner.makeMove(stoneColor, iHistory, incb)
+  makeMove(playerColor: PlayerColor, iHistory: IMove[], incb = 0) {
+    MK.makeMove; let movePromise = this.planner.makeMove(playerColor, iHistory, incb)
     movePromise.then(ihex => this.reply(MK.sendMove, ihex))
     return movePromise // ignored
   }
@@ -69,10 +69,10 @@ export class PlanWorker implements IPlanMsg {
     if (targetName == 'Worker') return (this[fieldName] = value, undefined)// this.color --> stime.anno()
     // If we have a Planner, let *IT* setParams; Note: setParams may precede newPlanner [eg: (TP.log = 1)]
     if (this.planner) {
-      MK.setParam; this.planner?.setParam(...args) 
+      MK.setParam; this.planner?.setParam(...args)
     } else {
       TP.log > 0 && console.log(stime(this, `.setParam:`), ...args)
-      if (targetName === 'TP') TP[fieldName] = value      
+      if (targetName === 'TP') TP[fieldName] = value
     }
   }
   pause():void { MK.pause; this.planner.pause() }

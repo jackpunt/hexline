@@ -1,13 +1,13 @@
-export const stoneColors = ['b', 'w'] as const
-export const stoneColor0 = stoneColors[0]
-export const stoneColor1 = stoneColors[1]
-//type stoneColorTuple = typeof stoneColors
-export type StoneColor = typeof stoneColors[number]
-export function otherColor(color: StoneColor): StoneColor { return color === stoneColor0 ? stoneColor1 : stoneColor0 }
+export const playerColors = ['b', 'w'] as const
+export const playerColor0 = playerColors[0]
+export const playerColor1 = playerColors[1]
+//type playerColorTuple = typeof playerColors
+export type PlayerColor = typeof playerColors[number]
+export function otherColor(color: PlayerColor): PlayerColor { return color === playerColor0 ? playerColor1 : playerColor0 }
 
-export type StoneColorRecord<T> = Record<StoneColor, T>
-export function stoneColorRecord<T>(b: T = undefined, w: T = undefined): StoneColorRecord<T> { return { 'b': b, 'w': w } };
-export function stoneColorRecordF<T>(f: (sc: StoneColor) => T) { return stoneColorRecord(f(stoneColor0), f(stoneColor1)) }
+export type PlayerColorRecord<T> = Record<PlayerColor, T>
+export function playerColorRecord<T>(b: T = undefined, w: T = undefined): PlayerColorRecord<T> { return { 'b': b, 'w': w } };
+export function playerColorRecordF<T>(f: (sc: PlayerColor) => T) { return playerColorRecord(f(playerColor0), f(playerColor1)) }
 
 export function buildURL(scheme = 'wss', host = TP.ghost, domain = TP.gdomain, port = TP.gport, path = ''): string {
   return `${scheme}://${host}.${domain}:${port}${path}`
@@ -27,8 +27,8 @@ export class TP {
   static maxPlys = 5      // for robo-player lookahead
   static maxBreadth = 7   // for robo-player lookahead
   static nPerDist = 4     // samples per district
-  static Black_White = stoneColorRecord('BLACK', 'WHITE')
-  static Blue_Red = stoneColorRecord('BLUE', 'RED')
+  static Black_White = playerColorRecord('BLACK', 'WHITE')
+  static Blue_Red = playerColorRecord('BLUE', 'RED')
   static schemeNames = ['Black_White', 'Blue_Red']
   static colorScheme = TP.Black_White
   static numPlayers = 2;
