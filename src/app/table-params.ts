@@ -13,6 +13,7 @@ export function buildURL(scheme = 'wss', host = TP.ghost, domain = TP.gdomain, p
   return `${scheme}://${host}.${domain}:${port}${path}`
 }
 export class TP {
+  static parallelAttack = true;  // true --> N intersects S
   static allowSacrifice = true;
   static yield = true
   static yieldMM = 1

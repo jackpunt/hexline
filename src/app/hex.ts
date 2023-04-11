@@ -220,8 +220,9 @@ export class Hex {
   /** @return true if Hex is influenced on 2 or more Axies of color */
   isAttack(color: PlayerColor): boolean {
     let attacks = new Set<HexAxis>(), infs = this.inf[color]
+    let dirMap = TP.parallelAttack ? H.dnToAxis2 : H.dnToAxis;
     return !!Object.entries(infs).find(([dn, inf]) =>
-      (inf > 0) && (attacks.add(H.dnToAxis[dn]).size >= 2)
+      (inf > 0) && (attacks.add(dirMap[dn]).size >= 2)
     )
   }
   /** @return true if Hex has a Stone (of other color), and is attacked */
