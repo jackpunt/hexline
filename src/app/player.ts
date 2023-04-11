@@ -7,6 +7,7 @@ import { Table } from "./table"
 import { PlayerColor, TP } from "./table-params"
 
 export class Player {
+  static allPlayers: Player[] = [];
   name: string
   index: number
   color: PlayerColor
@@ -22,6 +23,7 @@ export class Player {
     this.color = color
     this.table = table
     this.name = `Player${index}-${this.colorn}`
+    Player.allPlayers[index] = this;
   }
   endGame(): void {
     this.planner?.terminate()

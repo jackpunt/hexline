@@ -103,7 +103,7 @@ export class Hex {
     this.links = {}
   }
   /** (x,y): center of hex; (width,height) of hex; scaled by radius if supplied */
-  xywh(row = this.row, col = this.col, radius = 1) {
+  xywh(radius = 1, row = this.row, col = this.col) {
     let w = radius * H.sqrt3, h = radius * 1.5
     let x = w * col + w * Math.abs(row % 2) / 2
     let y = h * row
@@ -282,7 +282,7 @@ export class Hex2 extends Hex {
     this.stoneIdText.textAlign = 'center'; this.stoneIdText.regY = -20
 
     if (row === undefined || col === undefined) return // args not supplied: nextHex
-    let [x, y, w, h] = this.xywh(row, col, this.radius)
+    let [x, y, w, h] = this.xywh(this.radius, row, col)
     this.x += x
     this.y += y
     this.cont.setBounds(-w/2, -h/2, w, h)
@@ -573,7 +573,7 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
     SW: { dc: -1, dr: 1 }, W: { dc: -1, dr: 0 }, NW: { dc: -1, dr: -1 }}
   ewOddRow: TopoEW = {
     NE: { dc: 1, dr: -1 }, E: { dc: 1, dr: 0 }, SE: { dc: 1, dr: 1 },
-    SW: {dc: 0, dr: 1}, W: {dc: -1, dr: 0}, NW: {dc: 0, dr: -1}}
+    SW: { dc: 0, dr: 1 }, W: { dc: -1, dr: 0 }, NW: { dc: 0, dr: -1 }}
   nsOddCol: TopoNS = {
     NE: { dc: 1, dr: -1 }, SE: { dc: 1, dr: 0 }, S: { dc: 0, dr: 1 }, N: { dc: 0, dr: -1 },
     SW: { dc: -1, dr: 0 }, NW: { dc: -1, dr: -1 }}
@@ -619,7 +619,7 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
    */
   hexUnderPoint(x: number, y: number): Hex2 {
     let obj = this.mapCont.hexCont.getObjectUnderPoint(x, y, 1) // 0=all, 1=mouse-enabled (Hex, not Stone)
-    return (obj instanceof HexCont) && obj.hex
+    return (obj instanceof HexCont) ? obj.hex : undefined
   }
   /**
    *

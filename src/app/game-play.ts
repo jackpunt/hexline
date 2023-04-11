@@ -293,7 +293,6 @@ export class GamePlay extends GamePlay0 {
   readonly logWriter: ProgressLogWriter
   readonly table: Table
   declare readonly gStats: TableStats // https://github.com/TypeStrong/typedoc/issues/1597
-  readonly allPlayers: Player[] = [];
 
   constructor(table: Table, public gameSetup: GameSetup) {
     super()            // hexMap, history, gStats...
@@ -311,10 +310,10 @@ export class GamePlay extends GamePlay0 {
       this.table.progressMarker[this.curPlayer.color].update(progress)
     }
     // Create and Inject all the Players:
-    playerColors.forEach((color, ndx) => this.allPlayers[ndx] = new Player(ndx, color, table))
+    playerColors.forEach((color, ndx) => new Player(ndx, color, table))
     // setTable(table)
     this.table = table
-    this.gStats = new TableStats(this, table) // reset gStats AFTER allPlayers are defined so can set pStats
+    this.gStats = new TableStats(this, table) // upgrade to TableStats
     if (this.table.stage.canvas) this.bindKeys()
   }
   bindKeys() {
@@ -365,13 +364,13 @@ export class GamePlay extends GamePlay0 {
 
   curPlayer: Player;
   getPlayer(color: PlayerColor): Player {
-    return this.allPlayers.find(p => p.color == color)
+    return Player.allPlayers.find(p => p.color == color)
   }
 
   otherPlayer(plyr: Player = this.curPlayer) { return this.getPlayer(otherColor(plyr.color))}
 
   forEachPlayer(f: (p:Player, index?: number, players?: Player[]) => void) {
-    this.allPlayers.forEach((p, index, players) => f(p, index, players));
+    Player.allPlayers.forEach((p, index, players) => f(p, index, players));
   }
 
   useReferee = true
@@ -399,7 +398,7 @@ export class GamePlay extends GamePlay0 {
           console.log(stime(this, ".network join_game_as_player: joined"), { name, player_id, msg })
           hgClient.gamePlay = this    // so non-Player (ref/observer) can access a hexMap
           if (hgClient.isPlayer) {
-            let player = this.allPlayers[player_id], player0 = this.allPlayers[0]
+            let player = Player.allPlayers[player_id], player0 = Player.allPlayers[0]
             netGUI.selectValue("PlayerId", player_id) // hgClient has 1 ea of: { Table, GamePlay, Player }
             hgClient.player = player    // indicate isNetworked(player); ggClient.localPlayer += player
             //this.table.startGame()    // ndx & putButtonOnPlayer [can we re-join a game in progress?]
@@ -585,7 +584,7 @@ export class GamePlay extends GamePlay0 {
     if (this.curPlayerNdx == pid) this.makeMove(true)
   }
   roboPlay(pid = 0, useRobo = true) {
-    let p = this.allPlayers[pid]
+    let p = Player.allPlayers[pid]
     p.useRobo = useRobo
     console.log(stime(this, `.autoPlay: ${p.colorn}.useRobo=`), p.useRobo)
   }
@@ -696,7 +695,7 @@ export class GamePlay extends GamePlay0 {
     this.setNextPlayer0(plyr)
     this.table.showNextPlayer() // get to nextPlayer, waitPaused when Player tries to make a move.?
     if (this.turnNumber == 1) {
-      this.setNextPlayer0(this.allPlayers[1])
+      this.setNextPlayer0(Player.allPlayers[1])
       this.table.showWinText(`${TP.colorScheme['w']} places first\n${TP.colorScheme['b']} Stone`, 'white')
     }
     this.makeMove()

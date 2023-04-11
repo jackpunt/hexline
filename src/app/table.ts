@@ -278,7 +278,7 @@ export class Table extends EventDispatcher  {
 
   startGame() {
     // NextPlayer is BLACK, but gamePlay will set curPlayer = WHITE
-    this.gamePlay.setNextPlayer(this.gamePlay.allPlayers[0])   // make a placeable Stone for Player[0]
+    this.gamePlay.setNextPlayer(Player.allPlayers[0])   // make a placeable Stone for Player[0]
   }
   logCurPlayer(curPlayer: Player) {
     const history = this.gamePlay.history
