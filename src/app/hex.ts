@@ -80,7 +80,7 @@ class HexCont extends Container {
  * (although an InfMark contains a graphics)
  */
 export class Hex {
-  static capColor = H.capColor1 // dynamic set
+  static capColor = H.capColor1 // dynamic bind in GamePlay.doProtoMove()
   /** return indicated Hex from otherMap */
   static ofMap(ihex: IHex, otherMap: HexMap) {
     try {
@@ -182,25 +182,28 @@ export class Hex {
 
   /**
    * @param inc is influence *passed-in* to Hex; hex get [inc or inc+1]; *next* gets [inc or inc-1]
+   * @param test after hex.setInf(inf) and hex.propagateIncr(nxt), apply test(hex)
    */
   propagateIncr(color: PlayerColor, dn: InfDir, inc: number, test?: (hex: Hex) => void) {
     let inf = this.playerColor === color ? inc + 1 : inc // inc >= 0, inf > 0
     this.setInf(color, dn, inf)
     let nxt = this.playerColor === color ? inf : inf - 1
     if (nxt > 0) this.links[dn]?.propagateIncr(color, dn, nxt, test)
-    test && test(this)
+    if (test) test(this);
   }
+
   /**
    * Pass on based on *orig/current* inf, not the new/decremented inf.
    * @param inc is influence *passed-in* from prev Hex; *this* gets inc; pass-on [inc or inc-1]
+   * @param test after hex.setInf(infn) and hex.propagateDecr(nxt), apply test(hex)
    */
   propagateDecr(color: PlayerColor, dn: InfDir, inc: number, test?: (hex: Hex) => void) {
-    let inf = this.getInf(color, dn)
-    let infn = this.playerColor === color ? inc + 1 : inc
-    this.setInf(color, dn, infn)
-    let nxt = this.playerColor === color ? infn : Math.max(0, infn - 1)
-    if (inf > 0) this.links[dn]?.propagateDecr(color, dn, nxt, test) // pass-on a smaller number
-    test && test(this)
+    let inf0 = this.getInf(color, dn)
+    let inf = this.playerColor === color ? inc + 1 : inc
+    this.setInf(color, dn, inf)
+    let nxt = this.playerColor === color ? inf : Math.max(0, inf - 1)
+    if (inf0 > 0) this.links[dn]?.propagateDecr(color, dn, nxt, test) // pass-on a smaller number
+    if (test) test(this);
   }
 
   /** create empty INF for each color */

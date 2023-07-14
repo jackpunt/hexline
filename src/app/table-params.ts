@@ -15,7 +15,7 @@ export function buildURL(scheme = 'wss', host = TP.ghost, domain = TP.gdomain, p
 export class TP {
   static parallelAttack = true;  // true --> N intersects S
   static allowSacrifice = true;
-  static yield = true
+  static yield = true     // Planner should yield when dmc > yieldMs [from before Worker?]
   static yieldMM = 1
   static pPlaner = true
   static pWorker = false
