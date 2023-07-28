@@ -633,19 +633,21 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
     this.mh = mh; this.nh = nh
     let hexMap = this, district = 0
     let mrc: RC = { col: Math.ceil((mh+1) / 2), row: Math.floor(mh*1.25) } // row,col to be non-negative
-    let dirs = H.nsDirs; // N-S aligned!
-    let hexAry = this.makeDistrict(nh, district++, mrc.row, mrc.col) // Central District [0]
+    const dirs = H.nsDirs; // N-S aligned!
+    const hexAry = this.makeDistrict(nh, district++, mrc.row, mrc.col) // Central District [0]
     for (let ring = 1; ring < mh; ring++) {
       //mrc.row -= 1 // start to North
       mrc = hexMap.nextRowCol(mrc, 'NW', hexMap.nsTopo(mrc)) // NW + NE => 'N' for next metaHex
       dirs.forEach(dir => {
         for (let i = 0; i < ring; i++) {
           mrc = hexMap.nextRowCol(mrc, dir, hexMap.nsTopo(mrc))
-          hexAry = this.makeDistrict(nh, district++, mrc.row, mrc.col)
+          const hexAry2 = this.makeDistrict(nh, district++, mrc.row, mrc.col)
+          hexAry.concat(...hexAry2);
         }
       })
     }
     this.mapCont.hexCont && this.centerOnContainer()
+    return hexAry;
   }
   centerOnContainer() {
     let mapCont = this.mapCont

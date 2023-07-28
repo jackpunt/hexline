@@ -20,7 +20,7 @@ export class AppComponent {
   @HostListener('mouseleave', ['$event'])
   @HostListener('focus', ['$event'])
   @HostListener('blur', ['$event'])
-  dispatchAnEvent(event) {
+  dispatchAnEvent(event: Event) {
     //console.log("dispatch: "+event.type);
     this.keyBinder.dispatchEvent(event);
   }
