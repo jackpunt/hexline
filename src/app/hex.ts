@@ -673,7 +673,6 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
    * @param mc make new district on meta-col
    */
   makeDistrict(nh: number, district: number, mr: number, mc: number): Hex[] {
-    const minCol = Math.round(nh + TP.mHexes * 1.25); // approx... attain (col >= 0)
     let mcp = Math.abs(mc % 2), mrp = Math.abs(mr % 2), dia = 2 * nh - 1
     // irow-icol define topology of MetaHex composed of HexDistrict
     let irow = (mr: number, mc: number) => {
@@ -684,7 +683,7 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
     let icol = (mr: number, mc: number, row: number) => {
       let np = Math.abs(nh % 2), rp = Math.abs(row % 2)
       let ic = Math.floor(mc * ((nh * 3 - 1) / 2))
-      ic += (minCol)                // from left edge to center (minCol ~1.3)
+      ic += (nh - 1)                        // from left edge to center
       ic -= Math.floor((mc + (2 - np)) / 4) // 4-metaCol means 2-rows, mean 1-col
       ic += Math.floor((mr - rp) / 2)       // 2-metaRow means +1 col
       return ic
