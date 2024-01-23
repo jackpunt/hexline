@@ -1,6 +1,6 @@
 {
   "name": "@thegraid/hexline",
-  "version": "0.0.21",
+  "version": "0.1.0",
   "browser": "true",
   "scripts": {
     "fixnpm": "npm cache validate",
@@ -14,6 +14,7 @@
     "sync": "aws s3 sync dist/hexline s3://hexline.thegraid.com",
     "prod": "ng build hexline --configuration production",
     "build": "npm run clean; npm run make-proto; npm run tsc",
+    "tsc": "tsc --build tsconfig.app.json",
     "ng": "ng",
     "start": "ng serve",
     "ngbuild": "ng build",
@@ -36,7 +37,7 @@
     "@thegraid/easeljs-lib": "^1.2.2",
     "@thegraid/easeljs-module": "^1.1.9",
     "@thegraid/ezpromise": "^1.0.10",
-    "@thegraid/wspbclient": "file:../../ts/wspbclient/thegraid-wspbclient-1.4.26.tgz",
+    "@thegraid/wspbclient": "^1.4.26",
     "@types/wicg-file-system-access": "^2020.9.5",
     "rxjs": "~7.5.0",
     "tslib": "^2.3.0",
