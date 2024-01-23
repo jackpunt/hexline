@@ -3,7 +3,7 @@ import { EzPromise } from "@thegraid/ezpromise";
 import { runEventLoop } from "./event-loop";
 import { GamePlay, GamePlay0, GamePlayD, Progress } from "./game-play";
 import { Hex, HSC, IHex } from "./hex";
-import { H, HexDir } from "./hex-intfs";
+import { H, NsDir } from "./hex-intfs";
 import { IMove, Move } from "./move";
 import { IPlanner, MK, ParamSet, PlannerProxy } from "./plan-proxy";
 import { PlanWorker } from "./plan.worker";
@@ -22,8 +22,8 @@ const STALEV = playerColorValue(Number.POSITIVE_INFINITY)
 let WINLIM = WINVAL[playerColor0] // stop searching if Move achieves WINLIM[sc0]
 let WINMIN = STALEV[playerColor0] // stop searching if Move achieves WINLIM[sc0] TODO: WINLIM=RESVAL<STALEV<WINVAL
 
-type Dir1 = 'NW' | 'SE' // Axis for firstMove
-type Dir2 = Exclude<HexDir, Dir1> // intersecting axes for isSX
+type Dir1 = 'WN' | 'ES' // meta-Axis for firstMove
+type Dir2 = Exclude<NsDir, Dir1> // intersecting axes for isSX
 type HexState = [Hex, State]
 
 /** Move with attached State */
@@ -241,7 +241,7 @@ export class SubPlanner implements IPlanner {
   yieldMs: number      // compute for this long before doing a voluntary yield
   maxDepth: number
   readonly scMul = playerColorRecord(1, -1)
-  readonly firstMoveMetaDir: Dir1 = 'NW'
+  readonly firstMoveMetaDir: Dir1 = 'WN'
   maxBreadth = TP.maxBreadth
   sidt0: number
   mst0: number
@@ -1164,7 +1164,7 @@ class SxInfo {
         return false
       })
       // ASSERT: dir2 intersects dir1
-      let dir2: Dir2 = 'NE'  // Note: makeDistrict/metaMap uses nsTopo (even when nh==1)
+      let dir2: Dir2 = 'EN'  // Note: makeDistrict/metaMap uses nsTopo (even when nh==1)
       let allSXMetas = this.gamePlay.hexMap.district.map(d => d[0]).filter((mhex) => {
         while (mhex = mhex.metaLinks[dir2])
           if (metaLine.includes(mhex)) return true

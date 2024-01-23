@@ -4,7 +4,7 @@ import { GamePlay0 } from "./game-play";
 import { EwDir, H, HexAxis, HexDir, InfDir, NsDir } from "./hex-intfs";
 import { IMove } from "./move";
 import { Stone } from "./table";
-import { otherColor, PlayerColor, playerColor0, PlayerColorRecord, playerColorRecord, playerColorRecordF, playerColors, TP } from "./table-params";
+import { PlayerColor, PlayerColorRecord, TP, otherColor, playerColor0, playerColorRecord, playerColorRecordF, playerColors } from "./table-params";
 
 export const S_Resign = 'Hex@Resign'
 export const S_Skip = 'Hex@skip '
@@ -461,7 +461,7 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
   /** bounding box: XYWH = {0, 0, w, h} */
   get wh() {
     let hexRect = this.mapCont.hexCont.getBounds()
-    let wh = { width: hexRect.width + 2 * this.width, height: hexRect.height + 2 * this.width }
+    let wh = { width: (hexRect?.width ?? 0) + 2 * this.width, height: (hexRect?.height ?? 0) + 2 * this.width }
     return wh
   }
   /** for contrast paint it black AND white, leave a hole in the middle unpainted. */
@@ -570,39 +570,34 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
       this.mapCont.markCont.addChild(mark) // show mark *below* Stone & infMark
     }
   }
-  /** neighborhood topology, E-W & N-S orientation; even(n0) & odd(n1) rows: */
-  ewEvenRow: TopoEW = {
-    NE: { dc: 0, dr: -1 }, E: { dc: 1, dr: 0 }, SE: { dc: 0, dr: 1 },
-    SW: { dc: -1, dr: 1 }, W: { dc: -1, dr: 0 }, NW: { dc: -1, dr: -1 }}
-  ewOddRow: TopoEW = {
-    NE: { dc: 1, dr: -1 }, E: { dc: 1, dr: 0 }, SE: { dc: 1, dr: 1 },
-    SW: { dc: 0, dr: 1 }, W: { dc: -1, dr: 0 }, NW: { dc: 0, dr: -1 }}
-  nsOddCol: TopoNS = {
-    NE: { dc: 1, dr: -1 }, SE: { dc: 1, dr: 0 }, S: { dc: 0, dr: 1 }, N: { dc: 0, dr: -1 },
-    SW: { dc: -1, dr: 0 }, NW: { dc: -1, dr: -1 }}
-  nsEvenCol: TopoNS = {
-    NE: { dc: 1, dr: 0 }, SE: { dc: 1, dr: 1 }, S: { dc: 0, dr: 1 }, N: { dc: 0, dr: -1 },
-    SW: { dc: -1, dr: 1}, NW: { dc: -1, dr: 0 }}
-  nsTopo(rc: RC): TopoNS { return (rc.col % 2 == 0) ? this.nsEvenCol : this.nsOddCol }
-  ewTopo(rc: RC): TopoEW { return (rc.row % 2 == 0) ? this.ewEvenRow : this.ewOddRow}
 
-  nextRowCol(hex: RC, dir: HexDir, nt: Topo = this.ewTopo(hex)): RC {
-    let row = hex.row + nt[dir].dr, col = hex.col + nt[dir].dc
-    return {row, col}
+  /** neighborhood topology, E-W & N-S orientation; even(n0) & odd(n1) rows: */
+  topo: (rc: RC) => (TopoEW | TopoNS) = TP.nHexes == 1 ? H.nsTopo : H.ewTopo;
+
+  /** see also: Hex.linkDirs */
+  get linkDirs(): HexDir[] {
+    return TP.useEwTopo ? H.ewDirs : H.nsDirs;
   }
-  addMetaHex(hex: Hex, mr: number, mc: number) {
-    let metaMap = this.metaMap
+
+  nextRowCol(rc: RC, dir: HexDir, nt: Topo = this.topo(rc)): RC {
+    let row = rc.row + nt[dir].dr, col = rc.col + nt[dir].dc
+    return { row, col }
+  }
+  addMetaHex(hex: Hex, mrc: RC) {
+    const metaMap = this.metaMap, { row: mr, col: mc } = mrc;
     if (metaMap[mr] === undefined) metaMap[mr] = new Array<Hex>()
-    metaMap[mr][mc] = hex   // addHex to this Array<Array<Hex>>
+    if (metaMap[mr][mc] === undefined) metaMap[mr][mc] = hex;
     this.metaLink(hex, {row: mr, col: mc})
   }
   /** link metaHex on metaMap; maybe need ewTopo for nh==1 ?? */
   metaLink(hex: Hex, rc: RC) {
-    let nt = (this.nh == 0) ? this.ewTopo(rc) : this.nsTopo(rc)
+    // planner expects Dir1 & Dir2 in NsDir; nextMetaRC.mrc: NsDir
+    let nt = (this.nh == 0) ? H.ewTopo(rc) : H.nsTopo(rc); // always nsTopo!!
+    if (!hex.metaLinks) hex.metaLinks = {};
     this.link(hex, rc, this.metaMap, nt, (hex) => hex.metaLinks)
   }
   /** link hex to/from each extant neighor */
-  link(hex: Hex, rc: RC = hex, map: Hex[][] = this, nt: Topo = this.ewTopo(rc), lf: (hex: Hex) => LINKS = (hex) => hex.links) {
+  link(hex: Hex, rc: RC = hex, map: Hex[][] = this, nt: Topo = this.topo(rc), lf: (hex: Hex) => LINKS = (hex) => hex.links) {
     let topoDirs = Object.keys(nt) as Array<HexDir>
     topoDirs.forEach(dir => {
       let nr = rc.row + nt[dir].dr, nc = rc.col + nt[dir].dc //let {row, col} = this.nextRowCol(hex, dir, nt)
@@ -631,42 +626,85 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
    */
   makeAllDistricts(mh = TP.mHexes, nh = TP.nHexes) {
     this.mh = mh; this.nh = nh
-    let hexMap = this, district = 0
-    let mrc: RC = { col: Math.ceil((mh+1) / 2), row: Math.floor(mh*1.25) } // row,col to be non-negative
-    const dirs = H.nsDirs; // N-S aligned!
-    const hexAry = this.makeDistrict(nh, district++, mrc.row, mrc.col) // Central District [0]
-    for (let ring = 1; ring < mh; ring++) {
-      //mrc.row -= 1 // start to North
-      mrc = hexMap.nextRowCol(mrc, 'NW', hexMap.nsTopo(mrc)) // NW + NE => 'N' for next metaHex
-      dirs.forEach(dir => {
-        for (let i = 0; i < ring; i++) {
-          mrc = hexMap.nextRowCol(mrc, dir, hexMap.nsTopo(mrc))
-          const hexAry2 = this.makeDistrict(nh, district++, mrc.row, mrc.col)
+    const offs = Math.ceil(2 * nh * (mh - .5)); // row incr could be smaller for EwTopo
+    let rc: RC = { col: offs, row: offs } // row,col to be non-negative
+    const hexAry = this.makeMetaHexRings(nh, mh, rc);
+    this.mapCont.hexCont && this.centerOnContainer()
+    return hexAry;
+  }
+
+
+  makeMetaHexRings(nh = TP.nHexes, mh = TP.mHexes, rc0: RC, mrc = { row: 0, col: 0 }) {
+    const dL = nh, dS = (nh - 1), dirs = this.linkDirs;
+    // implicitly sets rc & mrc!
+    const nextMetaRC = (rc: RC, nd: number): RC => {
+      const dirL = dirs[nd], dirS = dirs[(nd + 5) % 6], metaD = H.nsDirs[(nd + 5) % 6];
+      rc = this.forRCsOnLine(dL, rc, dirL); // step (WS) by dist
+      rc = this.forRCsOnLine(dS, rc, dirS); // step (S) to center of 0-th metaHex
+      mrc = this.nextRowCol(mrc, metaD, H.nsTopo(mrc)); // for hexline planner: always NsDir
+      return rc;
+    }
+    // do metaRing = 0, district 0:
+    let district = 0, rc = rc0;
+    const hexAry = this.makeMetaHex(nh, district++, rc, mrc); // Central District [0]
+
+    for (let metaRing = 1; metaRing < mh; metaRing++) {
+      rc = nextMetaRC(rc, 4); // step in dirs[4] to initial rc (W or WS of previous rc)
+      // from rc, for each dir, step dir to center of next metaHex.
+      dirs.forEach((dirL, nd) => {
+        for (let nhc = 1; nhc <= metaRing; nhc++) {
+          rc = nextMetaRC(rc, nd);
+          const hexAry2 = this.makeMetaHex(nh, district++, rc, mrc);
           hexAry.concat(...hexAry2);
         }
       })
     }
-    this.mapCont.hexCont && this.centerOnContainer()
     return hexAry;
   }
-  centerOnContainer() {
-    let mapCont = this.mapCont
-    let hexRect = mapCont.hexCont.getBounds()
-    mapCont.hexCont.x = mapCont.markCont.x = mapCont.stoneCont.x = mapCont.infCont.x = -(hexRect.x + hexRect.width/2)
-    mapCont.hexCont.y = mapCont.markCont.y = mapCont.stoneCont.y = mapCont.infCont.y = -(hexRect.y + hexRect.height/2)
+
+  makeMetaHex(nh: number, district: number,  rc: RC, mrc: RC): Hex[] {
+    const hexAry = Array<Hex>();
+    const hex = this.addHex(rc.row, rc.col, district);
+    hexAry.push(hex);              // The *center* hex of district
+    this.addMetaHex(hex, mrc);     // for hexline! (link centers of districts)
+    for (let ring = 1; ring < nh; ring++) {
+      rc = this.nextRowCol(rc, this.linkDirs[4]);
+      // place 'ring' of hexes, addHex along each line:
+      rc = this.ringWalk(rc, ring, this.linkDirs, (rc, dir) => {
+        const hex = this.addHex(rc.row, rc.col, district);
+        hexAry.push(hex);
+        return this.nextRowCol(rc, dir);
+      });
+    }
+    this.setDistrictAndPaint(hexAry, district);
+    return hexAry as Hex[];
+  }
+  setDistrictAndPaint(hexAry: Hex[], district = 0) {
+    this.district[district] = hexAry;
+    if (hexAry[0] instanceof Hex2) {
+      this.paintDistrict(hexAry as any as Hex2[], district);
+    }
+  }
+  paintDistrict(hex2Ary: Hex2[], district = 0, cColor?: string) {
+    let dcolor = (district == 0) ? HexMap.distColor[0] : this.pickColor(hex2Ary)
+    hex2Ary.forEach((hex, n) => hex.setHexColor((n == 0) ? cColor ?? dcolor : dcolor));
   }
 
-  pickColor(hexAry: Hex2[]): string {
-    let hex = hexAry[0]
-    let adjColor: string[] = [HexMap.distColor[0]] // colors not to use
-    H.dirs.forEach(hd => {
-      let nhex: Hex2 = hex
-      while (!!(nhex = nhex.links[hd])) {
-        if (nhex.district != hex.district) { adjColor.push(nhex.distColor); return }
-      }
-    })
-    return HexMap.distColor.find(ci => !adjColor.includes(ci))
+  ringWalk(rc: RC, n: number, dirs = this.linkDirs, f: (rc: RC, dir: HexDir) => void) {
+    dirs.forEach(dir => {
+      rc = this.forRCsOnLine(n, rc, dir, (rc) => f(rc, dir));
+    });
+    return rc;
   }
+
+  forRCsOnLine(n: number, rc: RC, dir: HexDir, f?: (rc: RC) => void) {
+    for (let i = 0; i < n; i++) {
+      f?.(rc);
+      rc = this.nextRowCol(rc, dir);
+    }
+    return rc;
+  }
+
   /**
    * @param nh order of inner-hex: number hexes on side of meta-hex
    * @param mr make new district on meta-row
@@ -689,9 +727,10 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
       return ic
     }
     let row0 = irow(mr, mc), col0 = icol(mr, mc, row0), hex: Hex;
+    // console.log(stime(this, `.makeDistrict: `), {mr, mc, district, row0, col0})
     let hexAry = Array<Hex>(); hexAry['Mr'] = mr; hexAry['Mc'] = mc;
     hexAry.push(hex = this.addHex(row0, col0, district)) // The *center* hex
-    hex.metaLinks = {}; this.addMetaHex(hex, mr, mc)
+    this.addMetaHex(hex, { row: mr, col: mc })
     let rc: RC = { row: row0, col: col0 } // == {hex.row, hex.col}
     //console.groupCollapsed(`makelDistrict [mr: ${mr}, mc: ${mc}] hex0= ${hex.Aname}:${district}-${dcolor}`)
     //console.log(`.makeDistrict: [mr: ${mr}, mc: ${mc}] hex0= ${hex.Aname}`, hex)
@@ -705,7 +744,7 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
     if (hexAry[0] instanceof Hex2) {
       let hex2Ary = hexAry as Hex2[]
       let dcolor = district == 0 ? HexMap.distColor[0] : this.pickColor(hex2Ary)
-      hex2Ary.forEach(hex => hex.setHexColor(dcolor))
+      hex2Ary.forEach((hex, n) => hex.setHexColor((n == 0) ? dcolor : dcolor)); // C.PURPLE
     }
     return hexAry
   }
@@ -725,6 +764,24 @@ export class HexMap extends Array<Array<Hex>> implements HexM {
       rc = this.nextRowCol(hex, dir)
     }
     return rc
+  }
+  centerOnContainer() {
+    let mapCont = this.mapCont
+    let hexRect = mapCont.hexCont.getBounds()
+    mapCont.hexCont.x = mapCont.markCont.x = mapCont.stoneCont.x = mapCont.infCont.x = -(hexRect.x + hexRect.width/2)
+    mapCont.hexCont.y = mapCont.markCont.y = mapCont.stoneCont.y = mapCont.infCont.y = -(hexRect.y + hexRect.height/2)
+  }
+
+  pickColor(hexAry: Hex2[]): string {
+    let hex = hexAry[0]
+    let adjColor: string[] = [HexMap.distColor[0]] // colors not to use
+    H.dirs.forEach(hd => {
+      let nhex: Hex2 = hex
+      while (!!(nhex = nhex.links[hd])) {
+        if (nhex.district != hex.district) { adjColor.push(nhex.distColor); return }
+      }
+    })
+    return HexMap.distColor.find(ci => !adjColor.includes(ci))
   }
 
   copyLinksAndDistricts(gamePlay: GamePlay0) {
