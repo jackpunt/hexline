@@ -1,7 +1,7 @@
 import { AT, json, stime } from "@thegraid/common-lib";
 import { EzPromise } from "@thegraid/ezpromise"; // for FlowControl
 import { Progress } from "./game-play";
-import { HexMap, IHex } from "./hex";
+import { Hex, HexMap, IHex } from "./hex";
 import { IMove } from "./move";
 import { Planner } from "./planner";
 import { ILogWriter } from "./stream-writer";
@@ -80,7 +80,7 @@ export class MK {
  * @param index player.index [0 -> 'b', 1 -> 'w']
  * @returns Planner or PlannerProxy
  */
-export function newPlanner(hexMap: HexMap, index: number, logWriter: ILogWriter): IPlanner {
+export function newPlanner(hexMap: HexMap<Hex>, index: number, logWriter: ILogWriter): IPlanner {
   let planner = TP.pWorker
     ? new PlannerProxy(hexMap.mh, hexMap.nh, index, logWriter)    // -> Remote Planner [no Parallel]
     : new Planner(hexMap.mh, hexMap.nh, index, logWriter) // -> Local ParallelPlanner *or* Planner

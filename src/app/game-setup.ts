@@ -125,7 +125,7 @@ export class GameSetup {
       gui.setValue(item, TP)
       let hexMap = table.hexMap;
       hexMap.initInfluence()
-      hexMap.forEachHex((h: Hex2) => h.stone && h.stone.paint())
+      hexMap.forEachHex<Hex2>((h: Hex2) => h.stone && h.stone.paint())
       table.nextHex.stone?.paint() // TODO: also paint buttons on undoPanel
       hexMap.update();
     }

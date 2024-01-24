@@ -21,7 +21,7 @@ export class GamePlay0 {
   readonly id = GamePlay0.gpid++
   ll(n: number) { return TP.log > n }
 
-  readonly hexMap: HexMap = new HexMap()
+  readonly hexMap: HexMap<Hex2> = new HexMap()
   readonly history: Move[] = []          // sequence of Move that bring board to its state
   readonly redoMoves: IMove[] = []
   readonly allBoards = new BoardRegister()
@@ -268,8 +268,9 @@ export class GamePlayD extends GamePlay0 {
   //override hexMap: HexMaps = new HexMap();
   constructor(mh: number, nh: number) {
     super()
+    this.hexMap.hexC = Hex;
     this.hexMap[S.Aname] = `GamePlayD#${this.id}`
-    this.hexMap.makeAllDistricts(mh, nh)
+    this.hexMap.makeAllDistricts(nh, mh)
     return
   }
 }
@@ -763,7 +764,7 @@ export class GamePlay extends GamePlay0 {
     let moveMsg = JSON.parse(hgMsg.json) as {sc: PlayerColor, iHistory: IMove[]}
     let { sc, iHistory } = moveMsg
     let move = iHistory[0]
-    let hex = Hex.ofMap(move.hex, this.hexMap)
+    let hex = Hex.ofMap(move.hex, this.hexMap) as Hex;
     let hev = new HexEvent(S.add, hex, sc)
     this.syncHistory(iHistory)
     this.localMoveEvent(hev)
@@ -798,7 +799,7 @@ export class GamePlay extends GamePlay0 {
           rv.pop()
         } else {
           let ihex = { row: r, col: c, Aname: Hex.aname(r, c) } as IHex
-          let hex = Hex.ofMap(ihex, this.hexMap)
+          let hex = Hex.ofMap(ihex, this.hexMap) as Hex;
           let imove = new Move(hex, p, [])
           rv.push(imove)
         }

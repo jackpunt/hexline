@@ -18,6 +18,7 @@ export type Topo = TopoEW | TopoNS
 /** Hex things */
 export namespace H {
   export const sqrt3 = Math.sqrt(3)  // 1.7320508075688772
+  export const sqrt3_2 = Math.sqrt(3) / 2;
   export const infin = String.fromCodePoint(0x221E)
   export const C: 'C' = "C"; // not a HexDir, but identifies a Center
   export const N: HexDir = "N"

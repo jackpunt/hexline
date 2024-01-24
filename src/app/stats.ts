@@ -29,7 +29,7 @@ export class PlayerStats {
 }
 
 export class GameStats {
-  readonly hexMap: HexM
+  readonly hexMap: HexM<Hex2>
   readonly pStats: PlayerColorRecord<PlayerStats>
   readonly inControl: PlayerColor[] = Array(TP.ftHexes(TP.mHexes)) // (nStones[color] - nStones[oc] >= TP.diffControl) -> [district]=color
   winVP: PlayerColor = undefined;
@@ -47,10 +47,10 @@ export class GameStats {
   }
 
   /** extract the useful bits for maintaining stats. */
-  constructor(hexMap: HexM,
+  constructor(hexMap: HexM<Hex>,
     pStats: Record<PlayerColor, PlayerStats> = playerColorRecordF(() => new PlayerStats()),
     inControl: PlayerColor[] = Array(TP.ftHexes(TP.mHexes))) {
-    this.hexMap = hexMap
+    this.hexMap = hexMap as HexM<Hex2>;
     this.pStats = pStats
     this.inControl = inControl
     this.setupStatVector()           // use default wVector
@@ -220,7 +220,7 @@ export class TableStats extends GameStats {
   /** show count Stones in each District (on miniMap) */
   showControl(table: Table) {
     this.table.winText.visible = this.table.winBack.visible = false
-    let hexMap = table.miniMap; hexMap[S.Aname] = 'miniMap'
+    const hexMap = table.miniMap;
     hexMap?.forEachHex<Hex2>(hex => {
       hex.clearColor()     // from mimi-map
       let ic = this.inControl[hex.district]
@@ -257,11 +257,11 @@ export class TableStats extends GameStats {
     let n0 = this.pStat(playerColor0).dStones[district]
     let n1 = this.pStat(playerColor1).dStones[district]
     let dsText = this.getDSText(hex)
-    hex.map.mapCont.infCont.addChild(dsText)
+    hex.mapCont.infCont.addChild(dsText)
     if (hex.cont.rotation == 0)
-      hex.cont.localToLocal(0, -12, hex.map.mapCont.infCont, dsText) // no rotation
+      hex.cont.localToLocal(0, -12, hex.mapCont.infCont, dsText) // no rotation
     else
-      hex.cont.localToLocal(7, -10, hex.map.mapCont.infCont, dsText) // rotation from (0,-12)
+      hex.cont.localToLocal(7, -10, hex.mapCont.infCont, dsText) // rotation from (0,-12)
     dsText.text = (n0 == 0 && n1 == 0) ? `` : `${n0}:${n1}`
     dsText.color = (hex.stone?.color === undefined || C.dist(TP.colorScheme[hex.stone.color], C.WHITE)<100) ? C.BLACK : C.WHITE
   }

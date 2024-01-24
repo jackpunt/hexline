@@ -88,7 +88,7 @@ export class Table extends EventDispatcher  {
   stage: Stage;
   scaleCont: Container
   bgRect: Shape
-  hexMap: HexMap; // from gamePlay.hexMap
+  hexMap: HexMap<Hex2>; // from gamePlay.hexMap
   nextHex: Hex2;
   undoCont: Container = new Container()
   undoShape: Shape = new Shape();
@@ -182,7 +182,7 @@ export class Table extends EventDispatcher  {
       this.hexMap.update()               // after toggleText & updateCache()
     }
     qShape.on(S.click, toggleText, this) // toggle visible
-    toggleText(undefined, false)         // set initial visibility
+    toggleText(undefined, true)         // set initial visibility
   }
   aiControl(color = TP.bgColor, dx = 100, rad = 16) {
     let table = this
@@ -215,32 +215,34 @@ export class Table extends EventDispatcher  {
     bpanel.addChild(bs)
     return bpanel
   }
-  miniMap: HexMap;
+  miniMap: HexMap<Hex2>;
   makeMiniMap(parent: Container, x: number, y: number) {
-    let miniMap = this.miniMap = new HexMap(Stone.radius, true)
-    let mapCont = miniMap.mapCont
-    let rot = 7, rotC = (30-rot), rotH = (rot - 60)
-    if (TP.nHexes == 1) rotC = rotH = 0
-    miniMap.makeAllDistricts(TP.mHexes, 1)
+    const miniMap = this.miniMap = new HexMap(Stone.radius, true, Hex2, 'miniMap');
+    miniMap.makeAllDistricts(1, TP.mHexes);
+
+    const mapCont = miniMap.mapCont, nh = TP.nHexes;
+    const rot = [0, 30, 10.893, 6.587, 4.715, 3.57][nh] ?? 2.5;
+    const rotC = (rot - 30), rotH = (nh === 1) ? 0 : ( - rot);
     let bgHex = new Shape()
-    bgHex.graphics.f(TP.bgColor).dp(0, 0, TP.hexRad*(2*TP.mHexes-1), 6, 0, 60)
+    bgHex.graphics.f(TP.bgColor).dp(0, 0, TP.hexRad * (2.2 * TP.mHexes - 1), 6, 0, 60)
     mapCont.addChildAt(bgHex, 0)
     mapCont.x = x; mapCont.y = y
     mapCont.rotation = rotC
     miniMap.forEachHex<Hex2>(h => {
       h.distText.visible = h.rcText.visible = false;
       h.cont.rotation = rotH; h.cont.scaleX = h.cont.scaleY = .985
+      h.cont.updateCache();
     })
     parent.addChild(mapCont)
-    mapCont.visible = (TP.nHexes > 1)
+    mapCont.visible = (nh > 1);
   }
 
   layoutTable(gamePlay: GamePlay) {
     this.gamePlay = gamePlay
     let hexMap = this.hexMap = gamePlay.hexMap
 
-    hexMap.addToCont().initInfluence()
-    hexMap.makeAllDistricts(TP.mHexes, TP.nHexes) // typically: 3,3 or 2,4
+    hexMap.addToMapCont(Hex2).initInfluence()
+    hexMap.makeAllDistricts(TP.nHexes, TP.mHexes) // typically: 3,3 or 2,4
 
     let mapCont = hexMap.mapCont;
     this.scaleCont.addChild(mapCont)
@@ -316,7 +318,7 @@ export class Table extends EventDispatcher  {
 
   hexUnderObj(dragObj: DisplayObject) {
     let pt = dragObj.parent.localToLocal(dragObj.x, dragObj.y, this.hexMap.mapCont.hexCont)
-    return this.hexMap.hexUnderPoint(pt.x, pt.y)
+    return this.hexMap.hexUnderPoint(pt.x, pt.y, false) as Hex2;
   }
   _dropTarget: Hex2;
   get dropTarget() { return this._dropTarget}
@@ -344,7 +346,7 @@ export class Table extends EventDispatcher  {
     if (!this.showSac || !color) return
     this.tablePlanner.syncToGame(this.gamePlay.iHistory)
     let capColor = H.sacColor1
-    this.hexMap.forEachHex((hex: Hex2) => {
+    this.hexMap.forEachHex<Hex2>(hex => {
       if (hex.playerColor !== undefined) return
       if (this.gamePlay.history[0]?.captured.includes(hex)) return
       let [legal, sacrifice] = this.gamePlay.isMoveLegal(hex, color, (move) => {
@@ -454,7 +456,7 @@ export class Table extends EventDispatcher  {
   /** All moves (GUI & player) feed through this: */
   moveStoneToHex(ihex: IHex, sc: PlayerColor) {
     this.unmarkAllSacrifice()
-    let hex = Hex.ofMap(ihex, this.hexMap)
+    const hex = Hex.ofMap(ihex, this.hexMap) as Hex2;
     this.hexMap.showMark(hex)
     this.dispatchEvent(new HexEvent(S.add, hex, sc)) // -> GamePlay.playerMoveEvent(hex, sc)
   }

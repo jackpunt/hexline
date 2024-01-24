@@ -2,7 +2,7 @@ import { AT, json, M, stime } from "@thegraid/common-lib";
 import { EzPromise } from "@thegraid/ezpromise";
 import { runEventLoop } from "./event-loop";
 import { GamePlay, GamePlay0, GamePlayD, Progress } from "./game-play";
-import { Hex, HSC, IHex } from "./hex";
+import { Hex, HSC, IHex, LINKS } from "./hex";
 import { H, NsDir } from "./hex-intfs";
 import { IMove, Move } from "./move";
 import { IPlanner, MK, ParamSet, PlannerProxy } from "./plan-proxy";
@@ -342,7 +342,7 @@ export class SubPlanner implements IPlanner {
   /** do move from main.history: re-build State Tree */
   doHistoryMove(moveg: IMove) {
     let move1 = this.gamePlay.history[0]
-    let hex0 = Hex.ofMap(moveg.hex, this.gamePlay.hexMap)
+    let hex0 = Hex.ofMap(moveg.hex, this.gamePlay.hexMap) as Hex;
     let [move0, state0] = this.doLocalMove(hex0, moveg.playerColor) // do actual move to hex0, setting move0.state
     if (move1) {
       // instead of searching boardState, look for existing State in move1.state:
@@ -972,7 +972,7 @@ export class TablePlanner extends SubPlanner {
 
   moveHex: Hex
   doMove(hex: IHex, color: PlayerColor, iHistory: IMove[]) {
-    this.moveHex = Hex.ofMap(hex, this.gamePlay.hexMap)
+    this.moveHex = Hex.ofMap(hex, this.gamePlay.hexMap) as Hex;
     return this.makeMove(color, iHistory) // with Promise.fulfill(hex)
     // makeMove -> lookaheadTop -> placeHexAndLog -> then(finishMove(hexState))
     // fillIhex(hex) -> ihexPromise.fulfill(ihex) -> then(table.moveStoneToHex) -> gamePlay.addStoneEvent
@@ -996,7 +996,7 @@ export class TablePlanner extends SubPlanner {
 
   override isWastedMove(move: Move): boolean {
     if (!move.isFreeJeopardy) return false
-    let hex = Hex.ofMap(move.hex, this.gamePlay.hexMap)
+    let hex = Hex.ofMap(move.hex, this.gamePlay.hexMap) as Hex;
     let repC = move.board.repCount, mc = move.playerColor // freeJeopary --> caps.length == 0
     let move1 = this.placeStone(hex, mc) // placeStone, but not doLocalMove-->evalState()
     let isWasted = super.isWastedMove(move1, hex, repC, mc)
