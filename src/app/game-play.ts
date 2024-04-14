@@ -14,6 +14,7 @@ import { GameStats, TableStats, WINARY } from "./stats";
 import { LogReader, LogWriter } from "./stream-writer";
 import { Table } from "./table";
 import { otherColor, PlayerColor, playerColors, TP } from "./table-params";
+import { HexConstructor } from "@thegraid/hexlib";
 
 /** Implement game, enforce the rules, manage GameStats & hexMap; no GUI/Table required. */
 export class GamePlay0 {
@@ -21,7 +22,7 @@ export class GamePlay0 {
   readonly id = GamePlay0.gpid++
   ll(n: number) { return TP.log > n }
 
-  readonly hexMap: HexMap<Hex2> = new HexMap()
+  readonly hexMap = new HexMap()
   readonly history: Move[] = []          // sequence of Move that bring board to its state
   readonly redoMoves: IMove[] = []
   readonly allBoards = new BoardRegister()
@@ -29,6 +30,7 @@ export class GamePlay0 {
 
   constructor() {
     this.gStats = new GameStats(this.hexMap) // AFTER allPlayers are defined so can set pStats
+    return;
   }
 
   get iHistory() { return this.history.map(move => move.toIMove) }
@@ -100,6 +102,7 @@ export class GamePlay0 {
       this.addUndoRec(this, `removeStone(${hex.Aname}:${playerColor})`, () => this.removeStone(hex)) // remove for undo
       if (hex.isAttack(otherColor(playerColor))) this.removeStone(hex) // legalSacrifice --> clearColor
     }
+    return;
   }
   /**
    * capture [or undoMove->isUndoing]
@@ -175,6 +178,7 @@ export class GamePlay0 {
         }
       })
     })
+    return;
   }
 
   /** after remove Stone from hex: propagate influence in each direction. */
@@ -184,6 +188,7 @@ export class GamePlay0 {
       let inf = hex.getInf(color, dn) - 1     // reduce because stone is gone
       hex.propagateDecr(color, dn, inf)       // because no-stone, hex gets (inf - 1)
     })
+    return;
   }
 
   captureStone(nhex: Hex) {
@@ -268,7 +273,7 @@ export class GamePlayD extends GamePlay0 {
   //override hexMap: HexMaps = new HexMap();
   constructor(mh: number, nh: number) {
     super()
-    this.hexMap.hexC = Hex;
+    this.hexMap.hexC = Hex as any as HexConstructor<Hex>; // must be hexline/Hex (not hexlib/Hex)
     this.hexMap[S.Aname] = `GamePlayD#${this.id}`
     this.hexMap.makeAllDistricts(nh, mh)
     return

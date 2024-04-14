@@ -2,7 +2,7 @@ import { AT, json, M, stime } from "@thegraid/common-lib";
 import { EzPromise } from "@thegraid/ezpromise";
 import { runEventLoop } from "./event-loop";
 import { GamePlay, GamePlay0, GamePlayD, Progress } from "./game-play";
-import { Hex, HSC, IHex, LINKS } from "./hex";
+import { Hex, HSC, IHex } from "./hex";
 import { H, NsDir } from "./hex-intfs";
 import { IMove, Move } from "./move";
 import { IPlanner, MK, ParamSet, PlannerProxy } from "./plan-proxy";

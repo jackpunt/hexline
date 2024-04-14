@@ -39,7 +39,7 @@
     "@thegraid/easeljs-lib": "^1.2.2",
     "@thegraid/easeljs-module": "^1.1.9",
     "@thegraid/ezpromise": "^1.0.10",
-    "@thegraid/hexlib": "file:../../ts/hexlib/thegraid-hexlib-1.0.11.tgz",
+    "@thegraid/hexlib": "^1.0.11",
     "@thegraid/wspbclient": "^1.4.26",
     "@types/wicg-file-system-access": "^2020.9.5",
     "rxjs": "~7.5.0",

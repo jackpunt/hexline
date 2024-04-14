@@ -1,3 +1,4 @@
+import { json, stime } from "@thegraid/common-lib";
 import { C, Constructor, F, RC, S } from "@thegraid/easeljs-lib";
 import { Container, DisplayObject, Graphics, Shape, Text } from "@thegraid/easeljs-module";
 import { GamePlay0 } from "./game-play";
@@ -5,18 +6,16 @@ import { EwDir, H, HexAxis, HexDir, InfDir, NsDir } from "./hex-intfs";
 import { IMove } from "./move";
 import { Stone } from "./table";
 import { PlayerColor, PlayerColorRecord, TP, otherColor, playerColor0, playerColorRecord, playerColorRecordF, playerColors } from "./table-params";
-import { Hex as Hex0, HexM as HexM0, Hex2 as Hex20, HexMap as HexMap0, MapCont, NamedContainer, HexConstructor } from "@thegraid/hexlib";
+import { S_Resign as S_Resign0, S_Skip as S_Skip0, IdHex, LINKS, Hex as Hex0, HexM as HexM0, Hex2 as Hex20, HexMap as HexMap0, MapCont, NamedContainer, HexConstructor, HexCont } from "@thegraid/hexlib";
 
-export const S_Resign = 'Hex@Resign'
-export const S_Skip = 'Hex@skip '
-export type IHex = { Aname: string, row: number, col: number }
+export  type IHex = IdHex ;
+export const S_Resign = S_Resign0;
+export const S_Skip = S_Skip0;
 
-// Note: graphics.drawPolyStar(x,y,radius, sides, pointSize, angle) will do a regular polygon
-
-// type LINKS = { [key in InfDir]?: Hex }
-export type LINKS<T extends Hex> = { [key in HexDir]?: T }
+// Types for Influence
 type INF   = { [key in InfDir]?: number }
 type INFM   = { [key in HexAxis]?: InfMark }
+// types for Topo:
 type DCR    = { [key in "dc" | "dr"]: number }  // Delta for Col & Row
 type TopoEW = { [key in EwDir]: DCR }
 type TopoNS = { [key in NsDir]: DCR }
@@ -73,113 +72,60 @@ class CapMark extends Shape {
 }
 
 
-/**
- * Base Hex with ColorHex: playerColor, infl & associated methods.
- */
-export class Hex extends Hex0 {
-  static capColor = H.capColor1 // dynamic bind in GamePlay.doProtoMove()
 
-  constructor(map: HexMap<Hex>, row: number, col: number, name = Hex.aname(row, col)) {
-    super(map, row, col, name)
-    this.Aname = name
-    this.colorHex = new ColorHex(this);
-  }
 
-  // Delegate all overrideable methods to colorHex:
-  override toString(playerColor = this.colorHex.playerColor): string {
-    return this.colorHex.toString(playerColor);
-  }
-  override rcspString(sc = this.colorHex.playerColor) {
-    return `${TP.colorScheme[sc]}@${this.rcsp}`
-  }
 
-  colorHex: ColorHex;
 
-  get playerColor() { return this.colorHex.playerColor; }
-  get inf() { return this.colorHex.inf; }
-
-  iMove(playerColor = this.colorHex.playerColor) {
-    return this.colorHex.iMove(playerColor);
-  }
-  json(playerColor = this.colorHex.playerColor) {
-    return this.colorHex.json(playerColor);
-  }
-  setColor(playerColor: PlayerColor): Hex {
-    return this.colorHex.setColor(playerColor);
-  }
-  clearColor() {
-    return this.colorHex.clearColor();
-  }
-  clearInf() {
-    return this.colorHex.clearInf();
-  }
-  isInf(color: PlayerColor, dn: EwDir) {
-    return this.colorHex.isInf(color, dn);
-  }
-  getInf(color: PlayerColor, dn: EwDir) {
-    return this.colorHex.getInf(color, dn);
-  }
-  propagateIncr(color: PlayerColor, dn: InfDir, inc: number, test?: (hex: Hex) => void) {
-    return this.colorHex.propagateIncr(color, dn, inc, test)
-  }
-  propagateDecr(color: PlayerColor, dn: InfDir, inc: number, test?: (hex: Hex) => void) {
-    return this.colorHex.propagateDecr(color, dn, inc, test)
-  }
-  isThreat(color: PlayerColor) {
-    return this.colorHex.isThreat(color);
-  }
-  isAttack(color: PlayerColor) {
-    return this.colorHex.isAttack(color);
-  }
-  isAttack2(color: PlayerColor) {
-    return this.colorHex.isAttack2(color);
-  }
-  isCapture(color: PlayerColor) {
-    return this.colorHex.isCapture(color)
+function InfMixin<Ht extends Constructor<Hex0>> (Base: Ht)/* : Constructor<{}> & T*/ {
+  return class InfHex extends Base {
+    inf: string;
   }
 }
-class ColorHex {
-  constructor(public hex: Hex) {
-  }
-  get map(): HexMap<Hex> { return this.hex.map as HexMap<Hex>; }
+
+function InfColorMixin<Ht extends Constructor<Hex0>> (Base: Ht) {
+  const rv = class InfColorHex extends Base {
+
+  declare map: HexM0<Hex20>; // <=== TODO: FIX THIS (and map: above) HexMap<Hex0> or HexMap<Hx>
 
   /** color of current Stone on this Hex (or undefined) */
   playerColor: PlayerColor = undefined;
   readonly inf = playerColorRecord<INF>({},{})
 
-  iMove(sc = this.playerColor): IMove { return { hex: this.hex.iHex, playerColor: sc, Aname: this.toString(sc) }}
+  iMove(sc = this.playerColor): IMove { return { hex: this.iHex, playerColor: sc, Aname: this.toString(sc) }}
 
-  json(sc = this.playerColor) { return `{"p":"${sc || 'u'}","r":${this.hex.rowsp},"c":${this.hex.colsp}}` }
+  json(sc = this.playerColor) { return `{"p":"${sc || 'u'}","r":${this.rowsp},"c":${this.colsp}}` }
 
   /** set hex.playerColor and push HSC on allStones */
-  setColor(playerColor: PlayerColor): Hex {
+  setColor(playerColor: PlayerColor): this {
+    // console.log(stime(this, `.setColor: ${this} ${playerColor}`), json(this.inf), this.map.Aname)
     if (this.playerColor !== undefined) {
-      console.warn(`hex already occupied ${this.hex.Aname}: ${playerColor} -> ${this.playerColor}`)
+      console.warn(`Hex already occupied ${this.Aname}: ${playerColor} -> ${this.playerColor}`)
       debugger; // hex already occupied
     }
     this.playerColor = playerColor
     //let hexm = new HexMapLayer(this.map, this, playerColor)
     //let hex = hexm.addHex(this)
-    let hsc: HSC = newHSC(this.hex, playerColor)
+    let hsc: HSC = newHSC(this, playerColor)
     this.map?.allStones.push(hsc) // no push: Aname == nextHex
-    return this.hex
+    return this
   }
   clearColor(): PlayerColor {
     let color = this.playerColor, hscAry = this.map.allStones
-    if (color !== undefined && this.hex.map !== undefined) {
+    if (color !== undefined && this.map !== undefined) {
       // put filtered result back into original array:
-      hscAry.splice(0, hscAry.length,...hscAry.filter(hsc => hsc.hex !== this.hex))
+      hscAry.splice(0, hscAry.length, ...hscAry.filter(hsc => hsc.hex !== this))
     }
     this.playerColor = undefined
+    // console.log(stime(this, `.clearColor: ${this} ${this.playerColor ?? '-'}`), json(this.inf), this.map.Aname)
     return color
   }
   /** colorScheme(playerColor)@rcs */
-  toString(playerColor = this.playerColor) {
-    return `${TP.colorScheme[playerColor]}@${this.hex.rcs}` // hex.toString => COLOR@[r,c] | COLOR@Skip , COLOR@Resign
+  override toString(playerColor = this.playerColor) {
+    return `${TP.colorScheme[playerColor]}@${this.rcs}` // hex.toString => COLOR@[r,c] | COLOR@Skip , COLOR@Resign
   }
   /** hex.rcspString => COLOR@[ r, c] | 'COLOR@Skip   ' , 'COLOR@Resign ' */
-  rcspString(sc = this.playerColor) {
-    return `${TP.colorScheme[sc]}@${this.hex.rcsp}`
+  override rcspString(sc = this.playerColor) {
+    return `${TP.colorScheme[sc]}@${this.rcsp}`
   }
 
   /**
@@ -196,12 +142,12 @@ class ColorHex {
    * @param inc is influence *passed-in* to Hex; hex get [inc or inc+1]; *next* gets [inc or inc-1]
    * @param test after hex.setInf(inf) and hex.propagateIncr(nxt), apply test(hex)
    */
-  propagateIncr(color: PlayerColor, dn: InfDir, inc: number, test?: (hex: Hex) => void) {
+  propagateIncr(color: PlayerColor, dn: InfDir, inc: number, test?: (hex: Hx) => void) {
     let inf = this.playerColor === color ? inc + 1 : inc // inc >= 0, inf > 0
     this.setInf(color, dn, inf)
     let nxt = this.playerColor === color ? inf : inf - 1
-    if (nxt > 0) this.hex.links[dn]?.propagateIncr(color, dn, nxt, test);
-    if (test) test(this.hex);
+    if (nxt > 0) this.links[dn]?.propagateIncr(color, dn, nxt, test);
+    if (test) test(this as any as Hx);
   }
 
   /**
@@ -209,13 +155,14 @@ class ColorHex {
    * @param inc is influence *passed-in* from prev Hex; *this* gets inc; pass-on [inc or inc-1]
    * @param test after hex.setInf(infn) and hex.propagateDecr(nxt), apply test(hex)
    */
-  propagateDecr(color: PlayerColor, dn: InfDir, inc: number, test?: (hex: Hex) => void) {
+  propagateDecr(color: PlayerColor, dn: InfDir, inc: number, test?: (hex: Hx) => void) {
     let inf0 = this.getInf(color, dn)
     let inf = this.playerColor === color ? inc + 1 : inc
     this.setInf(color, dn, inf)
     let nxt = this.playerColor === color ? inf : Math.max(0, inf - 1)
-    if (inf0 > 0) this.hex.links[dn] && this.propagateDecr(color, dn, nxt, test); // pass-on a smaller number
-    if (test) test(this.hex);
+    let nhex = this.links[dn]
+    if (inf0 > 0) nhex  && nhex.propagateDecr(color, dn, nxt, test); // pass-on a smaller number
+    if (test) test(this as any as Hx);
   }
 
   /** create empty INF for each color */
@@ -244,12 +191,41 @@ class ColorHex {
   isCapture(color: PlayerColor): boolean {
     return (this.playerColor !== undefined) && (this.playerColor !== color) && this.isAttack(color)
   }
+  }
+ return rv;
 }
+
+class H1 extends InfColorMixin(Hex20) {
+  constructor(map: HexM<Hex20>, row: number, col: number, name = Hex0.aname(row, col)) {
+    super(map, row, col, name)
+    this.cont
+  }
+
+}
+
+// class extend from generic: https://github.com/Microsoft/TypeScript/issues/4890
+// mixin documentation: https://github.com/microsoft/TypeScript/pull/13743
+/**
+ * Base Hex with ColorHex: playerColor, infl & associated methods.
+ */
+export class Hex extends InfColorMixin(Hex0) {
+  static capColor = H.capColor1 // dynamic bind in GamePlay.doProtoMove()
+  static override ofMap(ihex: IdHex, otherMap: HexMap0<Hex0>) {
+    return Hex0.ofMap(ihex, otherMap) as Hex;
+  }
+  constructor(map: HexM<Hex>, row: number, col: number, name = Hex0.aname(row, col)) {
+    super(map, row, col, name)
+    this.Aname = name;
+  }
+}
+type Hx = Hex;
+
 /**
  * One Hex cell in the game, shown as a polyStar Shape
  * hexlib.Hex -> hexlib.Hex2 (graphics) + ColorHex (playerColor & influence)
  */
-export class Hex2 extends Hex20 implements Hex {
+export class Hex2 extends InfColorMixin(Hex20) {
+//  cont: HexCont; x: number; y: number;  // <=== TODO: these should be inherited from Hex20!!
 
   capMark: CapMark; // shown on this.map.markCont
   stone: Stone      // shown on this.map.stoneCont
@@ -263,60 +239,33 @@ export class Hex2 extends Hex20 implements Hex {
    *
    * this.mapCont.stoneCont.addChild(stoneCont) <-- new Stone(): Shape
    */
-  constructor(map: HexMap0<Hex20> | HexMap<Hex2>, row: number, col: number, name?: string) {
-    super(map as HexMap0<Hex20>, row, col, name);
+  constructor(map: HexMap0<Hex20>, row: number, col: number, name?: string) {
+    super(map, row, col, name);
     this.setHexColor("grey")  // until setHexColor(by district)
     this.stoneIdText = new Text('', F.fontSpec(26))
-    this.stoneIdText.textAlign = 'center'; this.stoneIdText.regY = -20
-    this.colorHex = new ColorHex(this);
+    this.stoneIdText.textAlign = 'center'; this.stoneIdText.regY = -20;
   }
   override get mapCont() { return this.map.mapCont as (MapCont & MapConts) }
 
-  colorHex: ColorHex;
+  // declare map: HexMap<Hex2>;
 
-  get playerColor() {
-    return this.colorHex.playerColor;
-  }
-  get inf() {
-    return this.colorHex.inf;
-  }
-  iMove(sc: PlayerColor) {
-    return this.colorHex.iMove(sc);
-  }
+  // static ofMap(ihex: IdHex, otherMap: HexMap0<Hex0>): Hex0 {
+  //   return Hex0.ofMap(ihex, otherMap) as Hex2;
+  // }
 
-  json(playerColor = this.colorHex.playerColor) {
-    return this.colorHex.json(playerColor);
+  /** colorScheme(playerColor)@rcs */
+  override toString(playerColor = this.playerColor) {
+    return `${TP.colorScheme[playerColor] ?? this.Aname}@${this.rcs}` // hex.toString => COLOR@[r,c] | COLOR@Skip , COLOR@Resign
   }
-  isInf(color: PlayerColor, dn: EwDir) {
-    return this.colorHex.isInf(color, dn);
-  }
-  getInf(color: PlayerColor, dn: EwDir) {
-    return this.colorHex.getInf(color, dn);
-  }
-  propagateIncr(color: PlayerColor, dn: InfDir, inc: number, test?: (hex: Hex) => void) {
-    return this.colorHex.propagateIncr(color, dn, inc, test)
-  }
-  propagateDecr(color: PlayerColor, dn: InfDir, inc: number, test?: (hex: Hex) => void) {
-    return this.colorHex.propagateDecr(color, dn, inc, test)
-  }
-  isThreat(color: PlayerColor) {
-    return this.colorHex.isThreat(color);
-  }
-  isAttack(color: PlayerColor) {
-    return this.colorHex.isAttack(color);
-  }
-  isAttack2(color: PlayerColor) {
-    return this.colorHex.isAttack2(color);
-  }
-  isCapture(color: PlayerColor) {
-    return this.colorHex.isCapture(color)
+  /** hex.rcspString => COLOR@[ r, c] | 'COLOR@Skip   ' , 'COLOR@Resign ' */
+  override rcspString(sc = this.playerColor) {
+    return `${TP.colorScheme[sc]}@${this.rcsp}`
   }
 
   // multiple inheritance!!  as Hex; how to find super above mid-class
-  setInf(color: PlayerColor, dn: InfDir, inf: number): number {
-    const supr = this.colorHex;
-    supr.setInf(color, dn, inf)
-    this.showInf(color, dn, (supr.playerColor !== color && (inf > 0 || supr.isInf(color, H.dirRevEW[dn]))))
+  override setInf(color: PlayerColor, dn: InfDir, inf: number): number {
+    super.setInf(color, dn, inf)
+    this.showInf(color, dn, (this.playerColor !== color && (inf > 0 || super.isInf(color, H.dirRevEW[dn]))))
     return inf
   }
   static infVis = true   // set by ParamGui('showInf')
@@ -333,14 +282,13 @@ export class Hex2 extends Hex20 implements Hex {
       infMark && (infMark.visible = false)
     }
   }
-  clearInf(): void {
+  override clearInf(): void {
     playerColors.forEach(color => {
       for (let mark of Object.values(this.infm[color]))
         //mark?.parent?.removeChild(mark)
         mark && (mark.visible = false)
     })
-    const supr = this.colorHex;
-    supr.clearInf();
+    super.clearInf();
   }
 
   /** make and show a CapMark on this Hex2 */
@@ -364,11 +312,12 @@ export class Hex2 extends Hex20 implements Hex {
   clearStoneId() {
     this.stoneIdText?.parent?.removeChild(this.stoneIdText)
   }
+
   /** make a Stone on this Hex2 (from addStone(color)) */
   // setColor returns a new Hex2 on a new HexMap
-  setColor(playerColor: PlayerColor): Hex {
-    const supr = this.colorHex;
-    let hex = supr.setColor(playerColor)
+  override setColor(playerColor: PlayerColor): this {
+    // console.log(stime(this, `.setColor0: ${this} ${playerColor}`), json(this.inf), this.map.Aname)
+    let hex = super.setColor(playerColor)
     if (playerColor !== undefined) {
       let stone = this.stone = new Stone(playerColor)
       stone[S.Aname] = `[${this.row},${this.col}]`
@@ -377,15 +326,17 @@ export class Hex2 extends Hex20 implements Hex {
       cont.addChild(stone)
     } // else this.clearColor() has been called
     this.cont.updateCache();
+    // console.log(stime(this, `.setColor1: ${this} ${playerColor}`), json(this.inf))
     return hex
   }
   /** removeChild(stone) & HSC from map.allStones. */
-  clearColor(): PlayerColor {
-    const supr = this.colorHex;
+  override clearColor(): PlayerColor {
     this.clearStoneId()
     this.stone?.parent?.removeChild(this.stone)
     this.stone = undefined
-    return supr.clearColor()
+    const rv = super.clearColor()
+    // console.log(stime(this, `.clearColor: ${this} ${this.playerColor ?? '-'}`), json(this.inf), this.map.Aname)
+    return rv;
   }
 
   /** set hexShape using color */
@@ -395,17 +346,17 @@ export class Hex2 extends Hex20 implements Hex {
     this.hexShape.paint(color);
   }
 
-  override lastHex(ds: InfDir): Hex {
-    return super.lastHex(ds) as Hex
+  override lastHex(ds: InfDir): Hex2 {
+    return super.lastHex(ds) as Hex2
   }
 }
 
 
-export interface HexM<T extends Hex> extends HexM0<T> {
+export interface HexM<T extends Hex0> extends HexM0<T> {
   readonly allStones: HSC[]       // all the Hex with a Stone/Color
   //used by GamePlay:
-  readonly skipHex: Hex
-  readonly resignHex: Hex
+  readonly skipHex: T;
+  readonly resignHex: T;
 }
 /**
  * hexline: HexMap
@@ -421,11 +372,11 @@ export interface HexM<T extends Hex> extends HexM0<T> {
  * With a Mark and off-map: skipHex & resignHex
  *
  */
-export class HexMap<T extends Hex> extends HexMap0<Hex>  {
+export class HexMap<T extends Hex> extends HexMap0<T>  {
   // A color for each District:
 
   /** Each occupied Hex, with the occupying PlayerColor  */
-  readonly allStones: HSC[] = []              // aka hexStones in Board (readonly when we stop remove/filter)
+  override readonly allStones: HSC[] = []              // aka hexStones in Board (readonly when we stop remove/filter)
   readonly skipHex: Hex;
   readonly resignHex: Hex;
 
@@ -447,13 +398,13 @@ export class HexMap<T extends Hex> extends HexMap0<Hex>  {
    * Basic map is non-GUI, addToMapCont uses Hex2 elements to enable GUI interaction.
    * @param addToMapcont use Hex2 for Hex, make Containers: hexCont, infCont, markCont, stoneCont
    */
-  constructor(radius: number = TP.hexRad, addToMapCont = false, hexC = Hex2, Aname = 'mainMap') {
+  constructor(radius: number = TP.hexRad, addToMapCont = false, hexC: Constructor<Hex0> = Hex0, Aname = 'mainMap') {
     super(radius, addToMapCont, hexC, Aname); // Array<Array<Hex>>()
     this.height = radius * H.sqrt3
     this.width = radius * 1.5
     CapMark.capSize = this.width/2
-    this.skipHex = new Hex(this, -1, -1, S_Skip)
-    this.resignHex = new Hex(this, -1, -2, S_Resign)
+    this.skipHex = new Hex(this as any as HexM<T>, -1, -1, S_Skip)
+    this.resignHex = new Hex(this as any as HexM<T>, -1, -2, S_Resign)
     if (addToMapCont) this.addToMapCont(this.hexC as Constructor<T>);
 
   }

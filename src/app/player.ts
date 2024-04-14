@@ -58,7 +58,7 @@ export class Player {
     this.planner.roboMove(true)
     this.plannerRunning = true
     let iHistory = this.table.gamePlay.iHistory
-    let ihexPromise = this.planner.makeMove(sc, iHistory, incb)
+    let ihexPromise = this.planner.makeMove(sc, iHistory, incb) // or SKIP!!
     ihexPromise.then((ihex: IHex) => {
       this.plannerRunning = false
       this.table.moveStoneToHex(ihex, sc)

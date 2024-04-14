@@ -18,7 +18,7 @@ export class TP {
   static allowSacrifice = true;
   static yield = true     // Planner should yield when dmc > yieldMs [from before Worker?]
   static yieldMM = 1
-  static pPlaner = true
+  static pPlaner = false; // Planners run in parallel
   static pWorker = false
   static pWeight = 1      // allocation of new value: vNew * w + vOld * (1-w)
   static keepMoves = 4;   // number of predicted/evaluated moves to retain in State.moveAry
@@ -35,7 +35,7 @@ export class TP {
   static colorScheme = TP.Black_White
   static numPlayers = 2;
   /** Order [number of rings] of metaHexes */
-  static mHexes = 3    // number hexes on side of Meta-Hex
+  static mHexes = 2    // number hexes on side of Meta-Hex
   /** Order [number of Hexs on side] of District [# rings of Hexes in each metaHex] */
   static nHexes = 2    // number of Hexes on side of District
   static nDistricts = 7

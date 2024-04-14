@@ -8,7 +8,7 @@ import { TablePlanner } from "./planner";
 import { Player } from "./player";
 import { StatsPanel } from "./stats";
 import { otherColor, PlayerColor, playerColor0, playerColor1, PlayerColorRecord, playerColorRecord, playerColorRecordF, TP } from "./table-params";
-
+import { NamedObject} from '@thegraid/hexlib';
 
 /**
  * Graphical representation of the 'color' of a Move onto the HexMap.
@@ -81,8 +81,12 @@ class ProgressMarker extends Container {
 
 
 /** layout display components, setup callbacks to GamePlay */
-export class Table extends EventDispatcher  {
-
+export class Table  {
+  disp: EventDispatcher = this as any as EventDispatcher;
+  namedOn(Aname: string, type: string, listener: (eventObj: Object) => boolean | void, scope?: Object, once?: boolean, data?: any, useCapture = false) {
+    const list2 = this.disp.on(type, listener, scope, once, data, useCapture) as NamedObject;
+    list2.Aname = Aname;
+  }
   statsPanel: StatsPanel;
   gamePlay: GamePlay;
   stage: Stage;
@@ -103,7 +107,8 @@ export class Table extends EventDispatcher  {
   progressMarker: PlayerColorRecord<ProgressMarker>
 
   constructor(stage: Stage) {
-    super();
+    // super();
+    EventDispatcher.initialize(this);
 
     stage['table'] = this // backpointer so Containers can find their Table (& curMark)
     this.stage = stage
@@ -239,7 +244,7 @@ export class Table extends EventDispatcher  {
 
   layoutTable(gamePlay: GamePlay) {
     this.gamePlay = gamePlay
-    let hexMap = this.hexMap = gamePlay.hexMap
+    let hexMap = this.hexMap = gamePlay.hexMap as HexMap<Hex2>;
 
     hexMap.addToMapCont(Hex2).initInfluence()
     hexMap.makeAllDistricts(TP.nHexes, TP.mHexes) // typically: 3,3 or 2,4
@@ -275,7 +280,8 @@ export class Table extends EventDispatcher  {
 
     this.makeMiniMap(this.scaleCont, -(200+TP.mHexes*TP.hexRad), 600+100*TP.mHexes)
 
-    this.on(S.add, this.gamePlay.playerMoveEvent, this.gamePlay)[S.Aname] = "playerMoveEvent"
+    // this.disp.on(S.add, this.gamePlay.playerMoveEvent, this.gamePlay)[S.Aname] = "playerMoveEvent";
+    this.namedOn('pme',S.add, this.gamePlay.playerMoveEvent, this.gamePlay);
   }
 
   startGame() {
@@ -364,8 +370,10 @@ export class Table extends EventDispatcher  {
     })
   }
   unmarkAllSacrifice() {
+    console.groupCollapsed('unmarkAllSacrifice')
     this.allSacrifices.forEach(hex => hex.unmarkCapture())
     this.allSacrifices.clear()
+    console.groupEnd()
   }
   set showInf(val) { (this.hexMap.mapCont.infCont.visible = val) ? this.markAllSacrifice() : this.unmarkAllSacrifice() }
   get showInf() { return this.hexMap.mapCont.infCont.visible }
@@ -456,9 +464,10 @@ export class Table extends EventDispatcher  {
   /** All moves (GUI & player) feed through this: */
   moveStoneToHex(ihex: IHex, sc: PlayerColor) {
     this.unmarkAllSacrifice()
+    if (ihex.row < 0 || ihex.col < 0 /* Skip.hex */) return; // no move TODO: resign correctly
     const hex = Hex.ofMap(ihex, this.hexMap) as Hex2;
     this.hexMap.showMark(hex)
-    this.dispatchEvent(new HexEvent(S.add, hex, sc)) // -> GamePlay.playerMoveEvent(hex, sc)
+    this.disp.dispatchEvent(new HexEvent(S.add, hex, sc)) // -> GamePlay.playerMoveEvent(hex, sc)
   }
 
   /** default scaling-up value */

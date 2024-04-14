@@ -4,8 +4,8 @@ import { RC } from "@thegraid/common-lib";
 export enum Dir { C, NE, E, SE, SW, W, NW }
 export type HexDir = 'NE' | 'EN' | 'E' | 'ES' | 'SE' | 'S' | 'SW' | 'WS' | 'W' | 'WN' | 'NW' | 'N';
 export type XYWH = { x: number, y: number, w: number, h: number } // like a Rectangle
-export type EwDir = Exclude<HexDir, 'N' | 'S' | 'EN' | 'WN' | 'ES' | 'WS'>;
-export type NsDir = Exclude<HexDir, 'E' | 'W' | 'NE' | 'NW' | 'SE' | 'SW'>;
+export type EwDir = "NE" | "E" | "SE" | "SW" | "W" | "NW";
+export type NsDir = "EN" | "ES" | "S" | "WS" | "WN" | "N";
 // assumes topoEW:
 export type InfDir = EwDir;
 export type HexAxis = Exclude<InfDir, 'SW' | 'W' | 'NW'>
@@ -55,11 +55,10 @@ export namespace H {
   export function nsTopo(rc: RC): TopoNS { return (rc.col % 2 == 0) ? H.nsEvenCol : H.nsOddCol };
   export function ewTopo(rc: RC): TopoEW { return (rc.row % 2 == 0) ? H.ewEvenRow : H.ewOddRow };
 
-  export const axis: HexAxis[] = [NE, E, SE];           // minimal reference directions
-  export const dirs: HexDir[] = [NE, E, SE, SW, W, NW]; // standard direction signifiers () ClockWise
+  export const axis: HexAxis[] = [NE, E, SE];            // bi-directional inf axis
   export const ewDirs: EwDir[] = [NE, E, SE, SW, W, NW]; // directions for EwTOPO
   export const nsDirs: NsDir[] = [EN, ES, S, WS, WN, N]; // directions for NsTOPO
-  export const infDirs: InfDir[] = dirs as InfDir[]     // until we extract from typeof InfDir
+  export const infDirs: InfDir[] = ewDirs as InfDir[]    // until we extract from typeof InfDir
   export const dirRot: {[key in HexDir] : number} = { N: 0, NE: 30, EN: 60, E: 90, ES: 120, SE: 150, S: 180, SW: 210, WS: 240, W: 270, WN: 300, NW: 330 }
   export const dirRev: {[key in HexDir] : HexDir} = { N: S, S: N, E: W, W: E, NE: SW, SE: NW, SW: NE, NW: SE, ES: WN, EN: WS, WS: EN, WN: ES }
   export const dirRevEW: {[key in EwDir] : EwDir} = { E: W, W: E, NE: SW, SE: NW, SW: NE, NW: SE }
