@@ -1,19 +1,65 @@
-export const playerColors = ['b', 'w'] as const
+import { TP as TPLib  } from "@thegraid/hexlib";
+
+const playerColorsLib = ['b', 'w'] as const // Player Colors!
+export const playerColors = playerColorsLib.concat();
+/** Default type for PlayerColor. Maybe don't import, define your own locally.
+ *
+ * @example
+ * import { playerColors, PlayerColor as PCLib } from "@thegraid/hexlib"
+ * playerColors.push('c')
+ * type PlayerColor = PCLib | 'c' // Player Colors + Criminal!
+ */
+export type PlayerColor = typeof playerColorsLib[number];
+// Locally (for example, hextowns):
+
 export const playerColor0 = playerColors[0]
 export const playerColor1 = playerColors[1]
-//type playerColorTuple = typeof playerColors
-export type PlayerColor = typeof playerColors[number]
+// export const playerColor2 = playerColorsC[2]
 export function otherColor(color: PlayerColor): PlayerColor { return color === playerColor0 ? playerColor1 : playerColor0 }
 
 export type PlayerColorRecord<T> = Record<PlayerColor, T>
-export function playerColorRecord<T>(b: T = undefined, w: T = undefined): PlayerColorRecord<T> { return { 'b': b, 'w': w } };
-export function playerColorRecordF<T>(f: (sc: PlayerColor) => T) { return playerColorRecord(f(playerColor0), f(playerColor1)) }
+/** @return \{ pc0: arg0 as T, pc1: arg1 as T, ...}: PlayerColorRecord\<T> */
+export function playerColorRecord<T>(...args: T[]) {
+  const rv = {} as PlayerColorRecord<T>
+  playerColors.forEach((key, ndx) => rv[key] = (args[ndx]))
+  return rv;
+}
+export function playerColorRecordF<T>(f: (sc: PlayerColor) => T) {
+  return playerColorRecord(...playerColors.map(pc => f(pc)))
+}
 
 export function buildURL(scheme = 'wss', host = TP.ghost, domain = TP.gdomain, port = TP.gport, path = ''): string {
   return `${scheme}://${host}.${domain}:${port}${path}`
 }
-export class TP {
-  static useEwTopo = true;
+type Params = { [x: string]: any; }
+export class TP extends TPLib {
+
+  // try NOT setting anthing that is not in TPLib, nor any 'function'
+  static override setParams(local: Params = {}, force = false, tplib = (TPLib as Params)) {
+    /** do not muck with standard basic properties of all/empty classes */
+    // reverse it: *only* copy the fields that are already in TPLib!
+    const TP0 = TP, TPlib = TPLib; // inspectable in debugger
+    const static_props = TP.staticFields(tplib);
+    for (let [key, value] of Object.entries(local)) {
+      if (tplib[key] === undefined) continue; // no collision leave in TP-local
+      // t
+      if (force || static_props.includes(key)) {
+        if (!force && (typeof value === 'string' && typeof tplib[key] === 'number')) {
+          value = Number.parseInt(value); // minimal effort to align types.
+        }
+        tplib[key] = value; // set a static value in base; DANGER! not typesafe!
+        delete local[key];  // so future local[key] = value will tplib[key] = value;
+      }
+    }
+  }
+  static setParams2(qParams?: Params, add?: boolean): void {
+    const TP0 = TP, TPlib = TPLib; // inspectable in debugger
+    TPLib.setParams(qParams);
+    TPLib.setParams(qParams, false, TP); // also set in local 'override' copy.
+    console.log(`TP.setParams:`, { qParams, TP0, TPlib, ghost: TP.ghost, gport: TP.gport, networkURL: TP.networkUrl });
+    return;
+  }
+  static override useEwTopo = true;
   static parallelAttack = true;  // true --> N intersects S
   static allowSacrifice = true;
   static yield = true     // Planner should yield when dmc > yieldMs [from before Worker?]
@@ -26,25 +72,25 @@ export class TP {
   static pBoards = true   // true: evalState saves board->state
   static pMoves = true    // true: use predicted moveAry
   static pGCM = true      // GC state.moveAry (except bestHexState.moveAry)
-  static maxPlys = 5      // for robo-player lookahead
-  static maxBreadth = 7   // for robo-player lookahead
+  static override maxPlys = 5      // for robo-player lookahead
+  static override maxBreadth = 7   // for robo-player lookahead
   static nPerDist = 4     // samples per district
   static Black_White = playerColorRecord('BLACK', 'WHITE')
   static Blue_Red = playerColorRecord('BLUE', 'RED')
   static schemeNames = ['Black_White', 'Blue_Red']
-  static colorScheme = TP.Black_White
-  static numPlayers = 2;
+  static override colorScheme = TP.Black_White
+  static override numPlayers = 2;
   /** Order [number of rings] of metaHexes */
-  static mHexes = 2    // number hexes on side of Meta-Hex
+  static override mHexes = 2    // number hexes on side of Meta-Hex
   /** Order [number of Hexs on side] of District [# rings of Hexes in each metaHex] */
-  static nHexes = 2    // number of Hexes on side of District
+  static override nHexes = 2    // number of Hexes on side of District
   static nDistricts = 7
   static nVictory = 4  // number of Districts to control
   static tHexes = TP.ftHexes(this.mHexes) * TP.ftHexes(this.nHexes)
   static nMinControl  = (TP.nHexes <= 1) ? 1 : TP.nHexes + 1 // [1, 1, 3, 4, 5, ...]
   static nDiffControl = (TP.nHexes <= 1) ? 0 : TP.nHexes - 1 // [0, 0, 1, 2, 3, ...]
-  static hexRad = 50
-  static log = 0
+  static override hexRad = 50
+  static override log = 1
   /** set victory conditions for (nh, mh) */
   static fnHexes(mh: number, nh: number) {
     TP.mHexes = mh
@@ -64,15 +110,15 @@ export class TP {
   /** exclude whole Extension sets */
   static excludeExt: string[] = ["Policy", "Event", "Roads", "Transit"]; // url?ext=Transit,Roads
   // timeout: see also 'autoEvent'
-  static moveDwell:  number = 600
-  static flashDwell: number = 500
-  static flipDwell:  number = 200 // chooseStartPlayer dwell between each card flip
+  static override moveDwell:  number = 600
+  static override flashDwell: number = 500
+  static override flipDwell:  number = 200 // chooseStartPlayer dwell between each card flip
 
-  static bgColor: string = 'wheat'// C.BROWN
+  static override bgColor: string = 'wheat'// C.BROWN
   static borderColor: string = 'peru'//TP.bgColor; //'burlywood'
-  static ghost: string = 'cgserver'   // game-setup.network()
-  static gdomain: string = 'thegraid.com'
-  static gport: number = 8447
-  static networkUrl = buildURL();  // URL to cgserver (wspbserver)
-  static networkGroup: string = "hexagon";
+  static override ghost: string = 'cgserver'   // game-setup.network()
+  static override gdomain: string = 'thegraid.com'
+  static override gport: number = 8447
+  static override networkUrl = TP.buildURL();  // URL to cgserver (wspbserver)
+  static override networkGroup: string = "hexagon";
 }

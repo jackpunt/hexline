@@ -1,10 +1,10 @@
 // Game win: a Player controls 4 of 7 Districts
 // Control: Stone on >= 7 Hexes && Player.nHexes(district) - otherPlayer.nHexes(district) >= 3
 
-import { C, DropdownButton, DropdownChoice, F, ParamGUI, ParamItem, ParamLine, ParamOpts, ParamSpec, ParamType, S, stime } from "@thegraid/easeljs-lib";
+import { C, DropdownButton, DropdownChoice, F, ParamGUI, ParamItem, ParamOpts, ParamSpec, ParamType, stime } from "@thegraid/easeljs-lib";
 import { Text } from "@thegraid/easeljs-module";
 import { Board, GamePlay } from "./game-play";
-import { Hex, Hex2, HexM } from "./hex";
+import { Hex, Hex2, HexMap } from "./hex";
 import { H } from "./hex-intfs";
 import { Table } from "./table";
 import { otherColor, PlayerColor, playerColor0, playerColor1, PlayerColorRecord, playerColorRecordF, playerColors, TP } from "./table-params";
@@ -29,7 +29,7 @@ export class PlayerStats {
 }
 
 export class GameStats {
-  readonly hexMap: HexM<Hex2>
+  readonly hexMap: HexMap
   readonly pStats: PlayerColorRecord<PlayerStats>
   readonly inControl: PlayerColor[] = Array(TP.ftHexes(TP.mHexes)) // (nStones[color] - nStones[oc] >= TP.diffControl) -> [district]=color
   winVP: PlayerColor = undefined;
@@ -47,10 +47,10 @@ export class GameStats {
   }
 
   /** extract the useful bits for maintaining stats. */
-  constructor(hexMap: HexM<Hex>,
+  constructor(hexMap: HexMap,
     pStats: Record<PlayerColor, PlayerStats> = playerColorRecordF(() => new PlayerStats()),
     inControl: PlayerColor[] = Array(TP.ftHexes(TP.mHexes))) {
-    this.hexMap = hexMap as HexM<Hex2>;
+    this.hexMap = hexMap as HexMap;
     this.pStats = pStats
     this.inControl = inControl
     this.setupStatVector()           // use default wVector
@@ -256,12 +256,12 @@ export class TableStats extends GameStats {
     let district = hex.district
     let n0 = this.pStat(playerColor0).dStones[district]
     let n1 = this.pStat(playerColor1).dStones[district]
-    let dsText = this.getDSText(hex)
-    hex.mapCont.infCont.addChild(dsText)
+    let dsText = this.getDSText(hex), Cont = hex.mapCont.infCont
+    Cont.addChild(dsText)
     if (hex.cont.rotation == 0)
-      hex.cont.localToLocal(0, -12, hex.mapCont.infCont, dsText) // no rotation
+      hex.cont.localToLocal(0, -12, Cont, dsText) // no rotation
     else
-      hex.cont.localToLocal(7, -10, hex.mapCont.infCont, dsText) // rotation from (0,-12)
+      hex.cont.localToLocal(7, -10, Cont, dsText) // rotation from (0,-12)
     dsText.text = (n0 == 0 && n1 == 0) ? `` : `${n0}:${n1}`
     dsText.color = (hex.stone?.color === undefined || C.dist(TP.colorScheme[hex.stone.color], C.WHITE)<100) ? C.BLACK : C.WHITE
   }

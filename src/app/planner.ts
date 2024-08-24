@@ -387,6 +387,7 @@ export class SubPlanner implements IPlanner {
     //this.gamePlay.unplaceStone(popUndo)
     let gamePlay = this.gamePlay          // undoRecs, shiftMove
     let undo = gamePlay.undoRecs.closeUndo()
+    const undoR = undo[undo.length - 1];
     if (popUndo) {
       undo.restoreUndo()  // like undoStones(); SHOULD replace captured Stones/Colors
     } else {

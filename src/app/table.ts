@@ -1,5 +1,6 @@
-import { AT, C, Dragger, DragInfo, F, KeyBinder, S, ScaleableContainer, stime, XY } from "@thegraid/easeljs-lib";
+import { AT, C, Constructor, Dragger, DragInfo, F, KeyBinder, S, ScaleableContainer, stime, XY } from "@thegraid/easeljs-lib";
 import { Container, DisplayObject, EventDispatcher, Graphics, MouseEvent, Shape, Stage, Text } from "@thegraid/easeljs-module";
+import { GamePlay as GamePlayLib, NamedContainer, RectShape, Table as TableLib } from "@thegraid/hexlib"
 import { GamePlay, Progress } from "./game-play";
 import { Hex, Hex2, HexMap, IHex } from "./hex";
 import { HexEvent } from "./hex-event";
@@ -81,7 +82,7 @@ class ProgressMarker extends Container {
 
 
 /** layout display components, setup callbacks to GamePlay */
-export class Table  {
+export class Table  { // TODO: extends TableLib
   disp: EventDispatcher = this as any as EventDispatcher;
   namedOn(Aname: string, type: string, listener: (eventObj: Object) => boolean | void, scope?: Object, once?: boolean, data?: any, useCapture = false) {
     const list2 = this.disp.on(type, listener, scope, once, data, useCapture) as NamedObject;
@@ -90,11 +91,11 @@ export class Table  {
   statsPanel: StatsPanel;
   gamePlay: GamePlay;
   stage: Stage;
-  scaleCont: Container
+  scaleCont: ScaleableContainer
   bgRect: Shape
-  hexMap: HexMap<Hex2>; // from gamePlay.hexMap
+  hexMap: HexMap; // from gamePlay.hexMap
   nextHex: Hex2;
-  undoCont: Container = new Container()
+  undoCont: Container = new NamedContainer('UndoCont')
   undoShape: Shape = new Shape();
   skipShape: Shape = new Shape();
   redoShape: Shape = new Shape();
@@ -121,7 +122,7 @@ export class Table  {
     this.undoText.x = -52; this.undoText.textAlign = "center"
     this.redoText.x = 52; this.redoText.textAlign = "center"
     this.winText.x = 0; this.winText.textAlign = "center"
-    let undoC = this.undoCont; undoC.name = "undo buttons" // holds the undo buttons.
+    let undoC = this.undoCont;  // holds the undo buttons.
     undoC.addChild(this.skipShape)
     undoC.addChild(this.undoShape)
     undoC.addChild(this.redoShape)
@@ -133,7 +134,7 @@ export class Table  {
     let aiControl = this.aiControl('pink', 75); aiControl.x = 0; aiControl.y = 100
     undoC.addChild(aiControl)
     ProgressMarker.yoff = playerColorRecord(120, 120)
-    this.progressMarker = playerColorRecordF((sc) => ProgressMarker.make(sc, this.undoCont))
+    this.progressMarker = playerColorRecordF((sc) => ProgressMarker.make(sc, undoC))
     let pm0 = this.progressMarker[playerColor0]
     let pmy = pm0.ymax + pm0.y // pm0.parent.localToLocal(0, pm0.ymax + pm0.y, undoC)
     let progressBg = new Shape(), bgw = 200, bgym = 240, y0 = 0
@@ -220,7 +221,7 @@ export class Table  {
     bpanel.addChild(bs)
     return bpanel
   }
-  miniMap: HexMap<Hex2>;
+  miniMap: HexMap;
   makeMiniMap(parent: Container, x: number, y: number) {
     const miniMap = this.miniMap = new HexMap(Stone.radius, true, Hex2, 'miniMap');
     miniMap.makeAllDistricts(1, TP.mHexes);
@@ -229,7 +230,8 @@ export class Table  {
     const rot = [0, 30, 10.893, 6.587, 4.715, 3.57][nh] ?? 2.5;
     const rotC = (rot - 30), rotH = (nh === 1) ? 0 : ( - rot);
     let bgHex = new Shape()
-    bgHex.graphics.f(TP.bgColor).dp(0, 0, TP.hexRad * (2.2 * TP.mHexes - 1), 6, 0, 60)
+    bgHex.graphics.f(TP.bgColor).dp(0, 0, TP.hexRad * (2. * TP.mHexes - 1), 6, 0, 60)
+    parent.addChild(mapCont)
     mapCont.addChildAt(bgHex, 0)
     mapCont.x = x; mapCont.y = y
     mapCont.rotation = rotC
@@ -238,50 +240,95 @@ export class Table  {
       h.cont.rotation = rotH; h.cont.scaleX = h.cont.scaleY = .985
       h.cont.updateCache();
     })
-    parent.addChild(mapCont)
     mapCont.visible = (nh > 1);
   }
 
+  // TODO: inherit from TableLib
+  /**
+   * Center mapCont (w,h) within a Rectangle: { 0+x0, 0+y0, w+w0, h+h0 }
+   *
+   * All number in units of dxdc or dydr
+   *
+   * @Return the Rectangle, modifid by [dw, dh]
+   *
+   * @param x0 frame left; relative to scaleCont (offset from bgRect to hexCont)
+   * @param y0 frame top; relative to scaleCont
+   * @param w0 pad width; width of bgRect, beyond hexCont, centered on hexCont
+   * @param h0 pad height; height of bgRect, beyond hexCont, centered on hexCont
+   * @param dw extend bgRect to the right, not centered
+   * @param dh extend bgRect to the bottom, not centered
+   * @returns XYWH of a rectangle around mapCont hexMap
+   */
+  bgXYWH(x0 = -1, y0 = .5, w0 = 10, h0 = 1, dw = 0, dh = 0) {
+    const hexMap = this.hexMap;
+    // hexCont is offset to be centered on mapCont (center of hexCont is at mapCont[0,0])
+    // mapCont is offset [0,0] to scaleCont
+    const mapCont = hexMap.mapCont, hexCont = mapCont.hexCont; // local reference
+    this.scaleCont.addChild(mapCont);
+
+    // background sized for hexMap:
+    const { width, height } = hexCont.getBounds();
+    const { dxdc, dydr } = hexMap.xywh;
+    const { x, y, w, h } = { x: x0 * dxdc, y: y0 * dydr, w: width + w0 * dxdc, h: height + h0 * dydr }
+    // align center of mapCont(0,0) == hexMap(center) with center of background
+    mapCont.x = x + w / 2;
+    mapCont.y = y + h / 2;
+    // THEN: extend bgRect by (dw, dh):
+    return { x, y, w: w + dw * dxdc, h: h + dh * dydr };
+  }
+
+  // TODO: inherit from TableLib
   layoutTable(gamePlay: GamePlay) {
     this.gamePlay = gamePlay
-    let hexMap = this.hexMap = gamePlay.hexMap as HexMap<Hex2>;
+    this.hexMap = gamePlay.hexMap
 
-    hexMap.addToMapCont(Hex2).initInfluence()
-    hexMap.makeAllDistricts(TP.nHexes, TP.mHexes) // typically: 3,3 or 2,4
+    const xywh0 = this.bgXYWH();              // override bgXYHW() to supply default/arg values
+    const hexCont = this.hexMap.mapCont.hexCont;
+    const xywh1 = this.setBackground(this.scaleCont, xywh0); // bounded by xywh
+    const { x, y, width, height } = hexCont.getBounds();
+    hexCont.cache(x, y, width, height); // cache hexCont (bounded by bgr)
 
-    let mapCont = hexMap.mapCont;
-    this.scaleCont.addChild(mapCont)
+    const xywh = this.layoutTable2()
 
-    let hexRect = hexMap.mapCont.hexCont.getBounds()
+    this.setupUndoButtons(55, 60, 45, xywh)
+
+    this.namedOn('playerMoveEvent', S.add, this.gamePlay.playerMoveEvent, this.gamePlay);
+  }
+
+  // TODO: override from TPLib:
+  layoutTable2() {
+    let hexMap = this.hexMap;
+    // [re-]position mapCont
+    const bgr = this.bgXYWH(-1, .5, 6, 1, -2, 0); // x0,y0, w0,h0, dw,dh
+
     // background sized for hexMap:
-    let high = hexMap.height, wide = hexMap.width // h=rad*1.5; w=rad*r(3)
-    let miny = hexRect.y - high, minx = hexRect.x - wide
-    let { width, height } = hexMap.wh
-    let bgr: XYWH = { x: 0, y: 0, w: width, h: height + high}
-    // align center of mapCont(0,0) == hexMap(center) with center of background
-    mapCont.x = (bgr.w) / 2
-    mapCont.y = (bgr.h) / 2
+    const { dxdc, dydr } = hexMap.xywh
 
+    // Layout nextHex: (upper left of bgr)
+    const { x, y, w, h } = bgr;
     this.nextHex = new Hex2(hexMap, undefined, undefined, 'nextHex')
     this.nextHex.cont.scaleX = this.nextHex.cont.scaleY = 2
-    this.nextHex.x = minx + 2 * wide; this.nextHex.y = miny + 1.4 * high;
-    // tweak when hexMap is tiny:
-    let nh = TP.nHexes, mh = TP.mHexes
-    if (nh == 1 || nh + mh <= 5) { bgr.w += 3*wide; bgr.h += 50; mapCont.x += 3*wide; this.nextHex.x = minx - H.sqrt3/2*wide }
+    this.nextHex.x = x + 3 * dxdc;
+    this.nextHex.y = y + 3 * dydr;
     this.nextHex.x = Math.round(this.nextHex.x); this.nextHex.y = Math.round(this.nextHex.y)
 
-    this.bgRect = this.setBackground(this.scaleCont, bgr) // bounded by bgr
-    let p00 = this.scaleCont.localToLocal(0, 0, hexMap.mapCont.hexCont)
-    let pbr = this.scaleCont.localToLocal(bgr.w, bgr.h, hexMap.mapCont.hexCont)
-    hexMap.mapCont.hexCont.cache(p00.x, p00.y, pbr.x-p00.x, pbr.y-p00.y) // cache hexCont (bounded by bgr)
-    this.nextHex.cont.parent.localToLocal(this.nextHex.x, this.nextHex.y+100, this.scaleCont, this.undoCont)
+    // tweak when hexMap is tiny:
+    const nh = TP.nHexes, mh = TP.mHexes
+    if (nh == 1 || nh + mh <= 5) {
+      bgr.w += 4 * dxdc;
+      bgr.h = Math.max(9 * dydr, (bgr.h + .67 * dydr));
+      hexMap.mapCont.x += 3 * dxdc;
+      this.nextHex.x = x - H.sqrt3 / 2 * dxdc; // also adj nextHex
+    }
+    this.scaleCont.removeChildAt(0); // the original bgRect
+    this.setBackground(this.scaleCont, bgr)
+    const undoYoff = 2 * dydr;
+    this.nextHex.cont.parent.localToLocal(this.nextHex.x, this.nextHex.y+undoYoff, this.scaleCont, this.undoCont)
     this.scaleCont.addChild(this.undoCont)
-    this.setupUndoButtons(55, 60, 45, bgr)
 
-    this.makeMiniMap(this.scaleCont, -(200+TP.mHexes*TP.hexRad), 600+100*TP.mHexes)
-
-    // this.disp.on(S.add, this.gamePlay.playerMoveEvent, this.gamePlay)[S.Aname] = "playerMoveEvent";
-    this.namedOn('pme',S.add, this.gamePlay.playerMoveEvent, this.gamePlay);
+    const metaRad = TP.hexRad * (TP.mHexes + 1);
+    this.makeMiniMap(this.scaleCont, -(170 + metaRad), metaRad - 130)
+    return bgr
   }
 
   startGame() {
@@ -492,7 +539,7 @@ export class Table  {
       //this.scaleUp(Dragger.dragCont, 1.7); // Items being dragged appear larger!
     }
     if (bindKeys) {
-      this.bindKeysToScale("a", scaleC, 820, 10)
+      this.bindKeysToScale(scaleC)
       KeyBinder.keyBinder.setKey(' ', {thisArg: this, func: this.dragStone})
       KeyBinder.keyBinder.setKey('S-Space', {thisArg: this, func: this.dragStone})
     }
@@ -507,48 +554,80 @@ export class Table  {
     }
   }
 
+  /**
+   * Create a RectShape(bounds, bgColor) to drag the ScaleContainer
+   *
+   * Make a visible Rect that is Dragable (mouse won't hit "empty" space)
+   * @param scaleC the ScaleContainer to be dragged; scaleC.addChildAt(rectShape, 0)
+   * @param bounds the rectangle to define the RectShape
+   * @param bgColor [TP.bgColor] to fill the RectShape (or '' set no RectShape)
+   * @returns bounds
+   */
   setBackground(scaleC: Container, bounds: XYWH, bgColor: string = TP.bgColor) {
-    let bgRect = new Shape(); bgRect[S.Aname] = "BackgroundRect"
+    let rectShape = new RectShape(bounds, bgColor, '');
+    rectShape[S.Aname] = "BackgroundRect";
     if (!!bgColor) {
-      // specify an Area that is Dragable (mouse won't hit "empty" space)
-      bgRect.graphics.f(bgColor).r(bounds.x, bounds.y, bounds.w, bounds.h);
-      scaleC.addChildAt(bgRect, 0);
+      scaleC.addChildAt(rectShape, 0);
       //console.log(stime(this, ".makeScalableBack: background="), background);
     }
-    return bgRect
+    this.bgRect = rectShape;
+    return bounds;
   }
-  /**
-   * @param xos x-offset-to-center in Original Scale
-   * @param xos y-offset-to-center in Original Scale
-   * @param scale Original Scale
-   */
-  // bindKeysToScale(scaleC, 800, 0, scale=.324)
-  bindKeysToScale(char: string, scaleC: ScaleableContainer, xos: number, yos: number) {
-    let ns0 = scaleC.getScale(), sXY = { x: -scaleC.x, y: -scaleC.y } // generally == 0,0
-    let nsA = scaleC.findIndex(.5), apt = { x: -xos, y: -yos }
-    let nsZ = scaleC.findIndex(ns0), zpt = { x: -xos, y: -yos }
+
+  bindKeysToScale(scaleC: ScaleableContainer, isc = 'a', xos = 540, yos = 10, scale0 = .5) {
+    const nsA = scale0;
+    const apt = { x: xos, y: yos }
+    let nsZ = 0.647; //
+    const zpt = { x: 120, y: 118 }
 
     // set Keybindings to reset Scale:
-    /** xy in [unscaled] model coords; sxy in screen coords */
-    const setScaleXY = (si?: number, xy?: XY, sxy: XY = sXY) => {
-      let ns = scaleC.setScaleXY(si, xy, sxy)
+    /** save scale & offsets for later: */
+    const saveScaleZ = () => {
+      nsZ = scaleC.scaleX;
+      zpt.x = scaleC.x; zpt.y = scaleC.y;
+    }
+    // xy is the fixed point, but is ignored because we set xy directly.
+    // sxy is the final xy offset, saved by saveScaleZ()
+    const setScaleXY = (ns?: number, sxy: XY = { x: 0, y: 0 }) => {
+      scaleC.setScale(ns);
       //console.log({si, ns, xy, sxy, cw: this.canvas.width, iw: this.map_pixels.width})
+      scaleC.x = sxy.x; scaleC.y = sxy.y;
       this.stage.update()
     }
-    let setScaleZ = () => {
-      ns0 = scaleC.getScale()
-      nsZ = scaleC.findIndex(ns0)
-      zpt = { x: -scaleC.x/ns0, y: -scaleC.y/ns0 }
-    };
-    let goup = () => {
+    const getOop = () => {
       this.stage.getObjectsUnderPoint(500, 100, 1)
     }
 
     // Scale-setting keystrokes:
-    KeyBinder.keyBinder.setKey("x", { func: () => setScaleZ() });
+    KeyBinder.keyBinder.setKey(isc, { func: () => setScaleXY(nsA, apt) });
     KeyBinder.keyBinder.setKey("z", { func: () => setScaleXY(nsZ, zpt) });
-    KeyBinder.keyBinder.setKey("a", { func: () => setScaleXY(nsA, apt) });
-    KeyBinder.keyBinder.setKey("p", { func: () => goup(), thisArg: this});
-    KeyBinder.keyBinder.dispatchChar(char)
+    KeyBinder.keyBinder.setKey("x", { func: () => saveScaleZ() });
+    KeyBinder.keyBinder.setKey("p", { func: () => getOop(), thisArg: this });
+    KeyBinder.keyBinder.setKey('S-ArrowUp', { thisArg: this, func: this.zoom, argVal: 1.03 })
+    KeyBinder.keyBinder.setKey('S-ArrowDown', { thisArg: this, func: this.zoom, argVal: 1 / 1.03 })
+    KeyBinder.keyBinder.setKey('S-ArrowLeft', { thisArg: this, func: this.pan, argVal: { x: -10, y: 0 } })
+    KeyBinder.keyBinder.setKey('ArrowRight', { thisArg: this, func: this.pan, argVal: { x: 10, y: 0 } })
+    KeyBinder.keyBinder.setKey('ArrowLeft', { thisArg: this, func: this.pan, argVal: { x: -10, y: 0 } })
+    KeyBinder.keyBinder.setKey('S-ArrowRight', { thisArg: this, func: this.pan, argVal: { x: 10, y: 0 } })
+    KeyBinder.keyBinder.setKey('ArrowUp', { thisArg: this, func: this.pan, argVal: { x: 0, y: -10 } })
+    KeyBinder.keyBinder.setKey('ArrowDown', { thisArg: this, func: this.pan, argVal: { x: 0, y: 10 } })
+
+    KeyBinder.keyBinder.dispatchChar(isc)
+  }
+
+  zoom(z = 1.1) {
+    const stage = this.stage;
+    const pxy = { x: stage.mouseX / stage.scaleX, y: stage.mouseY / stage.scaleY };
+    this.scaleCont.setScale(this.scaleCont.scaleX * z, pxy);
+    // would require adjusting x,y offsets, so we just scale directly:
+    // TODO: teach ScaleableContainer to check scaleC.x,y before scroll-zooming.
+
+    // this.scaleCont.scaleX = this.scaleCont.scaleY = this.scaleCont.scaleX * z;
+    this.stage?.update();
+  }
+  pan(xy: XY) {
+    this.scaleCont.x += xy.x;
+    this.scaleCont.y += xy.y;
+    this.stage?.update();
   }
 }

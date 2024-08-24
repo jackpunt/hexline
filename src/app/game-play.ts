@@ -14,7 +14,7 @@ import { GameStats, TableStats, WINARY } from "./stats";
 import { LogReader, LogWriter } from "./stream-writer";
 import { Table } from "./table";
 import { otherColor, PlayerColor, playerColors, TP } from "./table-params";
-import { HexConstructor } from "@thegraid/hexlib";
+import { HexConstructor, HexM } from "@thegraid/hexlib";
 
 /** Implement game, enforce the rules, manage GameStats & hexMap; no GUI/Table required. */
 export class GamePlay0 {
@@ -22,13 +22,14 @@ export class GamePlay0 {
   readonly id = GamePlay0.gpid++
   ll(n: number) { return TP.log > n }
 
-  readonly hexMap = new HexMap()
+  readonly hexMap: HexMap;
   readonly history: Move[] = []          // sequence of Move that bring board to its state
   readonly redoMoves: IMove[] = []
   readonly allBoards = new BoardRegister()
   readonly gStats: GameStats       // 'readonly' (set once by clone constructor)
 
-  constructor() {
+  constructor(public gameSetup?: GameSetup) {
+    this.hexMap = gameSetup?.hexMap ?? new HexMap();
     this.gStats = new GameStats(this.hexMap) // AFTER allPlayers are defined so can set pStats
     return;
   }
@@ -272,7 +273,7 @@ export class GamePlay0 {
 export class GamePlayD extends GamePlay0 {
   //override hexMap: HexMaps = new HexMap();
   constructor(mh: number, nh: number) {
-    super()
+    super(undefined)
     this.hexMap.hexC = Hex as any as HexConstructor<Hex>; // must be hexline/Hex (not hexlib/Hex)
     this.hexMap[S.Aname] = `GamePlayD#${this.id}`
     this.hexMap.makeAllDistricts(nh, mh)
@@ -300,8 +301,8 @@ export class GamePlay extends GamePlay0 {
   readonly table: Table
   declare readonly gStats: TableStats // https://github.com/TypeStrong/typedoc/issues/1597
 
-  constructor(table: Table, public gameSetup: GameSetup) {
-    super()            // hexMap, history, gStats...
+  constructor(table: Table, gameSetup: GameSetup) {
+    super(gameSetup)            // hexMap, history, gStats...
     let time = stime('').substring(6,15), size=`${TP.mHexes}x${TP.nHexes}`
     let line = {
       time: stime.fs(), mh: TP.mHexes, nh: TP.nHexes, maxBreadth: TP.maxBreadth,
@@ -421,7 +422,7 @@ export class GamePlay extends GamePlay0 {
       this.gameSetup.netState = (type == "ref" ? "ref" : "cnx") // new, join -> "cnx"
       hgClient.addEventListener('close', (ev: CloseEvent) => {
         this.ll(1) && console.log(stime(this, `.cgOpen: hgClient closed`), hgClient)
-        if (hgClient == this.gameSetup.gamePlay?.hgClient) {
+        if (hgClient == this.gameSetup.gamePlayx?.hgClient) {
           // reset networkGUI
           this.gameSetup.netState = undefined
           this.gameSetup.playerId = undefined
@@ -514,8 +515,8 @@ export class GamePlay extends GamePlay0 {
       hgReferee.cgbase.log = 0
       console.log(stime(hgReferee, `.onOpen: now join_game_as_player(0)`))
     }
-    let ref = refgs.gamePlay.hgClient = new HgReferee() // No URL, CgBase2
-    ref.gamePlay = refgs.gamePlay
+    let ref = refgs.gamePlayx.hgClient = new HgReferee() // No URL, CgBase2
+    ref.gamePlay = refgs.gamePlayx
     return ref.joinGroup(url, group, onOpen, onJoin);
   }
 

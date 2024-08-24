@@ -1,12 +1,14 @@
-import { C, CycleChoice, DropdownStyle, makeStage, ParamGUI, ParamItem, S, stime } from "@thegraid/easeljs-lib";
+import { C, Constructor, CycleChoice, DropdownStyle, makeStage, ParamGUI, ParamItem, S, stime } from "@thegraid/easeljs-lib";
 import { Container, Stage } from "@thegraid/easeljs-module";
 import { BC, EBC, PidChoice } from "./choosers";
 import { GamePlay } from "./game-play";
-import { Hex2, HexMap } from "./hex";
+import { Hex2, HexMap, mapContNames } from "./hex";
 import { ParamGUIP } from "./ParamGUIP";
 import { StatsPanel, TableStats } from "./stats";
 import { Table } from "./table";
 import { TP } from "./table-params";
+import { MapCont, GameSetup as GameSetupLib, GamePlay as GamePlayLib, Table as TableLib, TP as TPLib } from "@thegraid/hexlib";
+import { Params } from "@angular/router";
 
 /** show " R" for " N" */
 stime.anno = (obj: string | { constructor: { name: string; }; }) => {
@@ -15,31 +17,40 @@ stime.anno = (obj: string | { constructor: { name: string; }; }) => {
 }
 
 /** initialize & reset & startup the application. */
-export class GameSetup {
-  stage: Stage;
-  gamePlay: GamePlay
+export class GameSetup extends GameSetupLib {  // TODO extend GameSetupLib
+  override gamePlay: GamePlayLib
+  get gamePlayx() { return this.gamePlay as any as GamePlay }
+
   paramGUIs: ParamGUI[]
   netGUI: ParamGUI // paramGUIs[2]
+  override hexMap: HexMap;
+  // table: Table;
 
-  /** @param canvasId supply undefined for 'headless' Stage */
-  constructor(canvasId: string, ext?: string[]) {
-    stime.fmt = "MM-DD kk:mm:ss.SSS"
-    this.stage = makeStage(canvasId, false)
-    this.startup(ext)
+  override initialize(canvasId: string, qParams: Params = this.qParams): void {
+    window.addEventListener('contextmenu', (evt: MouseEvent) => evt.preventDefault())
+    // useEwTopo, size 7.
+    const { host, port, file, mH, nH } = qParams, TPlocal = TP, TPlib = TPLib;
+    TP.useEwTopo = true;
+    TP.mHexes = Math.max(2, Math.min(9, (mH && Number.parseInt(mH)) ?? TP.mHexes)); // [2..10?]
+    TP.nHexes = Math.max(1, Math.min(6, (nH && Number.parseInt(nH)) ?? TP.nHexes)); // [1..6]
+    TP.ghost = host ?? TP.ghost
+    TP.gport = (port !== null) ? Number.parseInt(port) : TP.gport;
+    TP.setParams(TP);   // set host,port in TPLib so TP.buildURL can find them
+    // TP.eraseLocal(TP);
+    TP.networkUrl = TP.buildURL(undefined);
+    TP.networkGroup = 'hexline:game1';
+
+    let rfn = document.getElementById('readFileName') as HTMLInputElement;
+    rfn.value = file ?? 'setup@0';
+
+    super.initialize(canvasId);
+    return;
   }
-  _netState = " " // or "yes" or "ref"
-  set netState(val: string) {
-    this._netState = (val == "cnx") ? this._netState : val || " "
-    this.gamePlay.ll(2) && console.log(stime(this, `.netState('${val}')->'${this._netState}'`))
-    this.netGUI?.selectValue("Network", val)
-  }
-  get netState() { return this._netState }
-  set playerId(val: string) { this.netGUI?.selectValue("PlayerId", val || "     ") }
 
   /** C-s ==> kill game, start a new one, possibly with new (mh,nh) */
-  restart(mh = TP.mHexes, nh= TP.nHexes) {
-    let netState = this.netState
-    this.gamePlay.closeNetwork('restart')
+  override restart(mh = TP.mHexes, nh= TP.nHexes) {
+    let netState = this.netState;
+    (this.gamePlay as any as GamePlay).closeNetwork('restart')
     this.gamePlay.logWriter?.closeFile()
     this.gamePlay.forEachPlayer(p => p.endGame())
     let deContainer = (cont: Container) => {
@@ -50,21 +61,43 @@ export class GameSetup {
       cont.removeAllChildren()
     }
     deContainer(this.stage)
+    const TPlocal = TP, TPlib = TPLib
     TP.fnHexes(mh, nh)
+    TP.setParams(TP); // consolidate to TPLib
     let rv = this.startup()
     this.netState = " "      // onChange->noop; change to new/join/ref will trigger onChange(val)
     // next tick, new thread...
     setTimeout(() => this.netState = netState, 100) // onChange-> ("new", "join", "ref") initiate a new connection
     return rv
   }
+
+  override makeHexMap(
+    hexMC: Constructor<HexMap> = HexMap,
+    hexC: Constructor<Hex2> = Hex2,
+    cNames = mapContNames.concat() as string[])
+  {
+    const hexMap = new hexMC(TP.hexRad, true, hexC);
+    hexMap.addToMapCont(hexC, cNames);       // addToMapCont(hexC, cNames)
+    const TPlocal = TP, TPlib = TPLib;
+    hexMap.makeAllDistricts();               // determines size for this.bgRect
+    return hexMap;
+  }
+
+  /** EventDispatcher, ScaleCont, GUI-Player */
+  override makeTable() {
+    return new Table(this.stage) as any as TableLib;
+  }
+
   /**
    * Make new Table/layout & gamePlay/hexMap & Players.
    * @param ext Extensions from URL
    */
-  startup(ext: string[] = []) {
-    let table = new Table(this.stage) // EventDispatcher, ScaleCont, GUI-Player
+  override startup(qParams: Params = {}) {
+    this.hexMap = this.makeHexMap();           // only reference is in GamePlay constructor!
+    const table = (this.table = this.makeTable()) as any as Table;
+
     let gamePlay = new GamePlay(table, this) // hexMap, players, gStats, mouse/keyboard->GamePlay
-    this.gamePlay = gamePlay
+    this.gamePlay = gamePlay as any as GamePlayLib;
     gamePlay.hexMap[S.Aname] = `mainMap`
     let statsx = -300, statsy = 30
     table.layoutTable(gamePlay)           // mutual injection, all the GUI components, fill hexMap
@@ -75,8 +108,8 @@ export class GameSetup {
       let guiy = statsPanel.y + statsPanel.ymax + statsPanel.lead * 2
       console.groupCollapsed('initParamGUI')
       this.paramGUIs = this.makeParamGUI(table, table.scaleCont, statsx, guiy) // modify TP.params...
-      let [gui, gui2] = this.paramGUIs
-      table.miniMap.mapCont.y = Math.max(gui.ymax, gui2.ymax) + gui.y + table.miniMap.wh.height / 2
+      let [gui, gui2, gui3] = this.paramGUIs
+      table.miniMap.mapCont.y += Math.max(gui.ymax, gui2.ymax, gui3.ymax) + gui.y + table.miniMap.wh.height / 2
       console.groupEnd()
     }
     table.startGame() // setNextPlayer()
@@ -101,7 +134,7 @@ export class GameSetup {
   }
   makeParamGUI(table: Table, parent: Container, x: number, y: number) {
     let restart = false, infName = "inf:sac"
-    const gui = new ParamGUIP(TP, { textAlign: 'right'}, this.gamePlay)
+    const gui = new ParamGUIP(TP, { textAlign: 'right'}, this.gamePlayx)
     const schemeAry = TP.schemeNames.map(n => { return { text: n, value: TP[n] } })
     let mHex = (mh: number, nh: number) => { restart && this.restart.call(this, mh, nh) }
     let nHex = (mh: number, nh: number) => { restart && this.restart.call(this, nh>3?Math.min(mh,3):nh>1?Math.min(mh,4):mh, nh) }
@@ -121,7 +154,7 @@ export class GameSetup {
     }
     gui.spec("mHexes").onChange = (item: ParamItem) => { mHex(item.value, TP.nHexes) }
     gui.spec("nHexes").onChange = (item: ParamItem) => { nHex(TP.mHexes, item.value) }
-    gui.spec("colorScheme").onChange = (item: ParamItem) => {
+    gui.spec("colorScheme").onChange = (item: ParamItem) => { const TP0 = TP;
       gui.setValue(item, TP)
       let hexMap = table.hexMap;
       hexMap.initInfluence()
@@ -141,7 +174,7 @@ export class GameSetup {
     return [gui, gui2, gui3]
   }
   makeParamGUI2(table: Table, parent: Container, x: number, y: number) {
-    let gui = new ParamGUIP(TP, { textAlign: 'center' }, this.gamePlay)
+    let gui = new ParamGUIP(TP, { textAlign: 'center' }, this.gamePlayx)
     gui.makeParamSpec("log", [-1, 0, 1, 2], { style: { textAlign: 'right' } }); TP.log
     gui.makeParamSpec("pWeight", [1, .99, .97, .95, .9]) ; TP.pWeight
     gui.makeParamSpec("pWorker", [true, false], { chooser: BC }); TP.pWorker
@@ -166,10 +199,10 @@ export class GameSetup {
     gui.spec("Network").onChange = (item: ParamItem) => {
       if (['new', 'join', 'ref'].includes(item.value)) {
         let group = (gui.findLine('networkGroup').chooser as EBC).editBox.innerText
-        this.gamePlay.closeNetwork()
-        this.gamePlay.network(item.value, gui, group)
+        this.gamePlayx.closeNetwork()
+        this.gamePlayx.network(item.value, gui, group)
       }
-      if (item.value == "no") this.gamePlay.closeNetwork()     // provoked by ckey
+      if (item.value == "no") this.gamePlayx.closeNetwork()     // provoked by ckey
     }
     (this.stage.canvas as HTMLCanvasElement).parentElement.addEventListener('paste', (ev) => {
       let text = ev.clipboardData.getData('Text')

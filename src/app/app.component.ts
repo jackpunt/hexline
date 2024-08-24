@@ -1,4 +1,5 @@
 import { Component, HostListener, Inject } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { KeyBinder } from '@thegraid/easeljs-lib';
 
 @Component({
@@ -7,10 +8,11 @@ import { KeyBinder } from '@thegraid/easeljs-lib';
   styleUrls: ['./app.component.css']
 })
 export class AppComponent {
-  title = `HexaGon - User Guide`;
+  get title() { return this.titleService.getTitle(); }
+  linkName = `${this.title} - User Guide`;
   timestamp = `${new Date().toLocaleTimeString('en-US')}`;
 
-  constructor(@Inject(KeyBinder) private keyBinder: KeyBinder) { }
+  constructor(@Inject(KeyBinder) private keyBinder: KeyBinder, private titleService: Title) { }
 
   // app.component has access to the 'Host', so we use @HostListener here
   // Listen to all Host events and forward them to our internal EventDispatcher
