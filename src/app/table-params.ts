@@ -1,64 +1,9 @@
-import { TP as TPLib  } from "@thegraid/hexlib";
+import { playerColorRecord, TP as TPLib } from "@thegraid/hexlib";
+export { otherColor, PlayerColor, playerColor0, playerColor1, PlayerColorRecord, playerColorRecord, playerColorRecordF, playerColors } from "@thegraid/hexlib";
 
-const playerColorsLib = ['b', 'w'] as const // Player Colors!
-export const playerColors = playerColorsLib.concat();
-/** Default type for PlayerColor. Maybe don't import, define your own locally.
- *
- * @example
- * import { playerColors, PlayerColor as PCLib } from "@thegraid/hexlib"
- * playerColors.push('c')
- * type PlayerColor = PCLib | 'c' // Player Colors + Criminal!
- */
-export type PlayerColor = typeof playerColorsLib[number];
-// Locally (for example, hextowns):
-
-export const playerColor0 = playerColors[0]
-export const playerColor1 = playerColors[1]
-// export const playerColor2 = playerColorsC[2]
-export function otherColor(color: PlayerColor): PlayerColor { return color === playerColor0 ? playerColor1 : playerColor0 }
-
-export type PlayerColorRecord<T> = Record<PlayerColor, T>
-/** @return \{ pc0: arg0 as T, pc1: arg1 as T, ...}: PlayerColorRecord\<T> */
-export function playerColorRecord<T>(...args: T[]) {
-  const rv = {} as PlayerColorRecord<T>
-  playerColors.forEach((key, ndx) => rv[key] = (args[ndx]))
-  return rv;
-}
-export function playerColorRecordF<T>(f: (sc: PlayerColor) => T) {
-  return playerColorRecord(...playerColors.map(pc => f(pc)))
-}
-
-export function buildURL(scheme = 'wss', host = TP.ghost, domain = TP.gdomain, port = TP.gport, path = ''): string {
-  return `${scheme}://${host}.${domain}:${port}${path}`
-}
-type Params = { [x: string]: any; }
+declare type Params = { [x: string]: any; }
 export class TP extends TPLib {
 
-  // try NOT setting anthing that is not in TPLib, nor any 'function'
-  static override setParams(local: Params = {}, force = false, tplib = (TPLib as Params)) {
-    /** do not muck with standard basic properties of all/empty classes */
-    // reverse it: *only* copy the fields that are already in TPLib!
-    const TP0 = TP, TPlib = TPLib; // inspectable in debugger
-    const static_props = TP.staticFields(tplib);
-    for (let [key, value] of Object.entries(local)) {
-      if (tplib[key] === undefined) continue; // no collision leave in TP-local
-      // t
-      if (force || static_props.includes(key)) {
-        if (!force && (typeof value === 'string' && typeof tplib[key] === 'number')) {
-          value = Number.parseInt(value); // minimal effort to align types.
-        }
-        tplib[key] = value; // set a static value in base; DANGER! not typesafe!
-        delete local[key];  // so future local[key] = value will tplib[key] = value;
-      }
-    }
-  }
-  static setParams2(qParams?: Params, add?: boolean): void {
-    const TP0 = TP, TPlib = TPLib; // inspectable in debugger
-    TPLib.setParams(qParams);
-    TPLib.setParams(qParams, false, TP); // also set in local 'override' copy.
-    console.log(`TP.setParams:`, { qParams, TP0, TPlib, ghost: TP.ghost, gport: TP.gport, networkURL: TP.networkUrl });
-    return;
-  }
   static override useEwTopo = true;
   static parallelAttack = true;  // true --> N intersects S
   static allowSacrifice = true;
