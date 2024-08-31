@@ -141,11 +141,10 @@ export class GameSetup extends GameSetupLib {  // TODO extend GameSetupLib
     gui.makeParamSpec("mHexes", [2, 3, 4, 5, 6, 7, 8, 9, 10], { fontColor: "green" }) // TODO: limit nHexes for mH > 4
     gui.makeParamSpec("nHexes", [1, 2, 3, 4, 5, 6], { fontColor: "green" })
     gui.makeParamSpec(infName, ['1:1', '1:0', '0:1', '0:0'], { name: infName, target: table, fontColor: 'green' })
-    gui.makeParamSpec("maxPlys", [1, 2, 3, 4, 5, 6, 7, 8], { fontColor: "blue" }); TP.maxPlys
-    gui.makeParamSpec("maxBreadth", [5, 6, 7, 8, 9, 10], { fontColor: "blue" }); TP.maxBreadth
-    gui.makeParamSpec("nPerDist", [2, 3, 4, 5, 6, 8, 11, 15, 19], { fontColor: "blue" }); TP.nPerDist
-    gui.makeParamSpec("allowSacrifice", [true, false], { chooser: BC }); TP.allowSacrifice
+    gui.makeParamSpec("allowSacrifice", [true, false], { chooser: BC, fontColor: "green" }); TP.allowSacrifice
+    gui.makeParamSpec("parallelAttack", [true, false], { chooser: BC, fontColor: "green" }); TP.parallelAttack
     gui.makeParamSpec("colorScheme", schemeAry, { chooser: CycleChoice, style: { textAlign: 'center' } })
+    gui.makeParamSpec("log", [-1, 0, 1, 2], { style: { textAlign: 'right' } }); TP.log
     let infSpec = gui.spec(infName); table[infSpec.fieldName] = infSpec.choices[0].text
     infSpec.onChange = (item: ParamItem) => {
       let v = item.value as string
@@ -166,8 +165,8 @@ export class GameSetup extends GameSetupLib {  // TODO extend GameSetupLib
     gui.x = x // (3*cw+1*ch+6*m) + max(line.width) - (max(choser.width) + 20)
     gui.y = y
     gui.makeLines()
-    const gui2 = this.makeParamGUI2(table, parent, x - 280, y)
-    const gui3 = this.makeNetworkGUI(table, parent, x - 300, y + gui.ymax + 20 )
+    const gui2 = this.makeParamGUI2(table, parent, x - 330, y)
+    const gui3 = this.makeNetworkGUI(table, parent, x - 330, y + gui2.ymax + 20 )
     gui.parent.addChild(gui) // bring to top
     gui.stage.update()
     restart = true // *after* makeLines has stablilized selectValue
@@ -175,7 +174,9 @@ export class GameSetup extends GameSetupLib {  // TODO extend GameSetupLib
   }
   makeParamGUI2(table: Table, parent: Container, x: number, y: number) {
     let gui = new ParamGUIP(TP, { textAlign: 'center' }, this.gamePlayx)
-    gui.makeParamSpec("log", [-1, 0, 1, 2], { style: { textAlign: 'right' } }); TP.log
+    gui.makeParamSpec("maxPlys", [1, 2, 3, 4, 5, 6, 7, 8], { fontColor: "blue" }); TP.maxPlys
+    gui.makeParamSpec("maxBreadth", [5, 6, 7, 8, 9, 10], { fontColor: "blue" }); TP.maxBreadth
+    gui.makeParamSpec("nPerDist", [2, 3, 4, 5, 6, 8, 11, 15, 19], { fontColor: "blue" }); TP.nPerDist
     gui.makeParamSpec("pWeight", [1, .99, .97, .95, .9]) ; TP.pWeight
     gui.makeParamSpec("pWorker", [true, false], { chooser: BC }); TP.pWorker
     gui.makeParamSpec("pPlaner", [true, false], { chooser: BC, name: "parallel" }); TP.pPlaner

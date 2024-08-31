@@ -38,6 +38,7 @@ export class GamePlay0 {
 
   turnNumber: number = 0    // = history.lenth + 1 [by this.setNextPlayer]
   curPlayerNdx: number = 0  // curPlayer defined in GamePlay extends GamePlay0
+  curPlayer: Player;
 
   newMoveFunc: (hex: Hex, sc: PlayerColor, caps: Hex[], gp: GamePlay0) => Move
   newMove(hex: Hex, sc: PlayerColor, caps: Hex[], gp: GamePlay0) {
@@ -46,6 +47,27 @@ export class GamePlay0 {
   undoRecs: Undo = new Undo().enableUndo();
   addUndoRec(obj: Object, name: string, value: any | Function = obj[name]) {
     this.undoRecs.addUndoRec(obj, name, value);
+  }
+
+  // curPlayer: Player;
+  getPlayer(color: PlayerColor): Player {
+    return Player.allPlayers.find(p => p.color == color)
+  }
+
+  otherPlayer(plyr: Player = this.curPlayer) {
+    return this.getPlayer(otherColor(plyr.color))
+  }
+
+  forEachPlayer(f: (p: Player, index?: number, players?: Player[]) => void) {
+    Player.allPlayers.forEach((p, index, players) => f(p, index, players));
+  }
+
+  /** set curPlayer, curPlayerNdx, advance turnNumber */
+  setNextPlayer(plyr = (this.turnNumber == 1) ? this.curPlayer : this.otherPlayer()) {
+    this.curPlayer = plyr
+    this.curPlayerNdx = plyr.index
+    this.turnNumber = this.history.length + 1
+    this.ll(1) && console.log(stime(this, `.setNextPlayer: curPlayer = ${this.curPlayer.color} iHistory =`), this.iHistory)
   }
 
   /** compute Board.id _after_ addStone sets move.captures */
@@ -151,7 +173,10 @@ export class GamePlay0 {
     return ourh
   }
 
-  /** remove captured Stones, from placing Stone on Hex */
+  /** remove captured Stones, from placing Stone on Hex.
+   *
+   * Invoked from localMoveEvent()
+   */
   doPlayerMove(hex: Hex, playerColor: PlayerColor): PlayerColor {
     let move0 = this.newMove(hex, playerColor, [], this) // new Move(); addStone(); incrBoard(); updateStates()
     if (hex.row >= 0) {
@@ -166,6 +191,7 @@ export class GamePlay0 {
     this.undoRecs.closeUndo()         // expect ONE record, although GUI can pop as many as necessary
     let board = this.incrBoard(move0) // set move0.board && board.repCount
     let [win] = this.gStats.updateStats(board) // check for WIN: showRepCount(), showWin()
+    this.setNextPlayer()
     return win
   }
 
@@ -367,17 +393,6 @@ export class GamePlay extends GamePlay0 {
     table.undoShape.on(S.click, () => this.undoMove(), this)
     table.redoShape.on(S.click, () => this.redoMove(), this)
     table.skipShape.on(S.click, () => this.skipMove(), this)
-  }
-
-  curPlayer: Player;
-  getPlayer(color: PlayerColor): Player {
-    return Player.allPlayers.find(p => p.color == color)
-  }
-
-  otherPlayer(plyr: Player = this.curPlayer) { return this.getPlayer(otherColor(plyr.color))}
-
-  forEachPlayer(f: (p:Player, index?: number, players?: Player[]) => void) {
-    Player.allPlayers.forEach((p, index, players) => f(p, index, players));
   }
 
   useReferee = true
@@ -689,34 +704,39 @@ export class GamePlay extends GamePlay0 {
     }
     return win
   }
-  // TODO: use setNextPlayerNdx() and include in GamePlay0 ?
-  setNextPlayer0(plyr: Player): Player {
-    this.turnNumber = this.history.length + 1
-    this.curPlayerNdx = plyr.index
-    this.curPlayer = plyr
-    this.ll(1) && console.log(stime(this, `.setNextPlayer0: curPlayer = ${this.curPlayer.color} iHistory =`), this.iHistory)
-    return plyr
-  }
-  setNextPlayer(plyr = (this.turnNumber == 1) ? this.curPlayer : this.otherPlayer()) {
+
+  override setNextPlayer(plyr?: Player) {
     // tn[0] -> plyr=='B', curPlayerNdx=0; show BLACK Stone; setNextPlayer(WHITE)
-    this.setNextPlayer0(plyr)
+    super.setNextPlayer(plyr)
     this.table.showNextPlayer() // get to nextPlayer, waitPaused when Player tries to make a move.?
     if (this.turnNumber == 1) {
-      this.setNextPlayer0(Player.allPlayers[1])
+      super.setNextPlayer(Player.allPlayers[1])
       this.table.showWinText(`${TP.colorScheme['w']} places first\n${TP.colorScheme['b']} Stone`, 'white')
     }
     this.makeMove()
   }
 
-  /** dropFunc | eval_sendMove -- indicating new Move attempt */
+  /** dropFunc | eval_sendMove -- indicating new Move attempt
+   *
+   * All moves funnel through here;
+   *
+   * adjust 'redo'
+   * doPlayerMove()
+   *
+   * Send move to network
+   */
   localMoveEvent(hev: HexEvent): void {
     let redo = this.redoMoves.shift()   // pop one Move, maybe pop them all:
     if (!!redo && redo.hex !== hev.hex) this.redoMoves.splice(0, this.redoMoves.length)
     this.doPlayerMove(hev.hex, hev.playerColor)
-    this.setNextPlayer()
     this.ll(2) && console.log(stime(this, `.localMoveEvent: after doPlayerMove - setNextPlayer =`), this.curPlayer.color)
+    this.localMoveToNetwork()
+  }
+
+  localMoveToNetwork() {
     let msg: HgMessage;
     if (this.isNetworked((hgc) => {
+      // nothing; handled by doPlayerMove()
     }, undefined, (hgc) => {
       msg = new HgMessage({ type: HgType.hg_next })
       //let op_id = this.otherPlayer().index

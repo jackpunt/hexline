@@ -20,10 +20,10 @@ export class TP extends TPLib {
   static override maxPlys = 5      // for robo-player lookahead
   static override maxBreadth = 7   // for robo-player lookahead
   static nPerDist = 4     // samples per district
-  static Black_White = playerColorRecord('BLACK', 'WHITE')
-  static Blue_Red = playerColorRecord('BLUE', 'RED')
-  static schemeNames = ['Black_White', 'Blue_Red']
-  static override colorScheme = TP.Black_White
+  static BW = playerColorRecord('BLACK', 'WHITE')
+  static RB = playerColorRecord('RED', 'BLUE')
+  static schemeNames = ['BW', 'RB']
+  static override colorScheme = TP.BW
   static override numPlayers = 2;
   /** Order [number of rings] of metaHexes */
   static override mHexes = 2    // number hexes on side of Meta-Hex

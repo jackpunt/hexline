@@ -256,7 +256,7 @@ export class Hex2 extends Hex2Lib implements Hex {
   setStoneId(id: number | string) {
     let sid = typeof id === 'number' ? `${id}` : id
     this.stoneIdText.text = this.stoneIdText ? sid : ''
-    this.stoneIdText.color = TP.Black_White[otherColor(this.stone.color)]
+    this.stoneIdText.color = TP.BW[otherColor(this.stone.color)]
     const cont = this.mapCont.stoneCont;
     this.cont.parent.localToLocal(this.x, this.y, cont, this.stoneIdText)
     cont.addChild(this.stoneIdText)
