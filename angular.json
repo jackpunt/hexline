@@ -15,18 +15,14 @@
       "prefix": "app",
       "architect": {
         "build": {
-          "builder": "@angular-builders/custom-webpack:browser",
+          "builder": "@angular-devkit/build-angular:browser",
           "options": {
-            "customWebpackConfig": {
-              "path": "./custom-webpack.config.ts",
-              "mergeRules": { "externals": "replace" }
-            },
             "outputPath": "dist/hexline",
             "index": "src/index.html",
             "main": "src/main.ts",
 
             "allowedCommonJsDependencies": ["createjs-module", "@thegraid/common-lib"],
-            
+
             "polyfills": "src/polyfills.ts",
             "tsConfig": "tsconfig.app.json",
             "assets": [
@@ -81,16 +77,16 @@
           "defaultConfiguration": "development"
         },
         "serve": {
-          "builder": "@angular-builders/custom-webpack:dev-server",
+          "builder": "@angular-devkit/build-angular:dev-server",
           "options": {
-            "browserTarget": "hexline:build"
+            "buildTarget": "hexline:build"
           },
           "configurations": {
             "production": {
-              "browserTarget": "hexline:build:production"
+              "buildTarget": "hexline:build:production"
             },
             "development": {
-              "browserTarget": "hexline:build:development" 
+              "buildTarget": "hexline:build:development"
             }
           },
           "defaultConfiguration": "development"

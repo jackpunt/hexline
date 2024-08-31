@@ -41,13 +41,12 @@
     "@thegraid/ezpromise": "^1.0.10",
     "@thegraid/hexlib": "^1.1.9",
     "@thegraid/wspbclient": "^1.4.26",
-    "@types/wicg-file-system-access": "^2020.9.5",
+    "@types/wicg-file-system-access": "^2020.9.8",
     "rxjs": "~7.5.0",
     "tslib": "^2.3.0",
     "zone.js": "~0.14.10"
   },
   "devDependencies": {
-    "@angular-builders/custom-webpack": "^13.1.0",
     "@angular-devkit/build-angular": "^17.3.9",
     "@angular/cli": "^17.3.9",
     "@angular/compiler-cli": "^17.3.12",
@@ -61,7 +60,6 @@
     "karma-coverage": "~2.1.0",
     "karma-jasmine": "~4.0.0",
     "karma-jasmine-html-reporter": "~1.7.0",
-    "require-context": "^1.1.0",
     "typescript": "~5.4.5"
   }
 }
