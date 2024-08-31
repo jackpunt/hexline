@@ -86,6 +86,7 @@
               "buildTarget": "hexline:build:production"
             },
             "development": {
+              "port": 4200,
               "buildTarget": "hexline:build:development"
             }
           },
