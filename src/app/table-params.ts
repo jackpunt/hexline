@@ -23,7 +23,7 @@ export class TP extends TPLib {
   static BW = playerColorRecord('BLACK', 'WHITE')
   static RB = playerColorRecord('RED', 'BLUE')
   static schemeNames = ['BW', 'RB']
-  static override colorScheme = TP.BW
+  static override colorScheme = TP.BW; // TODO: replace with Player.colorScheme[index]
   static override numPlayers = 2;
   /** Order [number of rings] of metaHexes */
   static override mHexes = 2    // number hexes on side of Meta-Hex
