@@ -32,7 +32,7 @@ export class StageComponent implements OnInit {
 
   constructor(private activatedRoute: ActivatedRoute, private titleService: Title, private app: AppComponent) { }
   ngOnInit() {
-    console.log(stime(this, ".noOnInit---"))
+    console.log(stime(this, ".ngOnInit---"))
     this.activatedRoute.params.subscribe(params => {
       console.log(stime(this, ".ngOnInit: params="), params)
     })
@@ -46,7 +46,8 @@ export class StageComponent implements OnInit {
     setTimeout(()=>this.ngAfterViewInit2(), 250) // https://bugs.chromium.org/p/chromium/issues/detail?id=1229541
   }
   ngAfterViewInit2() {
-    let href: string = document.location.href;
+    const href: string = document.location.href;
+    this.qParams['title'] = this.titleService.getTitle();
     console.log(stime(this, ".ngAfterViewInit---"), href, "qParams=", this.qParams)
     const gs = new GameSetup(this.mapCanvasId, this.qParams);    // load images; new GamePlay(qParams);
     this.titleService.setTitle(`${this.app.title} ${gs.pageLabel}`)

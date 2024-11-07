@@ -29,17 +29,17 @@ export class GameSetup extends GameSetupLib {  // TODO extend GameSetupLib
   override initialize(canvasId: string, qParams: Params = this.qParams): void {
     window.addEventListener('contextmenu', (evt: MouseEvent) => evt.preventDefault())
     // useEwTopo, size 7.
-    const { host, port, file, mH, nH } = qParams, TPlocal = TP, TPlib = TPLib;
+    const { title, host, port, file, mH, nH } = qParams, TPlocal = TP, TPlib = TPLib;
     TP.useEwTopo = true;
     TP.mHexes = Math.max(2, Math.min(9, (mH && Number.parseInt(mH)) ?? TP.mHexes)); // [2..10?]
     TP.nHexes = Math.max(1, Math.min(6, (nH && Number.parseInt(nH)) ?? TP.nHexes)); // [1..6]
-    TP.ghost = host ?? TP.ghost
-    TP.gport = (port !== null) ? Number.parseInt(port) : TP.gport;
-    TP.setParams(TP);   // set host,port in TPLib so TP.buildURL can find them
-    // TP.eraseLocal(TP);
-    TP.networkUrl = TP.buildURL(undefined);
-    TP.networkGroup = 'hexline:game1';
-
+    const tp = TP; {
+      tp.ghost = host ?? tp.ghost
+      tp.gport = (port !== undefined) ? Number.parseInt(port) : tp.gport;
+      tp.networkGroup = `${title}:game1`;
+      tp.setParams(tp);   // set host,port in TPLib so TP.buildURL can find them
+      tp.networkUrl = tp.buildURL(undefined);
+    }
     let rfn = document.getElementById('readFileName') as HTMLInputElement;
     rfn.value = file ?? 'setup@0';
 
