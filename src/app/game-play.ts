@@ -295,17 +295,6 @@ export class GamePlay0 {
   }
 }
 
-/** GamePlayD has compatible hexMap(mh, nh) but does not share components */
-export class GamePlayD extends GamePlay0 {
-  //override hexMap: HexMaps = new HexMap();
-  constructor(mh: number, nh: number) {
-    super(undefined)
-    this.hexMap.hexC = Hex as any as HexConstructor<Hex>; // must be hexline/Hex (not hexlib/Hex)
-    this.hexMap[S.Aname] = `GamePlayD#${this.id}`
-    this.hexMap.makeAllDistricts(nh, mh)
-    return
-  }
-}
 export type Progress = { b?: number, tsec?: number|string, tn?: number}
 class ProgressLogWriter extends LogWriter {
   onProgress: (progress: Progress) => void = (progress) => {}

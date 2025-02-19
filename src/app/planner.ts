@@ -1,7 +1,8 @@
-import { AT, json, M, stime } from "@thegraid/common-lib";
+import { AT, json, M, S, stime } from "@thegraid/common-lib";
 import { EzPromise } from "@thegraid/ezpromise";
+import type { HexConstructor } from "@thegraid/hexlib";
 import { runEventLoop } from "./event-loop";
-import { GamePlay, GamePlay0, GamePlayD, Progress } from "./game-play";
+import { GamePlay, GamePlay0, Progress } from "./game-play";
 import { Hex, HSC, IHex } from "./hex";
 import { H, NsDir } from "./hex-intfs";
 import { IMove, Move } from "./move";
@@ -30,8 +31,25 @@ type HexState = [Hex, State]
 class PlanMove extends Move {
   state: State
 }
+
+/** GamePlayPM has compatible hexMap(mh, nh) but does not share components */
+class GamePlayPM extends GamePlay0 {
+  //override hexMap: HexMaps = new HexMap();
+  constructor(mh: number, nh: number) {
+    super(undefined)
+    this.hexMap.hexC = Hex as any as HexConstructor<Hex>; // must be hexline/Hex (not hexlib/Hex)
+    this.hexMap[S.Aname] = `GamePlayD#${this.id}`
+    this.hexMap.makeAllDistricts(nh, mh)
+    return
+  }
+}
+// a bit convoluted: after instantiating a GamePlayPM, set newMoveFunc => PlanMove
+// therefore newMove(...) => PlanMove
+// rather than reimplementing with super.newMove(...): PlanMove
+// we cast GamePlayPM instance to GamePlayPMI;
+
 /** upgrade history[] & newMove() to use **PlanMove**  */
-interface GamePlayWithPlanMove extends GamePlayD {
+interface GamePlayPMI extends GamePlayPM {
   history: PlanMove[];
   newMove(hex: Hex, sc: PlayerColor, caps: Hex[], gp: GamePlay0): PlanMove
 }
@@ -195,7 +213,7 @@ export class SubPlanner implements IPlanner {
   roboMove(run = true) { this.roboRun = run }
   terminate() {} // TODO: maybe run GC or summary stats?
 
-  gamePlay: GamePlayWithPlanMove
+  gamePlay: GamePlayPMI
   theWeightVecs: PlayerColorRecord<number[]>
   myWeightVec: number[]
   prevMove: Move // previous Move
@@ -217,7 +235,7 @@ export class SubPlanner implements IPlanner {
    * @param index playerNdx (0 or 1) -> (BLACK or WHITE)
    */
   constructor(mh: number, nh: number, public index: number, public logWriter: ILogWriter, public stub?: PlanWorker ) {
-    this.gamePlay = new GamePlayD(mh, nh) as GamePlayWithPlanMove
+    this.gamePlay = new GamePlayPM(mh, nh) as GamePlayPMI;
     this.gamePlay.newMoveFunc = (hex, sc, caps, gp) => new PlanMove(hex, sc, caps, gp)
     this.setWeightVecs()
     this.myWeightVec = this.theWeightVecs[index]
