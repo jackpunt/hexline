@@ -21,6 +21,7 @@
       "es2021",
       "dom"
     ],
+    "strict": false,
     "useDefineForClassFields": false
   },
   "angularCompilerOptions": {
